@@ -1,0 +1,115 @@
+.PHONY: help update update-dry verify-cloud test-syntax shellcheck test-multipass test-multipass-keep test-multipass-clean pre-commit
+
+# Get the directory where this Makefile resides
+ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+
+help:
+	echo "Available targets:"
+	echo ""
+	echo "Cloud-Init Installation:"
+	echo "  make update            - Update all packages idempotently"
+	echo "  make update-dry        - Preview changes without applying"
+	echo "  make verify-cloud      - Verify cloud-init installation"
+	echo ""
+	echo "Testing & Validation:"
+	echo "  make pre-commit        - Quick tests before committing (syntax + unit tests)"
+	echo "  make test-multipass      - Run cloud-init test in Multipass VM"
+	echo "  make test-multipass-keep - Run test but keep VM for debugging"
+	echo "  make test-multipass-clean- Clean up leftover test VMs"
+	echo "  make test-syntax         - Check bash/zsh syntax of all scripts"
+	echo "  make shellcheck          - Run shellcheck linter on all scripts"
+
+# Pre-commit checks - fast tests before committing
+pre-commit:
+	@echo "════════════════════════════════════════════"
+	@echo "Running pre-commit checks..."
+	@echo "════════════════════════════════════════════"
+	@echo ""
+	@$(MAKE) test-syntax
+	@echo ""
+	@echo "Running unit tests..."
+	@bash $(ROOT)tests/test-runner.sh
+	@echo ""
+	@echo "════════════════════════════════════════════"
+	@echo "✓ All pre-commit checks passed!"
+	@echo "════════════════════════════════════════════"
+
+test-syntax:
+	echo "Checking script syntax..."
+	echo "Checking shared scripts..."
+	for f in $(ROOT)scripts/shared/*.sh; do bash -n "$$f" && echo "  ✓ shared/$$(basename $$f)"; done
+	echo "Checking library scripts..."
+	for f in $(ROOT)scripts/lib/*.sh; do bash -n "$$f" && echo "  ✓ lib/$$(basename $$f)"; done
+	echo "Checking package scripts..."
+	for f in $(ROOT)scripts/packages/*.sh; do bash -n "$$f" && echo "  ✓ packages/$$(basename $$f)"; done
+	echo "Checking cloud-init scripts..."
+	for f in $(ROOT)scripts/cloud-init/*.sh; do bash -n "$$f" && echo "  ✓ cloud-init/$$(basename $$f)"; done
+	echo ""
+	echo "✓ All scripts have valid syntax"
+
+shellcheck:
+	echo "Running shellcheck on all scripts..."
+	shellcheck \
+		$(ROOT)scripts/*.sh \
+		$(ROOT)scripts/lib/*.sh \
+		$(ROOT)scripts/packages/*.sh \
+		$(ROOT)scripts/cloud-init/*.sh \
+		$(ROOT)scripts/shared/*.sh \
+		$(ROOT)cloud-init/*.sh \
+		&& echo "✓ All scripts passed shellcheck" || \
+		(echo "Error: shellcheck failed or is not installed"; \
+		 echo "Install with: brew install shellcheck (macOS) or apt-get install shellcheck (Ubuntu)"; \
+		 exit 1)
+
+# ============================================================================
+# Cloud-Init Targets
+# ============================================================================
+
+# Update all packages idempotently (for cloud-init systems)
+update:
+	if [ -f $(ROOT)scripts/cloud-init/update-all.sh ]; then \
+		bash $(ROOT)scripts/cloud-init/update-all.sh; \
+	else \
+		echo "Error: Cloud-init update script not found"; \
+		echo "Expected: scripts/cloud-init/update-all.sh"; \
+		exit 1; \
+	fi
+
+# Dry-run mode - preview changes without applying
+update-dry:
+	if [ -f $(ROOT)scripts/cloud-init/update-all.sh ]; then \
+		DRY_RUN=true bash $(ROOT)scripts/cloud-init/update-all.sh; \
+	else \
+		echo "Cloud-init scripts not yet implemented"; \
+		exit 1; \
+	fi
+
+# Verify cloud-init installation
+verify-cloud:
+	if [ -f $(ROOT)scripts/cloud-init/update-all.sh ]; then \
+		bash $(ROOT)scripts/cloud-init/update-all.sh --verify-only; \
+	else \
+		echo "Cloud-init scripts not yet implemented"; \
+		exit 1; \
+	fi
+
+# ============================================================================
+# Multipass VM Testing
+# ============================================================================
+
+# Run full cloud-init test in Multipass VM
+test-multipass:
+	echo "Running cloud-init integration test in Multipass VM..."
+	bash $(ROOT)tests/multipass/run-test.sh
+
+# Run test but keep VM for debugging
+test-multipass-keep:
+	echo "Running cloud-init test (keeping VM for debugging)..."
+	bash $(ROOT)tests/multipass/run-test.sh --keep
+
+# Clean up any leftover test VMs
+test-multipass-clean:
+	echo "Cleaning up test VMs..."
+	multipass list --format csv 2>/dev/null | grep cloud-init-test | cut -d',' -f1 | xargs -I {} multipass delete {} 2>/dev/null || true
+	multipass purge 2>/dev/null || true
+	echo "Cleanup complete"

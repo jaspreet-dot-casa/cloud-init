@@ -1,0 +1,11 @@
+# Generated files
+cloud-init.yaml
+
+# Secrets (NEVER commit)
+secrets.env
+*.secret
+*.key
+
+# Backup files
+*.bak
+*.backup
