@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash -n:*)",
+      "Bash(bash:*)",
+      "Bash(for f in scripts/packages/*.sh scripts/cloud-init/*.sh)",
+      "Bash(do bash -n \"$f\")",
+      "Bash(done)",
+      "Bash(terraform fmt:*)",
+      "Bash(./generate.sh)",
+      "Bash(/Users/jaspreetsingh/workspace/tagpro/local-remote/ubuntu1-1/cloud-init/generate.sh)",
+      "Bash(/Users/jaspreetsingh/workspace/tagpro/local-remote/ubuntu1-1/tests/test-runner.sh:*)",
+      "Bash(multipass version:*)",
+      "Bash(multipass exec:*)",
+      "Bash(multipass delete:*)",
+      "Bash(multipass purge:*)",
+      "Bash(multipass list:*)",
+      "Bash(script -q /dev/null bash:*)",
+      "Bash(/bin/bash:*)",
+      "KillShell",
+      "Bash(./cloud-init/generate.sh:*)",
+      "Bash(./tests/test-runner.sh:*)",
+      "Bash(HOME=/tmp bash:*)",
+      "Bash(HOME=/tmp USER=runner bash:*)",
+      "Bash(terraform init:*)",
+      "Bash(terraform validate:*)"
+    ]
+  }
+}
