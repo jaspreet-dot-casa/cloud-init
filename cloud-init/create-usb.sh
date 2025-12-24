@@ -81,15 +81,15 @@ select_device() {
     local platform="$1"
     local device="${2:-}"
 
-    if [[ -n "$device" ]]; then
-        echo "$device"
+    if [[ -n "${device}" ]]; then
+        echo "${device}"
         return
     fi
 
     echo ""
     log_warning "No device specified. Please select a USB device."
 
-    if [[ "$platform" == "macos" ]]; then
+    if [[ "${platform}" == "macos" ]]; then
         list_devices_macos
         read -rp "Enter device (e.g., /dev/disk2): " device
     else
@@ -97,7 +97,7 @@ select_device() {
         read -rp "Enter device (e.g., /dev/sdb): " device
     fi
 
-    echo "$device"
+    echo "${device}"
 }
 
 #==============================================================================
@@ -109,20 +109,20 @@ confirm_device() {
     local platform="$2"
 
     echo ""
-    log_warning "THIS WILL ERASE ALL DATA ON: $device"
+    log_warning "THIS WILL ERASE ALL DATA ON: ${device}"
     echo ""
 
     # Show device info
-    if [[ "$platform" == "macos" ]]; then
-        diskutil info "$device" 2>/dev/null | grep -E "Device|Media Name|Total Size" || true
+    if [[ "${platform}" == "macos" ]]; then
+        diskutil info "${device}" 2>/dev/null | grep -E "Device|Media Name|Total Size" || true
     else
-        lsblk "$device" 2>/dev/null || true
+        lsblk "${device}" 2>/dev/null || true
     fi
 
     echo ""
     read -rp "Are you sure? Type 'yes' to continue: " confirm
 
-    if [[ "$confirm" != "yes" ]]; then
+    if [[ "${confirm}" != "yes" ]]; then
         log_info "Cancelled"
         exit 0
     fi
@@ -136,24 +136,24 @@ create_usb_macos() {
     local device="$1"
 
     log_info "Unmounting device..."
-    diskutil unmountDisk "$device" || true
+    diskutil unmountDisk "${device}" || true
 
     log_info "Formatting as FAT32 with label 'cidata'..."
-    diskutil eraseDisk FAT32 cidata MBRFormat "$device"
+    diskutil eraseDisk FAT32 cidata MBRFormat "${device}"
 
     # Get the partition
     local partition="${device}s1"
 
     log_info "Mounting partition..."
-    diskutil mount "$partition"
+    diskutil mount "${partition}"
 
     local mount_point="/Volumes/cidata"
 
     log_info "Copying cloud-init files..."
-    create_cloud_init_files "$mount_point"
+    create_cloud_init_files "${mount_point}"
 
     log_info "Unmounting..."
-    diskutil unmount "$mount_point"
+    diskutil unmount "${mount_point}"
 
     log_success "USB created successfully!"
 }
@@ -166,29 +166,29 @@ create_usb_linux() {
     umount "${device}"* 2>/dev/null || true
 
     log_info "Creating partition table..."
-    sudo parted -s "$device" mklabel msdos
-    sudo parted -s "$device" mkpart primary fat32 1MiB 100%
+    sudo parted -s "${device}" mklabel msdos
+    sudo parted -s "${device}" mkpart primary fat32 1MiB 100%
 
     # Get partition name
     local partition="${device}1"
-    if [[ "$device" == *"nvme"* ]]; then
+    if [[ "${device}" == *"nvme"* ]]; then
         partition="${device}p1"
     fi
 
     log_info "Formatting as FAT32 with label 'cidata'..."
-    sudo mkfs.vfat -n cidata "$partition"
+    sudo mkfs.vfat -n cidata "${partition}"
 
     log_info "Mounting partition..."
     local mount_point="/tmp/cidata-$$"
-    mkdir -p "$mount_point"
-    sudo mount "$partition" "$mount_point"
+    mkdir -p "${mount_point}"
+    sudo mount "${partition}" "${mount_point}"
 
     log_info "Copying cloud-init files..."
-    create_cloud_init_files "$mount_point"
+    create_cloud_init_files "${mount_point}"
 
     log_info "Unmounting..."
-    sudo umount "$mount_point"
-    rmdir "$mount_point"
+    sudo umount "${mount_point}"
+    rmdir "${mount_point}"
 
     log_success "USB created successfully!"
 }
@@ -199,11 +199,12 @@ create_cloud_init_files() {
     # Create meta-data
     log_info "Creating meta-data..."
     # Extract hostname from cloud-init.yaml or use default
-    local instance_id="iid-local-$(date +%Y%m%d%H%M%S)"
+    local instance_id
+    instance_id="iid-local-$(date +%Y%m%d%H%M%S)"
 
-    if [[ -f "$CLOUD_INIT_YAML" ]]; then
-        local hostname
-        hostname=$(grep -E "^hostname:" "$CLOUD_INIT_YAML" | awk '{print $2}' || echo "ubuntu-server")
+    local hostname
+    if [[ -f "${CLOUD_INIT_YAML}" ]]; then
+        hostname=$(grep -E "^hostname:" "${CLOUD_INIT_YAML}" | awk '{print $2}' || echo "ubuntu-server")
     else
         hostname="ubuntu-server"
     fi
@@ -215,8 +216,8 @@ EOF
 
     # Copy user-data (cloud-init.yaml)
     log_info "Copying user-data..."
-    if [[ -f "$CLOUD_INIT_YAML" ]]; then
-        cp "$CLOUD_INIT_YAML" "${mount_point}/user-data"
+    if [[ -f "${CLOUD_INIT_YAML}" ]]; then
+        cp "${CLOUD_INIT_YAML}" "${mount_point}/user-data"
     else
         log_error "cloud-init.yaml not found. Run ./generate.sh first."
         exit 1
@@ -250,7 +251,7 @@ main() {
     echo ""
 
     # Check for cloud-init.yaml
-    if [[ ! -f "$CLOUD_INIT_YAML" ]]; then
+    if [[ ! -f "${CLOUD_INIT_YAML}" ]]; then
         log_error "cloud-init.yaml not found"
         log_info "Run ./generate.sh first to create it"
         exit 1
@@ -258,7 +259,7 @@ main() {
 
     # Parse arguments
     for arg in "$@"; do
-        case "$arg" in
+        case "${arg}" in
             --help|-h)
                 echo "Usage: $0 [device]"
                 echo ""
@@ -275,7 +276,7 @@ main() {
             --dry-run|-n)
                 log_info "Dry-run mode - would create USB with:"
                 echo "  meta-data: instance metadata"
-                echo "  user-data: $(wc -l < "$CLOUD_INIT_YAML") lines from cloud-init.yaml"
+                echo "  user-data: $(wc -l < "${CLOUD_INIT_YAML}") lines from cloud-init.yaml"
                 echo "  network-config: DHCP configuration"
                 exit 0
                 ;;
@@ -284,27 +285,27 @@ main() {
 
     local platform
     platform=$(detect_platform)
-    log_info "Platform: $platform"
+    log_info "Platform: ${platform}"
 
-    device=$(select_device "$platform" "$device")
+    device=$(select_device "${platform}" "${device}")
 
-    if [[ -z "$device" ]]; then
+    if [[ -z "${device}" ]]; then
         log_error "No device specified"
         exit 1
     fi
 
     # Validate device exists
-    if [[ ! -e "$device" ]]; then
-        log_error "Device not found: $device"
+    if [[ ! -e "${device}" ]]; then
+        log_error "Device not found: ${device}"
         exit 1
     fi
 
-    confirm_device "$device" "$platform"
+    confirm_device "${device}" "${platform}"
 
-    if [[ "$platform" == "macos" ]]; then
-        create_usb_macos "$device"
+    if [[ "${platform}" == "macos" ]]; then
+        create_usb_macos "${device}"
     else
-        create_usb_linux "$device"
+        create_usb_linux "${device}"
     fi
 
     echo ""

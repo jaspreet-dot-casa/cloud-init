@@ -19,10 +19,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # Source shared libraries
+# shellcheck source=scripts/lib/core.sh
 source "${SCRIPT_DIR}/../lib/core.sh"
+# shellcheck source=scripts/lib/dryrun.sh
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
+# shellcheck source=scripts/lib/backup.sh
 source "${SCRIPT_DIR}/../lib/backup.sh"
+# shellcheck source=scripts/lib/health.sh
 source "${SCRIPT_DIR}/../lib/health.sh"
+# shellcheck source=scripts/lib/lock.sh
 source "${SCRIPT_DIR}/../lib/lock.sh"
 
 #==============================================================================
@@ -44,10 +49,10 @@ declare -a ERRORS=()
 #==============================================================================
 
 setup_logging() {
-    ensure_dir "$LOG_DIR"
+    ensure_dir "${LOG_DIR}"
     LOG_FILE="${LOG_DIR}/update-$(date +%Y%m%d_%H%M%S).log"
-    exec > >(tee -a "$LOG_FILE") 2>&1
-    log_info "Log file: $LOG_FILE"
+    exec > >(tee -a "${LOG_FILE}") 2>&1
+    log_info "Log file: ${LOG_FILE}"
 }
 
 #==============================================================================
@@ -93,10 +98,10 @@ update_binary_packages() {
 
     for pkg in "${packages[@]}"; do
         local script="${PACKAGES_DIR}/${pkg}.sh"
-        if [[ -f "$script" ]]; then
+        if [[ -f "${script}" ]]; then
             log_info "Checking ${pkg}..."
-            if bash "$script" update 2>&1 | grep -q "Updating\|Installing"; then
-                record_update "$pkg"
+            if bash "${script}" update 2>&1 | grep -q "Updating\|Installing"; then
+                record_update "${pkg}"
             fi
         fi
     done
@@ -131,10 +136,11 @@ verify_all() {
 
     # Verify all packages
     for script in "${PACKAGES_DIR}"/*.sh; do
-        [[ -f "$script" && "$(basename "$script")" != "_template.sh" ]] || continue
-        local pkg=$(basename "$script" .sh)
-        log_debug "Verifying $pkg..."
-        bash "$script" verify 2>/dev/null || true
+        [[ -f "${script}" && "$(basename "${script}")" != "_template.sh" ]] || continue
+        local pkg
+        pkg=$(basename "${script}" .sh)
+        log_debug "Verifying ${pkg}..."
+        bash "${script}" verify 2>/dev/null || true
     done
 
     print_health_summary
@@ -152,7 +158,7 @@ print_summary() {
     if [[ ${#UPDATED[@]} -gt 0 ]]; then
         echo "Updated packages:"
         for pkg in "${UPDATED[@]}"; do
-            echo "  - $pkg"
+            echo "  - ${pkg}"
         done
     else
         echo "No packages needed updating"
@@ -162,7 +168,7 @@ print_summary() {
         echo ""
         echo "Errors:"
         for error in "${ERRORS[@]}"; do
-            echo "  - $error"
+            echo "  - ${error}"
         done
     fi
 
@@ -186,7 +192,7 @@ main() {
     parse_dry_run_flag "$@"
 
     for arg in "$@"; do
-        case "$arg" in
+        case "${arg}" in
             --verify-only)
                 VERIFY_ONLY=true
                 ;;
@@ -204,7 +210,7 @@ main() {
 
     log_section "Cloud-Init Update"
 
-    if [[ "$VERIFY_ONLY" == "true" ]]; then
+    if [[ "${VERIFY_ONLY}" == "true" ]]; then
         log_info "Running verification only..."
         verify_all
         exit $?
@@ -233,8 +239,8 @@ main() {
     print_summary
     log_info "Duration: ${duration} seconds"
 
-    if ! is_dry_run && [[ -n "$LOG_FILE" ]]; then
-        log_info "Log file: $LOG_FILE"
+    if ! is_dry_run && [[ -n "${LOG_FILE}" ]]; then
+        log_info "Log file: ${LOG_FILE}"
     fi
 
     if is_dry_run; then

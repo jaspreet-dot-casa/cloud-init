@@ -26,20 +26,8 @@ jobs:
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
 
-      - name: Run shellcheck on scripts/lib/
-        run: shellcheck scripts/lib/*.sh
-
-      - name: Run shellcheck on scripts/packages/
-        run: shellcheck scripts/packages/*.sh
-
-      - name: Run shellcheck on scripts/cloud-init/
-        run: shellcheck scripts/cloud-init/*.sh
-
-      - name: Run shellcheck on scripts/shared/
-        run: shellcheck scripts/shared/*.sh
-
-      - name: Run shellcheck on cloud-init/
-        run: shellcheck cloud-init/*.sh
+      - name: Run shellcheck
+        run: make lint
 
   syntax-check:
     name: Bash Syntax Check

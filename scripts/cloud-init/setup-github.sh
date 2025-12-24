@@ -17,8 +17,11 @@ set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
+# shellcheck source=scripts/lib/core.sh
 source "${SCRIPT_DIR}/../lib/core.sh"
+# shellcheck source=scripts/lib/dryrun.sh
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
+# shellcheck source=scripts/lib/health.sh
 source "${SCRIPT_DIR}/../lib/health.sh"
 
 #==============================================================================
@@ -43,7 +46,7 @@ is_authenticated() {
 authenticate_with_pat() {
     local pat="${GITHUB_PAT:-}"
 
-    if [[ -z "$pat" ]]; then
+    if [[ -z "${pat}" ]]; then
         log_warning "GITHUB_PAT not set, skipping automatic authentication"
         log_info "To authenticate manually, run: gh auth login"
         return 1
@@ -56,7 +59,7 @@ authenticate_with_pat() {
         return 0
     fi
 
-    echo "$pat" | gh auth login --with-token
+    echo "${pat}" | gh auth login --with-token
 
     log_success "Authenticated with GitHub"
 }
@@ -75,8 +78,8 @@ authenticate_interactive() {
 }
 
 generate_ssh_key() {
-    if [[ -f "$SSH_KEY_PATH" ]]; then
-        log_success "SSH key already exists: $SSH_KEY_PATH"
+    if [[ -f "${SSH_KEY_PATH}" ]]; then
+        log_success "SSH key already exists: ${SSH_KEY_PATH}"
         return 0
     fi
 
@@ -84,18 +87,19 @@ generate_ssh_key() {
 
     # Load config for email
     if [[ -f "${PROJECT_ROOT}/config.env" ]]; then
+        # shellcheck source=/dev/null
         source "${PROJECT_ROOT}/config.env"
     fi
     local email="${USER_EMAIL:-$(whoami)@$(hostname)}"
 
     if is_dry_run; then
-        echo "[DRY-RUN] Would generate SSH key: $SSH_KEY_PATH"
+        echo "[DRY-RUN] Would generate SSH key: ${SSH_KEY_PATH}"
         return 0
     fi
 
-    ssh-keygen -t "$SSH_KEY_TYPE" -C "$email" -f "$SSH_KEY_PATH" -N ""
+    ssh-keygen -t "${SSH_KEY_TYPE}" -C "${email}" -f "${SSH_KEY_PATH}" -N ""
 
-    log_success "SSH key generated: $SSH_KEY_PATH"
+    log_success "SSH key generated: ${SSH_KEY_PATH}"
 }
 
 upload_ssh_key() {
@@ -113,10 +117,11 @@ upload_ssh_key() {
 
     local hostname
     hostname=$(hostname)
-    local key_title="cloud-init-${hostname}-$(date +%Y%m%d)"
+    local key_title
+    key_title="cloud-init-${hostname}-$(date +%Y%m%d)"
 
     if is_dry_run; then
-        echo "[DRY-RUN] Would upload SSH key: $key_title"
+        echo "[DRY-RUN] Would upload SSH key: ${key_title}"
         return 0
     fi
 
@@ -126,7 +131,7 @@ upload_ssh_key() {
         return 0
     fi
 
-    gh ssh-key add "${SSH_KEY_PATH}.pub" --title "$key_title"
+    gh ssh-key add "${SSH_KEY_PATH}.pub" --title "${key_title}"
 
     log_success "SSH key uploaded to GitHub"
 }
@@ -145,7 +150,7 @@ setup_ssh_agent() {
     fi
 
     # Add key to agent
-    ssh-add "$SSH_KEY_PATH" 2>/dev/null || true
+    ssh-add "${SSH_KEY_PATH}" 2>/dev/null || true
 
     log_success "SSH agent configured"
 }
@@ -165,13 +170,13 @@ verify() {
     if is_authenticated; then
         local user
         user=$(gh api user --jq '.login' 2>/dev/null || echo "unknown")
-        health_pass "gh-auth" "authenticated as $user"
+        health_pass "gh-auth" "authenticated as ${user}"
     else
         health_fail "gh-auth" "not authenticated"
     fi
 
     # Check SSH key
-    if [[ -f "$SSH_KEY_PATH" ]]; then
+    if [[ -f "${SSH_KEY_PATH}" ]]; then
         health_pass "ssh-key" "exists"
     else
         health_warn "ssh-key" "not generated"
@@ -200,7 +205,7 @@ main() {
     if is_authenticated; then
         local user
         user=$(gh api user --jq '.login' 2>/dev/null || echo "unknown")
-        log_success "Already authenticated as: $user"
+        log_success "Already authenticated as: ${user}"
     else
         if [[ -n "${GITHUB_PAT:-}" ]]; then
             authenticate_with_pat

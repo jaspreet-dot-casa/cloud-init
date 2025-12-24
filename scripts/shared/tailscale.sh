@@ -36,7 +36,7 @@ CONFIG_FILE="${PROJECT_ROOT}/config/tailscale.conf"
 #==============================================================================
 
 if [[ -f "${SCRIPT_DIR}/../lib/core.sh" ]]; then
-    # shellcheck source=../lib/core.sh
+    # shellcheck source=scripts/lib/core.sh
     source "${SCRIPT_DIR}/../lib/core.sh"
 
     # Use library functions

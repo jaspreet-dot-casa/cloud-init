@@ -16,7 +16,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # Source shared libraries
+# shellcheck source=scripts/lib/core.sh
 source "${SCRIPT_DIR}/../lib/core.sh"
+# shellcheck source=scripts/lib/dryrun.sh
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 #==============================================================================
@@ -56,7 +58,7 @@ export SAVEHIST=10000
 export LESS="-R"
 EOF
 )
-    write_or_print "$file" "$content"
+    write_or_print "${file}" "${content}"
 }
 
 # Generate PATH configuration
@@ -74,7 +76,7 @@ generate_10_path() {
 [[ -d "${HOME}/bin" ]] && export PATH="${HOME}/bin:${PATH}"
 EOF
 )
-    write_or_print "$file" "$content"
+    write_or_print "${file}" "${content}"
 }
 
 # Generate aliases
@@ -117,7 +119,7 @@ alias dps='docker ps'
 alias dimg='docker images'
 EOF
 )
-    write_or_print "$file" "$content"
+    write_or_print "${file}" "${content}"
 }
 
 #==============================================================================
@@ -143,7 +145,7 @@ if command -v starship &> /dev/null; then
 fi
 EOF
 )
-        write_or_print "$file" "$content"
+        write_or_print "${file}" "${content}"
     fi
 }
 
@@ -163,7 +165,7 @@ if command -v zoxide &> /dev/null; then
 fi
 EOF
 )
-        write_or_print "$file" "$content"
+        write_or_print "${file}" "${content}"
     fi
 }
 
@@ -190,7 +192,7 @@ if command -v fzf &> /dev/null; then
 fi
 EOF
 )
-        write_or_print "$file" "$content"
+        write_or_print "${file}" "${content}"
     fi
 }
 
@@ -216,7 +218,7 @@ if [[ -d "${HOME}/.config/shell" ]]; then
 fi
 EOF
 )
-    write_or_print "$CUSTOM_CONFIG_FILE" "$content"
+    write_or_print "${CUSTOM_CONFIG_FILE}" "${content}"
 }
 
 #==============================================================================
@@ -227,7 +229,7 @@ generate_all_configs() {
     log_section "Generating Shell Configuration"
 
     # Create config directory
-    mkdir_or_print "$SHELL_CONFIG_DIR"
+    mkdir_or_print "${SHELL_CONFIG_DIR}"
 
     # Generate core configs
     generate_00_env
@@ -248,12 +250,12 @@ generate_all_configs() {
 list_configs() {
     log_section "Shell Configuration Files"
 
-    if [[ -d "$SHELL_CONFIG_DIR" ]]; then
-        echo "Directory: $SHELL_CONFIG_DIR"
+    if [[ -d "${SHELL_CONFIG_DIR}" ]]; then
+        echo "Directory: ${SHELL_CONFIG_DIR}"
         echo ""
-        for file in "$SHELL_CONFIG_DIR"/*.sh; do
-            if [[ -f "$file" ]]; then
-                echo "  $(basename "$file")"
+        for file in "${SHELL_CONFIG_DIR}"/*.sh; do
+            if [[ -f "${file}" ]]; then
+                echo "  $(basename "${file}")"
             fi
         done
     else
@@ -261,10 +263,10 @@ list_configs() {
     fi
 
     echo ""
-    if [[ -f "$CUSTOM_CONFIG_FILE" ]]; then
-        log_success "Main config: $CUSTOM_CONFIG_FILE"
+    if [[ -f "${CUSTOM_CONFIG_FILE}" ]]; then
+        log_success "Main config: ${CUSTOM_CONFIG_FILE}"
     else
-        log_warning "Main config not found: $CUSTOM_CONFIG_FILE"
+        log_warning "Main config not found: ${CUSTOM_CONFIG_FILE}"
     fi
 }
 
@@ -278,7 +280,7 @@ main() {
     local action="generate"
 
     for arg in "$@"; do
-        case "$arg" in
+        case "${arg}" in
             --list|-l)
                 action="list"
                 ;;
@@ -294,7 +296,7 @@ main() {
         esac
     done
 
-    case "$action" in
+    case "${action}" in
         generate)
             generate_all_configs
             if is_dry_run; then

@@ -16,7 +16,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # Source shared libraries
+# shellcheck source=scripts/lib/core.sh
 source "${SCRIPT_DIR}/../lib/core.sh"
+# shellcheck source=scripts/lib/dryrun.sh
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 #==============================================================================
@@ -112,8 +114,8 @@ verify_git_config() {
     # Check user name
     local name
     name=$(git config --global user.name 2>/dev/null || echo "")
-    if [[ -n "$name" ]]; then
-        log_success "user.name: $name"
+    if [[ -n "${name}" ]]; then
+        log_success "user.name: ${name}"
     else
         log_error "user.name not set"
         ((errors++)) || true
@@ -122,8 +124,8 @@ verify_git_config() {
     # Check email
     local email
     email=$(git config --global user.email 2>/dev/null || echo "")
-    if [[ -n "$email" ]]; then
-        log_success "user.email: $email"
+    if [[ -n "${email}" ]]; then
+        log_success "user.email: ${email}"
     else
         log_error "user.email not set"
         ((errors++)) || true
@@ -132,13 +134,13 @@ verify_git_config() {
     # Check default branch
     local branch
     branch=$(git config --global init.defaultBranch 2>/dev/null || echo "")
-    if [[ -n "$branch" ]]; then
-        log_success "init.defaultBranch: $branch"
+    if [[ -n "${branch}" ]]; then
+        log_success "init.defaultBranch: ${branch}"
     else
         log_warning "init.defaultBranch not set (will use git default)"
     fi
 
-    return $errors
+    return ${errors}
 }
 
 #==============================================================================

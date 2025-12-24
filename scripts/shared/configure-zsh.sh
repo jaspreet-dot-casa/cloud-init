@@ -16,7 +16,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # Source shared libraries
+# shellcheck source=scripts/lib/core.sh
 source "${SCRIPT_DIR}/../lib/core.sh"
+# shellcheck source=scripts/lib/dryrun.sh
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 #==============================================================================
@@ -43,7 +45,7 @@ load_zsh_config() {
 install_oh_my_zsh() {
     local omz_dir="${HOME}/.oh-my-zsh"
 
-    if [[ -d "$omz_dir" ]]; then
+    if [[ -d "${omz_dir}" ]]; then
         log_success "Oh-My-Zsh already installed"
         return 0
     fi
@@ -51,7 +53,7 @@ install_oh_my_zsh() {
     log_info "Installing Oh-My-Zsh..."
 
     if is_dry_run; then
-        echo "[DRY-RUN] Would install Oh-My-Zsh to $omz_dir"
+        echo "[DRY-RUN] Would install Oh-My-Zsh to ${omz_dir}"
         return 0
     fi
 
@@ -73,7 +75,7 @@ configure_zshrc() {
     local zshrc="${HOME}/.zshrc"
 
     # Check if .zshrc exists
-    if [[ ! -f "$zshrc" ]]; then
+    if [[ ! -f "${zshrc}" ]]; then
         log_warning ".zshrc not found, Oh-My-Zsh may need to be installed first"
         return 1
     fi
@@ -81,36 +83,36 @@ configure_zshrc() {
     # Update theme
     log_info "Setting theme: ${ZSH_THEME}"
     if ! is_dry_run; then
-        sed -i.bak "s/^ZSH_THEME=.*/ZSH_THEME=\"${ZSH_THEME}\"/" "$zshrc"
+        sed -i.bak "s/^ZSH_THEME=.*/ZSH_THEME=\"${ZSH_THEME}\"/" "${zshrc}"
         rm -f "${zshrc}.bak"
     else
-        echo "[DRY-RUN] Would set ZSH_THEME=\"${ZSH_THEME}\" in $zshrc"
+        echo "[DRY-RUN] Would set ZSH_THEME=\"${ZSH_THEME}\" in ${zshrc}"
     fi
 
     # Update plugins
     log_info "Setting plugins: ${ZSH_PLUGINS}"
     local plugins_line="plugins=(${ZSH_PLUGINS})"
     if ! is_dry_run; then
-        sed -i.bak "s/^plugins=.*/plugins=(${ZSH_PLUGINS})/" "$zshrc"
+        sed -i.bak "s/^plugins=.*/plugins=(${ZSH_PLUGINS})/" "${zshrc}"
         rm -f "${zshrc}.bak"
     else
-        echo "[DRY-RUN] Would set plugins=(${ZSH_PLUGINS}) in $zshrc"
+        echo "[DRY-RUN] Would set plugins=(${ZSH_PLUGINS}) in ${zshrc}"
     fi
 
     # Add custom config sourcing if not present
     local custom_config_line="# Source custom shell config"
     local source_line='[[ -f ~/.zsh_custom_config ]] && source ~/.zsh_custom_config'
 
-    if ! grep -q "zsh_custom_config" "$zshrc" 2>/dev/null; then
+    if ! grep -q "zsh_custom_config" "${zshrc}" 2>/dev/null; then
         log_info "Adding custom config sourcing to .zshrc"
         if ! is_dry_run; then
             {
                 echo ""
-                echo "$custom_config_line"
-                echo "$source_line"
-            } >> "$zshrc"
+                echo "${custom_config_line}"
+                echo "${source_line}"
+            } >> "${zshrc}"
         else
-            echo "[DRY-RUN] Would append custom config sourcing to $zshrc"
+            echo "[DRY-RUN] Would append custom config sourcing to ${zshrc}"
         fi
     else
         log_debug "Custom config sourcing already present"
@@ -143,8 +145,8 @@ verify_zsh_config() {
         # Check theme
         local theme
         theme=$(grep "^ZSH_THEME=" "${HOME}/.zshrc" 2>/dev/null | cut -d'"' -f2 || echo "")
-        if [[ -n "$theme" ]]; then
-            log_success "Theme: $theme"
+        if [[ -n "${theme}" ]]; then
+            log_success "Theme: ${theme}"
         else
             log_warning "Theme not set"
         fi
@@ -152,7 +154,7 @@ verify_zsh_config() {
         # Check plugins
         local plugins
         plugins=$(grep "^plugins=" "${HOME}/.zshrc" 2>/dev/null || echo "")
-        if [[ -n "$plugins" ]]; then
+        if [[ -n "${plugins}" ]]; then
             log_success "Plugins: configured"
         else
             log_warning "Plugins not configured"
@@ -169,7 +171,7 @@ verify_zsh_config() {
         ((errors++))
     fi
 
-    return $errors
+    return ${errors}
 }
 
 #==============================================================================
@@ -183,14 +185,14 @@ main() {
 
     # Parse additional arguments
     for arg in "$@"; do
-        case "$arg" in
+        case "${arg}" in
             --install-omz)
                 install_omz=true
                 ;;
         esac
     done
 
-    if [[ "$install_omz" == "true" ]]; then
+    if [[ "${install_omz}" == "true" ]]; then
         install_oh_my_zsh
     fi
 

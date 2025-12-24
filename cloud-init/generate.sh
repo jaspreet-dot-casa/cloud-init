@@ -45,8 +45,8 @@ check_dependencies() {
 }
 
 check_secrets() {
-    if [[ ! -f "$SECRETS_FILE" ]]; then
-        log_error "Secrets file not found: $SECRETS_FILE"
+    if [[ ! -f "${SECRETS_FILE}" ]]; then
+        log_error "Secrets file not found: ${SECRETS_FILE}"
         log_info "Copy secrets.env.template to secrets.env and fill in your values:"
         log_info "  cp secrets.env.template secrets.env"
         exit 1
@@ -58,7 +58,7 @@ validate_secrets() {
 
     # Source secrets
     # shellcheck source=/dev/null
-    source "$SECRETS_FILE"
+    source "${SECRETS_FILE}"
 
     local errors=0
 
@@ -88,8 +88,8 @@ validate_secrets() {
         ((errors++))
     fi
 
-    if [[ $errors -gt 0 ]]; then
-        log_error "$errors validation error(s). Edit secrets.env and try again."
+    if [[ ${errors} -gt 0 ]]; then
+        log_error "${errors} validation error(s). Edit secrets.env and try again."
         exit 1
     fi
 
@@ -102,11 +102,11 @@ generate_yaml() {
     # Source secrets and config
     set -a  # Export all variables
     # shellcheck source=/dev/null
-    source "$SECRETS_FILE"
+    source "${SECRETS_FILE}"
 
-    if [[ -f "$CONFIG_FILE" ]]; then
+    if [[ -f "${CONFIG_FILE}" ]]; then
         # shellcheck source=/dev/null
-        source "$CONFIG_FILE"
+        source "${CONFIG_FILE}"
     fi
 
     # Set defaults for optional values
@@ -120,46 +120,48 @@ generate_yaml() {
 
     # Only substitute these specific template variables
     # This prevents envsubst from replacing local shell variables in embedded scripts
-    local TEMPLATE_VARS='$USERNAME $HOSTNAME $SSH_PUBLIC_KEY $USER_NAME $USER_EMAIL $REPO_URL $REPO_BRANCH $TAILSCALE_AUTH_KEY $GITHUB_PAT $GITHUB_USER'
+    local TEMPLATE_VARS
+    # shellcheck disable=SC2016
+    TEMPLATE_VARS='$USERNAME $HOSTNAME $SSH_PUBLIC_KEY $USER_NAME $USER_EMAIL $REPO_URL $REPO_BRANCH $TAILSCALE_AUTH_KEY $GITHUB_PAT $GITHUB_USER'
 
     # Generate output
     if [[ "${DRY_RUN:-false}" == "true" ]]; then
-        log_info "[DRY-RUN] Would generate: $OUTPUT_FILE"
-        envsubst "$TEMPLATE_VARS" < "$TEMPLATE_FILE"
+        log_info "[DRY-RUN] Would generate: ${OUTPUT_FILE}"
+        envsubst "${TEMPLATE_VARS}" < "${TEMPLATE_FILE}"
     else
-        envsubst "$TEMPLATE_VARS" < "$TEMPLATE_FILE" > "$OUTPUT_FILE"
-        log_success "Generated: $OUTPUT_FILE"
+        envsubst "${TEMPLATE_VARS}" < "${TEMPLATE_FILE}" > "${OUTPUT_FILE}"
+        log_success "Generated: ${OUTPUT_FILE}"
     fi
 }
 
 validate_yaml() {
     log_info "Validating generated YAML..."
 
-    local file="${1:-$OUTPUT_FILE}"
+    local file="${1:-${OUTPUT_FILE}}"
 
-    if [[ ! -f "$file" ]]; then
-        log_error "File not found: $file"
+    if [[ ! -f "${file}" ]]; then
+        log_error "File not found: ${file}"
         return 1
     fi
 
     # Check for unsubstituted template variables (only our known template vars)
     # Don't flag bash variables like ${BLUE}, ${NC}, etc.
     local template_vars='USERNAME|HOSTNAME|SSH_PUBLIC_KEY|USER_NAME|USER_EMAIL|REPO_URL|REPO_BRANCH|TAILSCALE_AUTH_KEY|GITHUB_PAT|GITHUB_USER'
-    if grep -qE "\\\$\{($template_vars)\}" "$file"; then
+    if grep -qE "\\\$\{(${template_vars})\}" "${file}"; then
         log_warning "Found unsubstituted template variables in output:"
-        grep -oE "\\\$\{($template_vars)\}" "$file" | sort -u | while read -r var; do
-            echo "  - $var"
+        grep -oE "\\\$\{(${template_vars})\}" "${file}" | sort -u | while read -r var; do
+            echo "  - ${var}"
         done
         return 1
     fi
 
     # Check YAML syntax if yq is available
     if command -v yq &>/dev/null; then
-        if yq eval '.' "$file" >/dev/null 2>&1; then
+        if yq eval '.' "${file}" >/dev/null 2>&1; then
             log_success "YAML syntax is valid"
         else
             log_error "YAML syntax error"
-            yq eval '.' "$file" 2>&1 || true
+            yq eval '.' "${file}" 2>&1 || true
             return 1
         fi
     else
@@ -175,12 +177,12 @@ show_summary() {
     echo -e "${GREEN}Cloud-Init Configuration Generated${NC}"
     echo "════════════════════════════════════════════"
     echo ""
-    echo "Output file: $OUTPUT_FILE"
+    echo "Output file: ${OUTPUT_FILE}"
     echo ""
     echo "Configuration:"
 
     # shellcheck source=/dev/null
-    source "$SECRETS_FILE"
+    source "${SECRETS_FILE}"
     echo "  Hostname: ${HOSTNAME}"
     echo "  Username: ${USERNAME}"
     echo "  Tailscale: ${TAILSCALE_AUTH_KEY:+configured}${TAILSCALE_AUTH_KEY:-not configured}"
@@ -200,7 +202,7 @@ main() {
     local validate_only=false
 
     for arg in "$@"; do
-        case "$arg" in
+        case "${arg}" in
             --dry-run|-n)
                 export DRY_RUN=true
                 ;;
@@ -226,7 +228,7 @@ main() {
 
     check_dependencies
 
-    if [[ "$validate_only" == "true" ]]; then
+    if [[ "${validate_only}" == "true" ]]; then
         validate_yaml
         exit $?
     fi

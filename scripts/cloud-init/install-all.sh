@@ -21,10 +21,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # Source shared libraries
+# shellcheck source=scripts/lib/core.sh
 source "${SCRIPT_DIR}/../lib/core.sh"
+# shellcheck source=scripts/lib/dryrun.sh
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
+# shellcheck source=scripts/lib/backup.sh
 source "${SCRIPT_DIR}/../lib/backup.sh"
+# shellcheck source=scripts/lib/health.sh
 source "${SCRIPT_DIR}/../lib/health.sh"
+# shellcheck source=scripts/lib/lock.sh
 source "${SCRIPT_DIR}/../lib/lock.sh"
 
 #==============================================================================
@@ -47,13 +52,13 @@ declare -a ERRORS=()
 #==============================================================================
 
 setup_logging() {
-    ensure_dir "$LOG_DIR"
+    ensure_dir "${LOG_DIR}"
     LOG_FILE="${LOG_DIR}/install-$(date +%Y%m%d_%H%M%S).log"
 
     # Redirect output to both console and log file
-    exec > >(tee -a "$LOG_FILE") 2>&1
+    exec > >(tee -a "${LOG_FILE}") 2>&1
 
-    log_info "Log file: $LOG_FILE"
+    log_info "Log file: ${LOG_FILE}"
 }
 
 #==============================================================================
@@ -63,8 +68,8 @@ setup_logging() {
 record_error() {
     local component="$1"
     local message="$2"
-    ERRORS+=("[$component] $message")
-    log_error "[$component] $message"
+    ERRORS+=("[${component}] ${message}")
+    log_error "[${component}] ${message}"
 }
 
 print_error_summary() {
@@ -75,7 +80,7 @@ print_error_summary() {
     echo ""
     log_section "Error Summary"
     for error in "${ERRORS[@]}"; do
-        echo "  - $error"
+        echo "  - ${error}"
     done
     echo ""
     log_error "${#ERRORS[@]} error(s) occurred during installation"
@@ -132,9 +137,9 @@ install_binary_packages() {
 
     for pkg in "${packages[@]}"; do
         local script="${PACKAGES_DIR}/${pkg}.sh"
-        if [[ -f "$script" ]]; then
+        if [[ -f "${script}" ]]; then
             log_info "Installing ${pkg}..."
-            bash "$script" install || record_error "$pkg" "Failed to install"
+            bash "${script}" install || record_error "${pkg}" "Failed to install"
         else
             log_warning "${pkg}.sh not found, skipping"
         fi
@@ -187,7 +192,7 @@ setup_tailscale() {
         # Pass through confirmation skip if set
         [[ "${SKIP_CONFIRMATION:-false}" == "true" ]] && args="-y"
 
-        bash "${SHARED_DIR}/tailscale.sh" $args || record_error "tailscale" "Failed to setup Tailscale"
+        bash "${SHARED_DIR}/tailscale.sh" ${args} || record_error "tailscale" "Failed to setup Tailscale"
     else
         log_warning "tailscale.sh not found, skipping"
     fi
@@ -215,7 +220,7 @@ main() {
     parse_dry_run_flag "$@"
 
     for arg in "$@"; do
-        case "$arg" in
+        case "${arg}" in
             -y|--yes)
                 export SKIP_CONFIRMATION=true
                 ;;
@@ -274,7 +279,7 @@ main() {
     log_info "Duration: ${duration} seconds"
 
     if ! is_dry_run; then
-        log_info "Log file: $LOG_FILE"
+        log_info "Log file: ${LOG_FILE}"
     fi
 
     # Run health checks
@@ -282,8 +287,8 @@ main() {
     log_section "Running Health Checks"
 
     for script in "${PACKAGES_DIR}"/*.sh; do
-        [[ -f "$script" && "$(basename "$script")" != "_template.sh" ]] || continue
-        bash "$script" verify 2>/dev/null || true
+        [[ -f "${script}" && "$(basename "${script}")" != "_template.sh" ]] || continue
+        bash "${script}" verify 2>/dev/null || true
     done
 
     print_health_summary
@@ -307,7 +312,7 @@ main() {
     else
         echo ""
         log_warning "Installation completed with ${#ERRORS[@]} error(s)"
-        echo "Check the log file for details: $LOG_FILE"
+        echo "Check the log file for details: ${LOG_FILE}"
     fi
 }
 

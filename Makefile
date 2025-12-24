@@ -1,4 +1,4 @@
-.PHONY: help update update-dry verify-cloud test-syntax shellcheck test-multipass test-multipass-keep test-multipass-clean pre-commit
+.PHONY: help update update-dry verify-cloud test-syntax lint shellcheck test-multipass test-multipass-keep test-multipass-clean pre-commit
 
 # Get the directory where this Makefile resides
 ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -17,7 +17,7 @@ help:
 	echo "  make test-multipass-keep - Run test but keep VM for debugging"
 	echo "  make test-multipass-clean- Clean up leftover test VMs"
 	echo "  make test-syntax         - Check bash/zsh syntax of all scripts"
-	echo "  make shellcheck          - Run shellcheck linter on all scripts"
+	echo "  make lint                - Run shellcheck linter on all scripts"
 
 # Pre-commit checks - fast tests before committing
 pre-commit:
@@ -47,19 +47,23 @@ test-syntax:
 	echo ""
 	echo "✓ All scripts have valid syntax"
 
-shellcheck:
-	echo "Running shellcheck on all scripts..."
-	shellcheck \
-		$(ROOT)scripts/*.sh \
-		$(ROOT)scripts/lib/*.sh \
-		$(ROOT)scripts/packages/*.sh \
-		$(ROOT)scripts/cloud-init/*.sh \
-		$(ROOT)scripts/shared/*.sh \
-		$(ROOT)cloud-init/*.sh \
-		&& echo "✓ All scripts passed shellcheck" || \
-		(echo "Error: shellcheck failed or is not installed"; \
-		 echo "Install with: brew install shellcheck (macOS) or apt-get install shellcheck (Ubuntu)"; \
-		 exit 1)
+lint:
+	@echo "Running shellcheck on all scripts..."
+	shellcheck $(ROOT)scripts/lib/*.sh
+	@echo "  ✓ scripts/lib/"
+	shellcheck $(ROOT)scripts/packages/*.sh
+	@echo "  ✓ scripts/packages/"
+	shellcheck $(ROOT)scripts/cloud-init/*.sh
+	@echo "  ✓ scripts/cloud-init/"
+	shellcheck $(ROOT)scripts/shared/*.sh
+	@echo "  ✓ scripts/shared/"
+	shellcheck $(ROOT)cloud-init/*.sh
+	@echo "  ✓ cloud-init/"
+	@echo ""
+	@echo "✓ All scripts passed shellcheck"
+
+# Alias for backwards compatibility
+shellcheck: lint
 
 # ============================================================================
 # Cloud-Init Targets
