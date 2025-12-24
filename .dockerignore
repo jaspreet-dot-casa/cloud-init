@@ -1,0 +1,19 @@
+# Git
+.git
+.gitignore
+
+# Environment
+.env
+
+# Temporary files
+.tmp/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# CI/CD
+.github/

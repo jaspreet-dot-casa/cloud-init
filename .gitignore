@@ -1,0 +1,15 @@
+# Temporary files
+.tmp/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local configuration (use config.env.template instead)
+config.env
+
+# Claude Code local settings
+.claude/*.local.json

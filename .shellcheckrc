@@ -1,0 +1,17 @@
+# ShellCheck configuration file
+# See: https://github.com/koalaman/shellcheck/wiki/Directive
+
+# Disable specific checks
+# SC2034: Variable appears unused (we use variables for color codes)
+disable=SC2034
+
+# Enable optional checks
+enable=avoid-nullary-conditions
+enable=check-unassigned-uppercase
+enable=require-variable-braces
+
+# Set shell dialect (bash)
+shell=bash
+
+# External sources that can't be followed
+external-sources=true

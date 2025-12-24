@@ -1,0 +1,344 @@
+#cloud-config
+# Ubuntu Server Cloud-Init Configuration
+#
+# This template is processed by generate.sh to create the final cloud-init.yaml
+# Variables are substituted from secrets.env and config.env
+#
+# Usage:
+#   1. Copy secrets.env.template to secrets.env and fill in values
+#   2. Run: ./generate.sh
+#   3. Use cloud-init.yaml for provisioning
+
+# =============================================================================
+# User Configuration
+# =============================================================================
+
+users:
+  - name: ${USERNAME}
+    groups: sudo, docker
+    shell: /bin/zsh
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: false
+    ssh_authorized_keys:
+      - ${SSH_PUBLIC_KEY}
+
+# =============================================================================
+# System Configuration
+# =============================================================================
+
+hostname: ${HOSTNAME}
+timezone: UTC
+locale: en_US.UTF-8
+
+# Disable root login
+disable_root: true
+
+# =============================================================================
+# Package Installation
+# =============================================================================
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - wget
+  - git
+  - zsh
+  - tree
+  - jq
+  - htop
+  - unzip
+  - build-essential
+  - ca-certificates
+  - gnupg
+  - apt-transport-https
+
+# =============================================================================
+# Write Files
+# =============================================================================
+
+write_files:
+  # Clone script - downloads and runs the setup
+  - path: /opt/local-remote/bootstrap.sh
+    permissions: "755"
+    content: |
+      #!/bin/bash
+      set -e
+
+      # These values are substituted at generation time
+      CLONE_URL="${REPO_URL}"
+      CLONE_BRANCH="${REPO_BRANCH}"
+      CLONE_USER="${USERNAME}"
+      CLONE_DIR="/home/$CLONE_USER/local-remote"
+
+      echo "=== Cloud-Init Bootstrap ==="
+      echo "Repository: $CLONE_URL"
+      echo "Branch: $CLONE_BRANCH"
+      echo "Install directory: $CLONE_DIR"
+
+      # Clone repository
+      if [[ -d "$CLONE_DIR" ]]; then
+          echo "Directory exists, pulling latest..."
+          cd "$CLONE_DIR"
+          git pull
+      else
+          echo "Cloning repository..."
+          git clone -b "$CLONE_BRANCH" "$CLONE_URL" "$CLONE_DIR"
+      fi
+
+      # Set ownership
+      chown -R "$CLONE_USER:$CLONE_USER" "$CLONE_DIR"
+
+      # Run installation as user
+      echo "Running installation..."
+      cd "$CLONE_DIR"
+      sudo -u "$CLONE_USER" CLOUD_INIT=true bash scripts/cloud-init/install-all.sh -y
+
+      echo "=== Bootstrap Complete ==="
+
+  # Config file (created in final stage after user exists)
+  - path: /home/${USERNAME}/.local-remote/config.env
+    permissions: "600"
+    defer: true
+    content: |
+      # Cloud-init generated configuration
+      USER_NAME="${USER_NAME}"
+      USER_EMAIL="${USER_EMAIL}"
+      USER_USERNAME="${USERNAME}"
+
+      GIT_DEFAULT_BRANCH="main"
+      GIT_PUSH_AUTO_SETUP_REMOTE=true
+      GIT_PULL_REBASE=true
+      GIT_PAGER="delta"
+
+      TAILSCALE_SSH_ENABLED=true
+      TAILSCALE_EXIT_NODE_ADVERTISE=true
+      TAILSCALE_SSH_CHECK_PERIOD="12h"
+
+  # Tailscale auth key (if provided, created in final stage after user exists)
+  - path: /home/${USERNAME}/.local-remote/tailscale-auth-key
+    permissions: "600"
+    defer: true
+    content: |
+      ${TAILSCALE_AUTH_KEY}
+
+  # Tailscale authentication script
+  - path: /opt/local-remote/setup-tailscale.sh
+    permissions: "755"
+    content: |
+      #!/bin/bash
+      # Authenticate Tailscale if auth key is provided
+      set -e
+      AUTH_KEY_FILE="/home/${USERNAME}/.local-remote/tailscale-auth-key"
+      AUTH_KEY=$(cat "$AUTH_KEY_FILE" 2>/dev/null | tr -d '[:space:]')
+      if [[ -n "$AUTH_KEY" && "$AUTH_KEY" != '${TAILSCALE_AUTH_KEY}' ]]; then
+        echo "Authenticating Tailscale with provided auth key..."
+        tailscale up --ssh --advertise-exit-node --authkey="$AUTH_KEY"
+        rm -f "$AUTH_KEY_FILE"
+        echo "Tailscale authenticated successfully"
+      else
+        echo "No Tailscale auth key provided, skipping authentication"
+      fi
+
+  # In-VM verification test script
+  # This script runs after cloud-init completes to verify the installation
+  - path: /opt/local-remote/test-in-vm.sh
+    permissions: "755"
+    content: |
+      #!/bin/bash
+      # In-VM Verification Script - runs after cloud-init to test installation
+      set -u
+
+      # Ensure ~/.local/bin is in PATH (for starship, zoxide, etc.)
+      [[ -d "$HOME/.local/bin" ]] && export PATH="$HOME/.local/bin:$PATH"
+
+      RESULTS_FILE="/tmp/test-results.json"
+      MARKER_FILE="/tmp/cloud-init-test-complete"
+      declare -a TESTS
+      PASSED=0
+      FAILED=0
+      SKIPPED=0
+
+      record_test() {
+          local name="$1" status="$2" message="${3:-}"
+          message="${message//\"/\\\"}"
+          TESTS+=("{\"name\":\"$name\",\"status\":\"$status\",\"message\":\"$message\"}")
+          case "$status" in
+              pass) ((PASSED++)); echo "[PASS] $name: $message" ;;
+              fail) ((FAILED++)); echo "[FAIL] $name: $message" ;;
+              skip) ((SKIPPED++)); echo "[SKIP] $name: $message" ;;
+          esac
+      }
+
+      test_packages() {
+          echo "=== Testing packages ==="
+          local packages=(git gh docker zsh curl wget jq lazygit lazydocker nvim tmux zellij fzf zoxide rg fd bat delta starship btop yq tailscale)
+          for pkg in "${packages[@]}"; do
+              if command -v "$pkg" &>/dev/null; then
+                  record_test "package:$pkg" "pass" "$("$pkg" --version 2>&1 | head -1 | cut -c1-40)"
+              else
+                  record_test "package:$pkg" "skip" "not installed"
+              fi
+          done
+      }
+
+      test_git_config() {
+          echo "=== Testing git config ==="
+          for cfg in user.name user.email init.defaultBranch core.pager; do
+              value=$(git config --global "$cfg" 2>/dev/null)
+              if [[ -n "$value" ]]; then
+                  record_test "git:$cfg" "pass" "$value"
+              else
+                  record_test "git:$cfg" "skip" "not set"
+              fi
+          done
+      }
+
+      test_shell() {
+          echo "=== Testing shell ==="
+          [[ "$SHELL" == *"zsh"* ]] && record_test "shell:default" "pass" "zsh" || record_test "shell:default" "fail" "$SHELL"
+          [[ -d "$HOME/.oh-my-zsh" ]] && record_test "shell:oh-my-zsh" "pass" "installed" || record_test "shell:oh-my-zsh" "skip" "not installed"
+          [[ -f "$HOME/.zshrc" ]] && record_test "shell:zshrc" "pass" "exists" || record_test "shell:zshrc" "fail" "missing"
+      }
+
+      test_services() {
+          echo "=== Testing services ==="
+          systemctl is-active docker &>/dev/null && record_test "service:docker" "pass" "running" || record_test "service:docker" "fail" "not running"
+          groups 2>/dev/null | grep -q docker && record_test "service:docker-group" "pass" "in group" || record_test "service:docker-group" "fail" "not in group"
+          systemctl is-active tailscaled &>/dev/null && record_test "service:tailscaled" "pass" "running" || record_test "service:tailscaled" "skip" "not running"
+      }
+
+      test_dirs() {
+          echo "=== Testing directories ==="
+          for dir in "$HOME/.config" "$HOME/.local-remote" "$HOME/.local/bin"; do
+              [[ -d "$dir" ]] && record_test "dir:$dir" "pass" "exists" || record_test "dir:$dir" "skip" "missing"
+          done
+      }
+
+      write_results() {
+          local tests_json=""
+          local first=true
+          for test in "${TESTS[@]}"; do
+              [[ "$first" == "true" ]] && tests_json="$test" && first=false || tests_json="$tests_json,$test"
+          done
+          cat > "$RESULTS_FILE" << EOF
+      {
+        "timestamp": "$(date -Iseconds)",
+        "hostname": "$(hostname)",
+        "summary": {"total": $((PASSED + FAILED + SKIPPED)), "passed": $PASSED, "failed": $FAILED, "skipped": $SKIPPED},
+        "tests": [$tests_json]
+      }
+      EOF
+          echo "Results written to $RESULTS_FILE"
+      }
+
+      main() {
+          echo "=== Cloud-Init In-VM Verification ==="
+          echo "Running as: $(whoami)@$(hostname)"
+          test_packages
+          test_git_config
+          test_shell
+          test_services
+          test_dirs
+          write_results
+          touch "$MARKER_FILE"
+          echo "=== Tests complete: $PASSED passed, $FAILED failed, $SKIPPED skipped ==="
+          [[ $FAILED -eq 0 ]]
+      }
+
+      main "$@"
+
+# =============================================================================
+# Run Commands
+# =============================================================================
+
+runcmd:
+  # Install Docker
+  - |
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
+    apt-get update
+    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    usermod -aG docker ${USERNAME}
+    systemctl enable docker
+
+  # Install GitHub CLI
+  - |
+    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/etc/apt/keyrings/githubcli-archive-keyring.gpg
+    chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list
+    apt-get update
+    apt-get install -y gh
+
+  # Install Tailscale
+  - |
+    curl -fsSL https://tailscale.com/install.sh | sh
+    systemctl enable tailscaled
+    systemctl start tailscaled
+
+  # Authenticate Tailscale (if auth key provided)
+  - bash /opt/local-remote/setup-tailscale.sh
+
+  # Fix ownership of user directories created by cloud-init
+  - mkdir -p /home/${USERNAME}/.local-remote/logs /home/${USERNAME}/.config
+  - chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/.local-remote /home/${USERNAME}/.config
+
+  # Ensure /opt/local-remote scripts are world-executable
+  - chmod -R a+rX /opt/local-remote
+
+  # Run bootstrap script
+  - /opt/local-remote/bootstrap.sh
+
+  # Create symlinks for user-accessible scripts
+  - ln -sf /home/${USERNAME}/local-remote/scripts/local-remote-login /usr/local/bin/local-remote-login
+
+  # Import SSH authorized keys from GitHub (if GITHUB_USER is provided)
+  - |
+    GITHUB_USER="${GITHUB_USER}"
+    if [ -n "$GITHUB_USER" ]; then
+      echo "Importing SSH keys from GitHub user: $GITHUB_USER"
+      AUTH_KEYS_FILE="/home/${USERNAME}/.ssh/authorized_keys"
+      mkdir -p "/home/${USERNAME}/.ssh"
+      GITHUB_KEYS=$(curl -fsSL "https://github.com/$GITHUB_USER.keys" 2>/dev/null || echo "")
+      if [ -n "$GITHUB_KEYS" ]; then
+        echo "$GITHUB_KEYS" | while IFS= read -r key; do
+          if [ -n "$key" ] && ! grep -qF "$key" "$AUTH_KEYS_FILE" 2>/dev/null; then
+            echo "$key" >> "$AUTH_KEYS_FILE"
+            echo "Added key from GitHub"
+          fi
+        done
+        chmod 600 "$AUTH_KEYS_FILE"
+        chown ${USERNAME}:${USERNAME} "$AUTH_KEYS_FILE"
+        chown ${USERNAME}:${USERNAME} "/home/${USERNAME}/.ssh"
+        chmod 700 "/home/${USERNAME}/.ssh"
+        echo "SSH keys imported from GitHub"
+      else
+        echo "No SSH keys found for GitHub user: $GITHUB_USER"
+      fi
+    fi
+
+  # Cleanup
+  - rm -f /home/${USERNAME}/.local-remote/tailscale-auth-key
+
+  # Run verification tests (for automated testing)
+  - bash -c 'if [ -f /opt/local-remote/test-in-vm.sh ]; then echo "=== Running verification tests ==="; sudo -u ${USERNAME} /opt/local-remote/test-in-vm.sh || true; fi'
+
+# =============================================================================
+# Final Message
+# =============================================================================
+
+final_message: |
+  === Cloud-Init Complete ===
+
+  System: ${HOSTNAME}
+  User: ${USERNAME}
+
+  Installation completed in $UPTIME seconds.
+
+  Next steps:
+  1. SSH: ssh ${USERNAME}@<ip-address>
+  2. Run 'local-remote-login' to set up Tailscale and GitHub SSH
+  3. Run 'make verify-cloud' to verify installation
+
+  Logs: /var/log/cloud-init-output.log
