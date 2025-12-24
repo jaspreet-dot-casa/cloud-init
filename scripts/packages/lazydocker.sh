@@ -17,11 +17,11 @@ set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-# shellcheck source=../lib/core.sh
+# shellcheck source=scripts/lib/core.sh
 source "${SCRIPT_DIR}/../lib/core.sh"
-# shellcheck source=../lib/health.sh
+# shellcheck source=scripts/lib/health.sh
 source "${SCRIPT_DIR}/../lib/health.sh"
-# shellcheck source=../lib/dryrun.sh
+# shellcheck source=scripts/lib/dryrun.sh
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="lazydocker"
@@ -91,7 +91,7 @@ main() {
     parse_dry_run_flag "$@"
     local action="${1:-install}"
 
-    # shellcheck source=../../config.env
+    # shellcheck source=config.env.template
     [[ -f "${PROJECT_ROOT}/config.env" ]] && source "${PROJECT_ROOT}/config.env"
     [[ "${PACKAGE_LAZYDOCKER_ENABLED:-true}" != "true" ]] && { log_info "lazydocker disabled"; return 0; }
 

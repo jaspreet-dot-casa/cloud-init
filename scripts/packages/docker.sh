@@ -15,13 +15,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # Source shared libraries
-# shellcheck source=../lib/core.sh disable=SC1091
+# shellcheck source=scripts/lib/core.sh
 source "${SCRIPT_DIR}/../lib/core.sh"
-# shellcheck source=../lib/dryrun.sh disable=SC1091
+# shellcheck source=scripts/lib/dryrun.sh
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
-# shellcheck source=../lib/health.sh disable=SC1091
+# shellcheck source=scripts/lib/health.sh
 source "${SCRIPT_DIR}/../lib/health.sh"
-# shellcheck source=../lib/lock.sh disable=SC1091
+# shellcheck source=scripts/lib/lock.sh
 source "${SCRIPT_DIR}/../lib/lock.sh"
 
 #==============================================================================
@@ -78,7 +78,7 @@ add_docker_repo() {
 
     # Add repository
     if ! is_dry_run; then
-        # shellcheck disable=SC1091,SC2154
+        # shellcheck source=/dev/null disable=SC2154
         echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${VERSION_CODENAME}") stable" | \
             sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
     else

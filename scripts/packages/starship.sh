@@ -17,11 +17,11 @@ set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-# shellcheck disable=SC1091
+# shellcheck source=scripts/lib/core.sh
 source "${SCRIPT_DIR}/../lib/core.sh"
-# shellcheck disable=SC1091
+# shellcheck source=scripts/lib/health.sh
 source "${SCRIPT_DIR}/../lib/health.sh"
-# shellcheck disable=SC1091
+# shellcheck source=scripts/lib/dryrun.sh
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="starship"
@@ -30,7 +30,7 @@ PACKAGE_NAME="starship"
 [[ -d "${HOME}/.local/bin" ]] && export PATH="${HOME}/.local/bin:${PATH}"
 
 # Source shell config if it exists (for PATH setup)
-# shellcheck disable=SC1091
+# shellcheck source=/dev/null
 [[ -f "${HOME}/.zsh_custom_config" ]] && source "${HOME}/.zsh_custom_config"
 
 is_installed() { command_exists starship; }
@@ -82,7 +82,7 @@ main() {
     parse_dry_run_flag "$@"
     local action="${1:-install}"
 
-    # shellcheck disable=SC1091
+    # shellcheck source=config.env.template
     [[ -f "${PROJECT_ROOT}/config.env" ]] && source "${PROJECT_ROOT}/config.env"
     [[ "${PACKAGE_STARSHIP_ENABLED:-true}" != "true" ]] && { log_info "starship disabled"; return 0; }
 

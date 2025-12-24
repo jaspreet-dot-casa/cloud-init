@@ -17,11 +17,11 @@ set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-# shellcheck disable=SC1091
+# shellcheck source=scripts/lib/core.sh
 source "${SCRIPT_DIR}/../lib/core.sh"
-# shellcheck disable=SC1091
+# shellcheck source=scripts/lib/health.sh
 source "${SCRIPT_DIR}/../lib/health.sh"
-# shellcheck disable=SC1091
+# shellcheck source=scripts/lib/dryrun.sh
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="btop"
@@ -66,7 +66,7 @@ main() {
     parse_dry_run_flag "$@"
     local action="${1:-install}"
 
-    # shellcheck disable=SC1091
+    # shellcheck source=config.env.template
     [[ -f "${PROJECT_ROOT}/config.env" ]] && source "${PROJECT_ROOT}/config.env"
     [[ "${PACKAGE_BTOP_ENABLED:-true}" != "true" ]] && { log_info "btop disabled"; return 0; }
 

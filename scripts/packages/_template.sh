@@ -16,15 +16,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # Source shared libraries
-# shellcheck disable=SC1091
+# shellcheck source=scripts/lib/core.sh
 source "${SCRIPT_DIR}/../lib/core.sh"
-# shellcheck disable=SC1091
+# shellcheck source=scripts/lib/version.sh
 source "${SCRIPT_DIR}/../lib/version.sh"
-# shellcheck disable=SC1091
+# shellcheck source=scripts/lib/lock.sh
 source "${SCRIPT_DIR}/../lib/lock.sh"
-# shellcheck disable=SC1091
+# shellcheck source=scripts/lib/health.sh
 source "${SCRIPT_DIR}/../lib/health.sh"
-# shellcheck disable=SC1091
+# shellcheck source=scripts/lib/dryrun.sh
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 #==============================================================================
@@ -55,7 +55,7 @@ get_installed_version() {
 get_desired_version() {
     # Load config
     if [[ -f "${PROJECT_ROOT}/config.env" ]]; then
-        # shellcheck disable=SC1091
+        # shellcheck source=config.env.template
         source "${PROJECT_ROOT}/config.env"
     fi
 
@@ -139,7 +139,7 @@ main() {
 
     # Check if enabled in config
     if [[ -f "${PROJECT_ROOT}/config.env" ]]; then
-        # shellcheck disable=SC1091
+        # shellcheck source=config.env.template
         source "${PROJECT_ROOT}/config.env"
     fi
     local enabled_var="PACKAGE_${PACKAGE_NAME^^}_ENABLED"

@@ -17,13 +17,13 @@ set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-# shellcheck disable=SC1091
+# shellcheck source=scripts/lib/core.sh
 source "${SCRIPT_DIR}/../lib/core.sh"
-# shellcheck disable=SC1091
+# shellcheck source=scripts/lib/lock.sh
 source "${SCRIPT_DIR}/../lib/lock.sh"
-# shellcheck disable=SC1091
+# shellcheck source=scripts/lib/health.sh
 source "${SCRIPT_DIR}/../lib/health.sh"
-# shellcheck disable=SC1091
+# shellcheck source=scripts/lib/dryrun.sh
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="gh"
@@ -119,7 +119,7 @@ main() {
     parse_dry_run_flag "$@"
     local action="${1:-install}"
 
-    # shellcheck disable=SC1091
+    # shellcheck source=config.env.template
     [[ -f "${PROJECT_ROOT}/config.env" ]] && source "${PROJECT_ROOT}/config.env"
     [[ "${PACKAGE_GITHUB_CLI_ENABLED:-true}" != "true" ]] && { log_info "GitHub CLI disabled"; return 0; }
 
@@ -154,7 +154,9 @@ main() {
         *) echo "Usage: $0 [install|update|verify|version] [--dry-run]"; exit 1 ;;
     esac
 
-    is_dry_run && print_dry_run_summary || true
+    if is_dry_run; then
+        print_dry_run_summary
+    fi
 }
 
 [[ "${BASH_SOURCE[0]}" == "${0}" ]] && main "$@"
