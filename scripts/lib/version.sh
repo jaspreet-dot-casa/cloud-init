@@ -223,7 +223,7 @@ resolve_version() {
             get_github_latest_version "${github_repo}"
         else
             log_error "Cannot resolve 'latest' without GitHub repo"
-            echo "latest"
+            return 1
         fi
     else
         echo "${version}"

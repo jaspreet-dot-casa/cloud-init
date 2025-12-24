@@ -77,18 +77,19 @@ command_exists() {
 }
 
 # Get the project root directory (assumes scripts are in scripts/lib/)
+# Uses subshells to avoid changing the caller's working directory
 get_project_root() {
     local script_dir
     script_dir="$(cd "$(dirname "${BASH_SOURCE[1]}")" && pwd)"
     # Navigate up from scripts/lib/ or scripts/ to project root
     if [[ "${script_dir}" == */scripts/lib ]]; then
-        cd "${script_dir}/../.." && pwd
+        (cd "${script_dir}/../.." && pwd)
     elif [[ "${script_dir}" == */scripts/* ]]; then
-        cd "${script_dir}/../.." && pwd
+        (cd "${script_dir}/../.." && pwd)
     elif [[ "${script_dir}" == */scripts ]]; then
-        cd "${script_dir}/.." && pwd
+        (cd "${script_dir}/.." && pwd)
     else
-        cd "${script_dir}" && pwd
+        (cd "${script_dir}" && pwd)
     fi
 }
 
