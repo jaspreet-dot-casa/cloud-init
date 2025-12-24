@@ -17,8 +17,11 @@ set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
+# shellcheck disable=SC1091
 source "${SCRIPT_DIR}/../lib/core.sh"
+# shellcheck disable=SC1091
 source "${SCRIPT_DIR}/../lib/health.sh"
+# shellcheck disable=SC1091
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="btop"
@@ -47,10 +50,10 @@ do_install() {
 
 verify() {
     if ! is_installed; then
-        health_fail "$PACKAGE_NAME" "not installed"
+        health_fail "${PACKAGE_NAME}" "not installed"
         return 1
     fi
-    health_pass "$PACKAGE_NAME" "v$(get_installed_version)"
+    health_pass "${PACKAGE_NAME}" "v$(get_installed_version)"
     return 0
 }
 
@@ -63,12 +66,13 @@ main() {
     parse_dry_run_flag "$@"
     local action="${1:-install}"
 
+    # shellcheck disable=SC1091
     [[ -f "${PROJECT_ROOT}/config.env" ]] && source "${PROJECT_ROOT}/config.env"
     [[ "${PACKAGE_BTOP_ENABLED:-true}" != "true" ]] && { log_info "btop disabled"; return 0; }
 
-    case "$action" in
+    case "${action}" in
         install|update)
-            if is_installed && [[ "$action" == "install" ]]; then
+            if is_installed && [[ "${action}" == "install" ]]; then
                 log_success "btop already installed: v$(get_installed_version)"
             else
                 do_install
@@ -77,7 +81,14 @@ main() {
             verify
             ;;
         verify) verify ;;
-        version) is_installed && get_installed_version || { echo "not installed"; return 1; } ;;
+        version)
+            if is_installed; then
+                get_installed_version
+            else
+                echo "not installed"
+                return 1
+            fi
+            ;;
         *) echo "Usage: $0 [install|update|verify|version] [--dry-run]"; exit 1 ;;
     esac
 }

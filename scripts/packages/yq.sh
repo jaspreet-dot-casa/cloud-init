@@ -17,8 +17,11 @@ set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
+# shellcheck source=../lib/core.sh disable=SC1091
 source "${SCRIPT_DIR}/../lib/core.sh"
+# shellcheck source=../lib/health.sh disable=SC1091
 source "${SCRIPT_DIR}/../lib/health.sh"
+# shellcheck source=../lib/dryrun.sh disable=SC1091
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="yq"
@@ -40,32 +43,34 @@ do_install() {
         return 0
     fi
 
-    local arch=$(uname -m)
+    local arch
+    arch=$(uname -m)
     # yq uses amd64 and arm64
-    case "$arch" in
+    case "${arch}" in
         x86_64) arch="amd64" ;;
         aarch64) arch="arm64" ;;
     esac
 
-    local tmp_dir=$(mktemp -d)
-    trap "rm -rf $tmp_dir" EXIT
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
+    trap 'rm -rf "${tmp_dir}"' EXIT
 
     # Download latest binary directly
     local url="https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${arch}"
 
-    curl -fsSL "$url" -o "${tmp_dir}/yq"
+    curl -fsSL "${url}" -o "${tmp_dir}/yq"
     chmod +x "${tmp_dir}/yq"
-    sudo install -m 755 "${tmp_dir}/yq" "$INSTALL_PATH"
+    sudo install -m 755 "${tmp_dir}/yq" "${INSTALL_PATH}"
 
     log_success "yq installed"
 }
 
 verify() {
     if ! is_installed; then
-        health_fail "$PACKAGE_NAME" "not installed"
+        health_fail "${PACKAGE_NAME}" "not installed"
         return 1
     fi
-    health_pass "$PACKAGE_NAME" "v$(get_installed_version)"
+    health_pass "${PACKAGE_NAME}" "v$(get_installed_version)"
     return 0
 }
 
@@ -78,12 +83,13 @@ main() {
     parse_dry_run_flag "$@"
     local action="${1:-install}"
 
+    # shellcheck source=../../config.env disable=SC1091
     [[ -f "${PROJECT_ROOT}/config.env" ]] && source "${PROJECT_ROOT}/config.env"
     [[ "${PACKAGE_YQ_ENABLED:-true}" != "true" ]] && { log_info "yq disabled"; return 0; }
 
-    case "$action" in
+    case "${action}" in
         install|update)
-            if is_installed && [[ "$action" == "install" ]]; then
+            if is_installed && [[ "${action}" == "install" ]]; then
                 log_success "yq already installed: v$(get_installed_version)"
             else
                 do_install
@@ -92,7 +98,14 @@ main() {
             verify
             ;;
         verify) verify ;;
-        version) is_installed && get_installed_version || { echo "not installed"; return 1; } ;;
+        version)
+            if is_installed; then
+                get_installed_version
+            else
+                echo "not installed"
+                return 1
+            fi
+            ;;
         *) echo "Usage: $0 [install|update|verify|version] [--dry-run]"; exit 1 ;;
     esac
 }

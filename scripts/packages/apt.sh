@@ -15,8 +15,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # Source shared libraries
+# shellcheck source=../lib/core.sh disable=SC1091
 source "${SCRIPT_DIR}/../lib/core.sh"
+# shellcheck source=../lib/dryrun.sh disable=SC1091
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
+# shellcheck source=../lib/health.sh disable=SC1091
 source "${SCRIPT_DIR}/../lib/health.sh"
 
 #==============================================================================
@@ -38,7 +41,7 @@ get_packages() {
         # shellcheck source=/dev/null
         source "${PROJECT_ROOT}/config.env"
     fi
-    echo "${APT_PACKAGES:-$DEFAULT_APT_PACKAGES}"
+    echo "${APT_PACKAGES:-${DEFAULT_APT_PACKAGES}}"
 }
 
 # Update apt cache
@@ -53,13 +56,13 @@ do_install() {
     packages=$(get_packages)
 
     log_section "Installing APT Packages"
-    log_info "Packages: $packages"
+    log_info "Packages: ${packages}"
 
     update_cache
 
     log_info "Installing packages..."
     # shellcheck disable=SC2086
-    apt_or_print install -y -qq $packages
+    apt_or_print install -y -qq ${packages}
 
     log_success "APT packages installed"
 }
@@ -84,12 +87,12 @@ verify() {
     log_section "Verifying APT Packages"
 
     local missing=()
-    for pkg in $packages; do
-        if dpkg -l "$pkg" &>/dev/null; then
-            health_pass "apt:$pkg" "installed"
+    for pkg in ${packages}; do
+        if dpkg -l "${pkg}" &>/dev/null; then
+            health_pass "apt:${pkg}" "installed"
         else
-            health_fail "apt:$pkg" "not installed"
-            missing+=("$pkg")
+            health_fail "apt:${pkg}" "not installed"
+            missing+=("${pkg}")
         fi
     done
 
@@ -110,7 +113,7 @@ main() {
 
     local action="${1:-install}"
 
-    case "$action" in
+    case "${action}" in
         install)
             do_install
             verify
