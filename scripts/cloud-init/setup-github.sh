@@ -126,7 +126,7 @@ upload_ssh_key() {
     fi
 
     # Check if key already exists
-    if gh ssh-key list 2>/dev/null | grep -q "$(cat "${SSH_KEY_PATH}.pub" | cut -d' ' -f2)"; then
+    if gh ssh-key list 2>/dev/null | grep -q "$(cut -d' ' -f2 < "${SSH_KEY_PATH}.pub")"; then
         log_success "SSH key already uploaded to GitHub"
         return 0
     fi
