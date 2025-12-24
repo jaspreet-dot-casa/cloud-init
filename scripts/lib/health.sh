@@ -41,8 +41,8 @@ reset_health_checks() {
 health_pass() {
     local component="$1"
     local message="${2:-OK}"
-    HEALTH_PASSED+=("$component: $message")
-    log_success "[HEALTH] $component: $message"
+    HEALTH_PASSED+=("${component}: ${message}")
+    log_success "[HEALTH] ${component}: ${message}"
 }
 
 # Register a failed health check
@@ -50,8 +50,8 @@ health_pass() {
 health_fail() {
     local component="$1"
     local message="${2:-FAILED}"
-    HEALTH_FAILED+=("$component: $message")
-    log_error "[HEALTH] $component: $message"
+    HEALTH_FAILED+=("${component}: ${message}")
+    log_error "[HEALTH] ${component}: ${message}"
 }
 
 # Register a warning (non-critical issue)
@@ -59,8 +59,8 @@ health_fail() {
 health_warn() {
     local component="$1"
     local message="${2:-WARNING}"
-    HEALTH_WARNINGS+=("$component: $message")
-    log_warning "[HEALTH] $component: $message"
+    HEALTH_WARNINGS+=("${component}: ${message}")
+    log_warning "[HEALTH] ${component}: ${message}"
 }
 
 #==============================================================================
@@ -71,12 +71,12 @@ health_warn() {
 # Usage: check_command "lazygit" && health_pass "lazygit"
 check_command() {
     local cmd="$1"
-    local component="${2:-$cmd}"
+    local component="${2:-${cmd}}"
 
-    if command_exists "$cmd"; then
+    if command_exists "${cmd}"; then
         return 0
     else
-        health_fail "$component" "command '$cmd' not found"
+        health_fail "${component}" "command '${cmd}' not found"
         return 1
     fi
 }
@@ -86,21 +86,21 @@ check_command() {
 check_command_version() {
     local cmd="$1"
     local version_flag="${2:---version}"
-    local component="${3:-$cmd}"
+    local component="${3:-${cmd}}"
 
-    if ! command_exists "$cmd"; then
-        health_fail "$component" "not installed"
+    if ! command_exists "${cmd}"; then
+        health_fail "${component}" "not installed"
         return 1
     fi
 
     local version
-    version=$("$cmd" "$version_flag" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    version=$("${cmd}" "${version_flag}" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
 
-    if [[ -n "$version" ]]; then
-        health_pass "$component" "v$version"
+    if [[ -n "${version}" ]]; then
+        health_pass "${component}" "v${version}"
         return 0
     else
-        health_warn "$component" "installed but version unknown"
+        health_warn "${component}" "installed but version unknown"
         return 0
     fi
 }
@@ -109,13 +109,13 @@ check_command_version() {
 # Usage: check_file_exists "$HOME/.config/starship.toml" "starship config"
 check_file_exists() {
     local file="$1"
-    local component="${2:-$file}"
+    local component="${2:-${file}}"
 
-    if [[ -f "$file" ]]; then
-        health_pass "$component" "exists"
+    if [[ -f "${file}" ]]; then
+        health_pass "${component}" "exists"
         return 0
     else
-        health_fail "$component" "file not found: $file"
+        health_fail "${component}" "file not found: ${file}"
         return 1
     fi
 }
@@ -124,13 +124,13 @@ check_file_exists() {
 # Usage: check_dir_exists "$HOME/.config/shell" "shell config dir"
 check_dir_exists() {
     local dir="$1"
-    local component="${2:-$dir}"
+    local component="${2:-${dir}}"
 
-    if [[ -d "$dir" ]]; then
-        health_pass "$component" "exists"
+    if [[ -d "${dir}" ]]; then
+        health_pass "${component}" "exists"
         return 0
     else
-        health_fail "$component" "directory not found: $dir"
+        health_fail "${component}" "directory not found: ${dir}"
         return 1
     fi
 }
@@ -139,18 +139,18 @@ check_dir_exists() {
 # Usage: check_service_running "tailscaled" "Tailscale daemon"
 check_service_running() {
     local service="$1"
-    local component="${2:-$service}"
+    local component="${2:-${service}}"
 
     if ! command_exists systemctl; then
-        health_warn "$component" "systemctl not available"
+        health_warn "${component}" "systemctl not available"
         return 1
     fi
 
-    if systemctl is-active --quiet "$service" 2>/dev/null; then
-        health_pass "$component" "running"
+    if systemctl is-active --quiet "${service}" 2>/dev/null; then
+        health_pass "${component}" "running"
         return 0
     else
-        health_fail "$component" "not running"
+        health_fail "${component}" "not running"
         return 1
     fi
 }
@@ -159,13 +159,13 @@ check_service_running() {
 # Usage: check_user_in_group "docker" "Docker group"
 check_user_in_group() {
     local group="$1"
-    local component="${2:-$group group}"
+    local component="${2:-${group} group}"
 
     if groups | grep -q "\b${group}\b"; then
-        health_pass "$component" "user in group"
+        health_pass "${component}" "user in group"
         return 0
     else
-        health_warn "$component" "user not in $group group"
+        health_warn "${component}" "user not in ${group} group"
         return 1
     fi
 }
@@ -178,6 +178,7 @@ check_user_in_group() {
 # Usage: print_health_summary
 # Returns: Number of failures
 print_health_summary() {
+    # shellcheck disable=SC2154
     local passed=${#HEALTH_PASSED[@]}
     local failed=${#HEALTH_FAILED[@]}
     local warnings=${#HEALTH_WARNINGS[@]}
@@ -185,34 +186,37 @@ print_health_summary() {
     echo ""
     log_section "Health Check Summary"
 
-    echo -e "${GREEN}Passed:${NC}   $passed"
-    echo -e "${YELLOW}Warnings:${NC} $warnings"
-    echo -e "${RED}Failed:${NC}   $failed"
+    # shellcheck disable=SC2154
+    echo -e "${GREEN}Passed:${NC}   ${passed}"
+    # shellcheck disable=SC2154
+    echo -e "${YELLOW}Warnings:${NC} ${warnings}"
+    # shellcheck disable=SC2154
+    echo -e "${RED}Failed:${NC}   ${failed}"
 
-    if [[ $warnings -gt 0 ]]; then
+    if [[ ${warnings} -gt 0 ]]; then
         echo ""
         echo -e "${YELLOW}Warnings:${NC}"
         for warn in "${HEALTH_WARNINGS[@]}"; do
-            echo "  - $warn"
+            echo "  - ${warn}"
         done
     fi
 
-    if [[ $failed -gt 0 ]]; then
+    if [[ ${failed} -gt 0 ]]; then
         echo ""
         echo -e "${RED}Failures:${NC}"
         for fail in "${HEALTH_FAILED[@]}"; do
-            echo "  - $fail"
+            echo "  - ${fail}"
         done
     fi
 
     echo ""
-    if [[ $failed -eq 0 ]]; then
+    if [[ ${failed} -eq 0 ]]; then
         log_success "All health checks passed!"
     else
-        log_error "$failed health check(s) failed"
+        log_error "${failed} health check(s) failed"
     fi
 
-    return "$failed"
+    return "${failed}"
 }
 
 # Quick overall health status
@@ -231,9 +235,9 @@ run_health_check() {
     local name="$1"
     local check_fn="$2"
 
-    log_debug "Running health check: $name"
+    log_debug "Running health check: ${name}"
 
-    if "$check_fn" 2>/dev/null; then
+    if "${check_fn}" 2>/dev/null; then
         return 0
     else
         return 1
@@ -251,27 +255,27 @@ run_all_health_checks() {
     project_root="$(get_project_root)"
     local packages_dir="${project_root}/scripts/packages"
 
-    if [[ ! -d "$packages_dir" ]]; then
+    if [[ ! -d "${packages_dir}" ]]; then
         log_warning "No packages directory found"
         return 0
     fi
 
     # Run verify function from each package script
-    for script in "$packages_dir"/*.sh; do
-        [[ -f "$script" ]] || continue
+    for script in "${packages_dir}"/*.sh; do
+        [[ -f "${script}" ]] || continue
 
         local package_name
-        package_name=$(basename "$script" .sh)
+        package_name=$(basename "${script}" .sh)
 
         # Source the script and run its verify function if it exists
         # shellcheck disable=SC1090
-        source "$script"
+        source "${script}"
         if declare -f verify &>/dev/null; then
             verify
             # Unset to avoid conflicts with next script
             unset -f verify
         else
-            log_debug "No verify function in $package_name"
+            log_debug "No verify function in ${package_name}"
         fi
     done
 

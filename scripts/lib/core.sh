@@ -63,7 +63,7 @@ log_section() {
 
 # Check if running as root
 is_root() {
-    [[ $EUID -eq 0 ]]
+    [[ ${EUID} -eq 0 ]]
 }
 
 # Check if running in Docker container
@@ -81,14 +81,14 @@ get_project_root() {
     local script_dir
     script_dir="$(cd "$(dirname "${BASH_SOURCE[1]}")" && pwd)"
     # Navigate up from scripts/lib/ or scripts/ to project root
-    if [[ "$script_dir" == */scripts/lib ]]; then
-        echo "$(cd "$script_dir/../.." && pwd)"
-    elif [[ "$script_dir" == */scripts/* ]]; then
-        echo "$(cd "$script_dir/../.." && pwd)"
-    elif [[ "$script_dir" == */scripts ]]; then
-        echo "$(cd "$script_dir/.." && pwd)"
+    if [[ "${script_dir}" == */scripts/lib ]]; then
+        cd "${script_dir}/../.." && pwd
+    elif [[ "${script_dir}" == */scripts/* ]]; then
+        cd "${script_dir}/../.." && pwd
+    elif [[ "${script_dir}" == */scripts ]]; then
+        cd "${script_dir}/.." && pwd
     else
-        echo "$(cd "$script_dir" && pwd)"
+        cd "${script_dir}" && pwd
     fi
 }
 
@@ -99,15 +99,17 @@ check_os() {
         return 1
     fi
 
-    # shellcheck disable=SC1091
+    # shellcheck disable=SC1091,SC2034
     source /etc/os-release
 
-    if [[ "$ID" != "ubuntu" ]]; then
-        log_warning "This script is designed for Ubuntu. Detected: $ID"
+    # shellcheck disable=SC2154
+    if [[ "${ID}" != "ubuntu" ]]; then
+        log_warning "This script is designed for Ubuntu. Detected: ${ID}"
         return 1
     fi
 
-    log_debug "OS: $PRETTY_NAME"
+    # shellcheck disable=SC2154
+    log_debug "OS: ${PRETTY_NAME}"
     return 0
 }
 
@@ -115,7 +117,7 @@ check_os() {
 get_arch() {
     local arch
     arch=$(uname -m)
-    case "$arch" in
+    case "${arch}" in
         x86_64)
             echo "amd64"
             ;;
@@ -126,7 +128,7 @@ get_arch() {
             echo "armv7"
             ;;
         *)
-            echo "$arch"
+            echo "${arch}"
             ;;
     esac
 }
@@ -135,7 +137,7 @@ get_arch() {
 get_github_arch() {
     local arch
     arch=$(uname -m)
-    case "$arch" in
+    case "${arch}" in
         x86_64)
             echo "x86_64"
             ;;
@@ -143,7 +145,7 @@ get_github_arch() {
             echo "arm64"
             ;;
         *)
-            echo "$arch"
+            echo "${arch}"
             ;;
     esac
 }
@@ -159,15 +161,15 @@ declare -a COLLECTED_ERRORS=()
 collect_error() {
     local component="$1"
     local message="$2"
-    COLLECTED_ERRORS+=("[$component] $message")
-    log_error "[$component] $message"
+    COLLECTED_ERRORS+=("[${component}] ${message}")
+    log_error "[${component}] ${message}"
 }
 
 # Print error summary and return exit code
 print_error_summary() {
     local count=${#COLLECTED_ERRORS[@]}
 
-    if [[ $count -eq 0 ]]; then
+    if [[ ${count} -eq 0 ]]; then
         log_success "All operations completed successfully"
         return 0
     fi
@@ -175,11 +177,11 @@ print_error_summary() {
     echo "" >&2
     log_section "Error Summary"
     for error in "${COLLECTED_ERRORS[@]}"; do
-        echo -e "  ${RED}$error${NC}" >&2
+        echo -e "  ${RED}${error}${NC}" >&2
     done
     echo "" >&2
-    log_error "$count error(s) occurred"
-    return "$count"
+    log_error "${count} error(s) occurred"
+    return "${count}"
 }
 
 #==============================================================================
@@ -192,13 +194,13 @@ load_config() {
     project_root="$(get_project_root)"
     local config_file="${project_root}/config.env"
 
-    if [[ -f "$config_file" ]]; then
-        log_debug "Loading configuration from $config_file"
+    if [[ -f "${config_file}" ]]; then
+        log_debug "Loading configuration from ${config_file}"
         # shellcheck disable=SC1090
-        source "$config_file"
+        source "${config_file}"
         return 0
     else
-        log_debug "No config.env found at $config_file"
+        log_debug "No config.env found at ${config_file}"
         return 1
     fi
 }
@@ -210,9 +212,9 @@ load_config() {
 # Safely create a directory
 ensure_dir() {
     local dir="$1"
-    if [[ ! -d "$dir" ]]; then
-        mkdir -p "$dir"
-        log_debug "Created directory: $dir"
+    if [[ ! -d "${dir}" ]]; then
+        mkdir -p "${dir}"
+        log_debug "Created directory: ${dir}"
     fi
 }
 
@@ -224,15 +226,15 @@ file_readable() {
 # Backup a file before modifying
 backup_file() {
     local file="$1"
-    local backup_dir="${2:-$HOME/.local-remote/backups}"
+    local backup_dir="${2:-${HOME}/.local-remote/backups}"
     local timestamp
     timestamp=$(date +%Y%m%d_%H%M%S)
 
-    if [[ -f "$file" ]]; then
-        ensure_dir "$backup_dir"
+    if [[ -f "${file}" ]]; then
+        ensure_dir "${backup_dir}"
         local filename
-        filename=$(basename "$file")
-        cp "$file" "${backup_dir}/${filename}.${timestamp}.bak"
-        log_debug "Backed up $file to ${backup_dir}/${filename}.${timestamp}.bak"
+        filename=$(basename "${file}")
+        cp "${file}" "${backup_dir}/${filename}.${timestamp}.bak"
+        log_debug "Backed up ${file} to ${backup_dir}/${filename}.${timestamp}.bak"
     fi
 }

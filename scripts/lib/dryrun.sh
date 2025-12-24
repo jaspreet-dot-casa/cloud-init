@@ -28,12 +28,13 @@ DRY_RUN="${DRY_RUN:-false}"
 
 # Check if dry-run mode is enabled
 is_dry_run() {
-    [[ "$DRY_RUN" == "true" ]]
+    [[ "${DRY_RUN}" == "true" ]]
 }
 
 # Print dry-run prefix for messages
 dry_run_prefix() {
     if is_dry_run; then
+        # shellcheck disable=SC2154
         echo -e "${MAGENTA}[DRY-RUN]${NC} "
     fi
 }
@@ -46,6 +47,7 @@ dry_run_prefix() {
 # Usage: run_or_print command arg1 arg2
 run_or_print() {
     if is_dry_run; then
+        # shellcheck disable=SC2154
         echo -e "${MAGENTA}[DRY-RUN]${NC} Would execute: $*"
         return 0
     else
@@ -57,6 +59,7 @@ run_or_print() {
 # Usage: sudo_or_print command arg1 arg2
 sudo_or_print() {
     if is_dry_run; then
+        # shellcheck disable=SC2154
         echo -e "${MAGENTA}[DRY-RUN]${NC} Would execute (sudo): $*"
         return 0
     else
@@ -71,11 +74,13 @@ download_or_print() {
     local dest="$2"
 
     if is_dry_run; then
-        echo -e "${MAGENTA}[DRY-RUN]${NC} Would download: $url"
-        echo -e "${MAGENTA}[DRY-RUN]${NC}     -> $dest"
+        # shellcheck disable=SC2154
+        echo -e "${MAGENTA}[DRY-RUN]${NC} Would download: ${url}"
+        # shellcheck disable=SC2154
+        echo -e "${MAGENTA}[DRY-RUN]${NC}     -> ${dest}"
         return 0
     else
-        curl -fsSL "$url" -o "$dest"
+        curl -fsSL "${url}" -o "${dest}"
     fi
 }
 
@@ -87,10 +92,11 @@ install_or_print() {
     local mode="${3:-755}"
 
     if is_dry_run; then
-        echo -e "${MAGENTA}[DRY-RUN]${NC} Would install: $src -> $dest (mode: $mode)"
+        # shellcheck disable=SC2154
+        echo -e "${MAGENTA}[DRY-RUN]${NC} Would install: ${src} -> ${dest} (mode: ${mode})"
         return 0
     else
-        sudo install -m "$mode" "$src" "$dest"
+        sudo install -m "${mode}" "${src}" "${dest}"
     fi
 }
 
@@ -100,10 +106,11 @@ mkdir_or_print() {
     local dir="$1"
 
     if is_dry_run; then
-        echo -e "${MAGENTA}[DRY-RUN]${NC} Would create directory: $dir"
+        # shellcheck disable=SC2154
+        echo -e "${MAGENTA}[DRY-RUN]${NC} Would create directory: ${dir}"
         return 0
     else
-        mkdir -p "$dir"
+        mkdir -p "${dir}"
     fi
 }
 
@@ -115,22 +122,24 @@ write_or_print() {
     local content="$2"
 
     if is_dry_run; then
-        echo -e "${MAGENTA}[DRY-RUN]${NC} Would write to: $dest"
+        # shellcheck disable=SC2154
+        echo -e "${MAGENTA}[DRY-RUN]${NC} Would write to: ${dest}"
         if [[ "${VERBOSE:-false}" == "true" ]]; then
+            # shellcheck disable=SC2154
             echo -e "${MAGENTA}[DRY-RUN]${NC} Content preview:"
-            echo "$content" | head -5 | sed 's/^/    /'
+            echo "${content}" | head -5 | sed 's/^/    /'
             local lines
-            lines=$(echo "$content" | wc -l)
-            if [[ $lines -gt 5 ]]; then
+            lines=$(echo "${content}" | wc -l)
+            if [[ ${lines} -gt 5 ]]; then
                 echo "    ... ($((lines - 5)) more lines)"
             fi
         fi
         return 0
     else
         local dir
-        dir=$(dirname "$dest")
-        [[ -d "$dir" ]] || mkdir -p "$dir"
-        echo "$content" > "$dest"
+        dir=$(dirname "${dest}")
+        [[ -d "${dir}" ]] || mkdir -p "${dir}"
+        echo "${content}" > "${dest}"
     fi
 }
 
@@ -141,10 +150,11 @@ append_or_print() {
     local content="$2"
 
     if is_dry_run; then
-        echo -e "${MAGENTA}[DRY-RUN]${NC} Would append to: $dest"
+        # shellcheck disable=SC2154
+        echo -e "${MAGENTA}[DRY-RUN]${NC} Would append to: ${dest}"
         return 0
     else
-        echo "$content" >> "$dest"
+        echo "${content}" >> "${dest}"
     fi
 }
 
@@ -154,10 +164,11 @@ rm_or_print() {
     local path="$1"
 
     if is_dry_run; then
-        echo -e "${MAGENTA}[DRY-RUN]${NC} Would remove: $path"
+        # shellcheck disable=SC2154
+        echo -e "${MAGENTA}[DRY-RUN]${NC} Would remove: ${path}"
         return 0
     else
-        rm -rf "$path"
+        rm -rf "${path}"
     fi
 }
 
@@ -168,10 +179,11 @@ ln_or_print() {
     local dest="$2"
 
     if is_dry_run; then
-        echo -e "${MAGENTA}[DRY-RUN]${NC} Would symlink: $src -> $dest"
+        # shellcheck disable=SC2154
+        echo -e "${MAGENTA}[DRY-RUN]${NC} Would symlink: ${src} -> ${dest}"
         return 0
     else
-        ln -sf "$src" "$dest"
+        ln -sf "${src}" "${dest}"
     fi
 }
 
@@ -182,10 +194,11 @@ cp_or_print() {
     local dest="$2"
 
     if is_dry_run; then
-        echo -e "${MAGENTA}[DRY-RUN]${NC} Would copy: $src -> $dest"
+        # shellcheck disable=SC2154
+        echo -e "${MAGENTA}[DRY-RUN]${NC} Would copy: ${src} -> ${dest}"
         return 0
     else
-        cp -r "$src" "$dest"
+        cp -r "${src}" "${dest}"
     fi
 }
 
@@ -197,6 +210,7 @@ cp_or_print() {
 # Usage: apt_or_print install package1 package2
 apt_or_print() {
     if is_dry_run; then
+        # shellcheck disable=SC2154
         echo -e "${MAGENTA}[DRY-RUN]${NC} Would run: apt-get $*"
         return 0
     else
@@ -208,6 +222,7 @@ apt_or_print() {
 # Usage: systemctl_or_print enable service
 systemctl_or_print() {
     if is_dry_run; then
+        # shellcheck disable=SC2154
         echo -e "${MAGENTA}[DRY-RUN]${NC} Would run: systemctl $*"
         return 0
     else
@@ -219,6 +234,7 @@ systemctl_or_print() {
 # Usage: git_config_or_print --global user.name "Name"
 git_config_or_print() {
     if is_dry_run; then
+        # shellcheck disable=SC2154
         echo -e "${MAGENTA}[DRY-RUN]${NC} Would run: git config $*"
         return 0
     else
@@ -238,6 +254,7 @@ print_dry_run_summary() {
     if is_dry_run; then
         echo ""
         log_section "Dry-Run Summary"
+        # shellcheck disable=SC2154
         echo -e "${MAGENTA}No changes were made.${NC}"
         echo "To apply these changes, run without DRY_RUN=true"
         echo ""
@@ -252,7 +269,7 @@ print_dry_run_summary() {
 # Usage: parse_dry_run_flag "$@"
 parse_dry_run_flag() {
     for arg in "$@"; do
-        case "$arg" in
+        case "${arg}" in
             --dry-run|-n)
                 DRY_RUN=true
                 log_info "Dry-run mode enabled"

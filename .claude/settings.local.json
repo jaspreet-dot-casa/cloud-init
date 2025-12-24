@@ -25,7 +25,8 @@
       "Bash(terraform init:*)",
       "Bash(terraform validate:*)",
       "mcp__MCP_DOCKER__pull_request_read",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(shellcheck:*)"
     ]
   }
 }
