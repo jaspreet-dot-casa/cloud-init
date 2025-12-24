@@ -135,7 +135,7 @@ verify_zsh_config() {
         log_success "Oh-My-Zsh: installed"
     else
         log_error "Oh-My-Zsh: not installed"
-        ((errors++))
+        errors=$((errors + 1))
     fi
 
     # Check .zshrc
@@ -168,7 +168,7 @@ verify_zsh_config() {
         fi
     else
         log_error ".zshrc: not found"
-        ((errors++))
+        errors=$((errors + 1))
     fi
 
     return ${errors}

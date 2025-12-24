@@ -226,10 +226,13 @@ install_daemon() {
         return 0
     fi
 
-    # Check if service exists
-    if systemctl list-unit-files tailscaled.service &> /dev/null 2>&1; then
+    # Check if service unit exists (systemctl cat returns non-zero if unit doesn't exist)
+    if sudo systemctl cat tailscaled.service >/dev/null 2>&1; then
         echo_info "Service exists, starting..."
-        sudo systemctl start tailscaled
+        if ! sudo systemctl start tailscaled; then
+            echo_error "Failed to start tailscaled service"
+            exit 1
+        fi
         echo_success "Daemon started"
     else
         echo_info "Installing systemd service..."
