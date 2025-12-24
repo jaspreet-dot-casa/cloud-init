@@ -29,7 +29,7 @@ make shellcheck                   # ShellCheck linting
 ## Architecture
 
 ```
-ubuntu1-1/
+cloud-init/
 ├── config/                # Configuration files
 │   └── tailscale.conf     # Tailscale configuration
 │

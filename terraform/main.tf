@@ -126,7 +126,7 @@ resource "libvirt_domain" "vm" {
           dev = "vdb"
           bus = "virtio"
         }
-        readonly = "yes"
+        read_only = true
       }
     ]
 
@@ -163,7 +163,7 @@ resource "libvirt_domain" "vm" {
         listen = {
           type = "address"
         }
-        autoport = "yes"
+        auto_port = "yes"
       }
     ]
   }

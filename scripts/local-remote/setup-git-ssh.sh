@@ -82,7 +82,7 @@ setup_github_ssh() {
         local key_fingerprint
         key_fingerprint=$(ssh-keygen -lf "$pub_key_file" | awk '{print $2}')
 
-        if gh ssh-key list 2>/dev/null | grep -q "$key_fingerprint"; then
+        if gh ssh-key list 2>/dev/null | grep -Fq "$key_fingerprint"; then
             log_success "SSH key already added to GitHub"
             return 0
         fi

@@ -116,7 +116,7 @@ verify_git_config() {
         log_success "user.name: $name"
     else
         log_error "user.name not set"
-        ((errors++))
+        ((errors++)) || true
     fi
 
     # Check email
@@ -126,7 +126,7 @@ verify_git_config() {
         log_success "user.email: $email"
     else
         log_error "user.email not set"
-        ((errors++))
+        ((errors++)) || true
     fi
 
     # Check default branch

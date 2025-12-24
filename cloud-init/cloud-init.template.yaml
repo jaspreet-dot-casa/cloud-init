@@ -92,7 +92,7 @@ write_files:
 
       # Run installation as user
       echo "Running installation..."
-      cd "$CLONE_DIR/ubuntu1-1"
+      cd "$CLONE_DIR"
       sudo -u "$CLONE_USER" CLOUD_INIT=true bash scripts/cloud-init/install-all.sh -y
 
       echo "=== Bootstrap Complete ==="
@@ -291,7 +291,7 @@ runcmd:
   - /opt/local-remote/bootstrap.sh
 
   # Create symlinks for user-accessible scripts
-  - ln -sf /home/${USERNAME}/local-remote/ubuntu1-1/scripts/local-remote-login /usr/local/bin/local-remote-login
+  - ln -sf /home/${USERNAME}/local-remote/scripts/local-remote-login /usr/local/bin/local-remote-login
 
   # Import SSH authorized keys from GitHub (if GITHUB_USER is provided)
   - |

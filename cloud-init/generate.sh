@@ -113,7 +113,7 @@ generate_yaml() {
     TAILSCALE_AUTH_KEY="${TAILSCALE_AUTH_KEY:-}"
     GITHUB_PAT="${GITHUB_PAT:-}"
     GITHUB_USER="${GITHUB_USER:-}"
-    REPO_URL="${REPO_URL:-https://github.com/tagpro/local-remote.git}"
+    REPO_URL="${REPO_URL:-https://github.com/jaspreet-dot-casa/cloud-init.git}"
     REPO_BRANCH="${REPO_BRANCH:-main}"
 
     set +a

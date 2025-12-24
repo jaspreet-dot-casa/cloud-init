@@ -72,7 +72,10 @@ update_lock() {
     # Check if entry already exists
     if grep -q "^${var_name}=" "$lock_file" 2>/dev/null; then
         # Update existing entry
-        sed -i.bak "s/^${var_name}=.*/${var_name}=${version}/" "$lock_file"
+        # Escape sed special characters in version
+        local escaped_version
+        escaped_version=$(printf '%s\n' "$version" | sed 's/[&/\]/\\&/g')
+        sed -i.bak "s/^${var_name}=.*/${var_name}=${escaped_version}/" "$lock_file"
         rm -f "${lock_file}.bak"
         log_debug "Updated lock: ${var_name}=${version}"
     else
@@ -175,11 +178,11 @@ verify_locks() {
                 log_success "$package: $installed_version (matches lock)"
             else
                 log_warning "$package: $installed_version (lock: $locked_version)"
-                ((mismatches++))
+                mismatches=$((mismatches + 1))
             fi
         else
             log_warning "$package: not found or version unknown (lock: $locked_version)"
-            ((mismatches++))
+            mismatches=$((mismatches + 1))
         fi
     done < "$lock_file"
 

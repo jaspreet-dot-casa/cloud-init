@@ -80,6 +80,7 @@ Provisions Ubuntu VMs with cloud-init configuration using KVM/QEMU via libvirt.
 | `memory_mb` | `2048` | Memory in MB |
 | `vcpu_count` | `2` | Number of vCPUs |
 | `disk_size_gb` | `20` | Disk size in GB |
+| `autostart` | `false` | Start VM automatically on host boot |
 | `ubuntu_image_path` | `/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img` | Ubuntu image path |
 | `cloud_init_file` | `../cloud-init/cloud-init.yaml` | Cloud-init file |
 

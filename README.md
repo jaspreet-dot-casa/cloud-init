@@ -56,8 +56,8 @@ bash scripts/cloud-init/install-all.sh
 
 2. **Clone and run the installer**
    ```bash
-   git clone https://github.com/your-username/your-repo.git ~/ubuntu1-1
-   cd ~/ubuntu1-1
+   git clone https://github.com/your-username/your-repo.git ~/cloud-init
+   cd ~/cloud-init
    bash scripts/cloud-init/install-all.sh
    ```
 
@@ -242,8 +242,8 @@ See [Tailscale Configuration](#network-services) below for advanced features lik
 
 ```bash
 # On your new server
-git clone https://github.com/your-username/your-repo.git ~/ubuntu1-1
-cd ~/ubuntu1-1
+git clone https://github.com/your-username/your-repo.git ~/cloud-init
+cd ~/cloud-init
 bash scripts/cloud-init/install-all.sh
 ```
 
@@ -251,7 +251,7 @@ bash scripts/cloud-init/install-all.sh
 
 ```bash
 # On each server
-cd ~/ubuntu1-1
+cd ~/cloud-init
 git pull
 make update
 ```
@@ -452,7 +452,7 @@ tailscale up --exit-node=
 ## Project Structure
 
 ```
-ubuntu1-1/
+cloud-init/
 ├── config/
 │   └── tailscale.conf              # Tailscale settings
 ├── cloud-init/

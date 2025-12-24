@@ -77,7 +77,7 @@ import_github_keys() {
             log_info "Key already exists (skipping): ${key:0:40}..."
         else
             echo "$key" >> "$auth_keys_file"
-            ((added++))
+            ((added++)) || true
             log_success "Added key: ${key:0:40}..."
         fi
     done <<< "$keys"

@@ -69,7 +69,7 @@ create_backup() {
             else
                 cp "$path" "$dest_dir/"
             fi
-            ((backed_up++))
+            ((backed_up++)) || true
             log_debug "Backed up: $relative_path"
         fi
     done
@@ -141,7 +141,7 @@ list_backups() {
         else
             echo "  [$count]      $timestamp ($file_count files)"
         fi
-        ((count++))
+        ((count++)) || true
     done
 
     if [[ $count -eq 0 ]]; then
@@ -204,7 +204,7 @@ restore_backup() {
             else
                 cp "$source" "$path"
             fi
-            ((restored++))
+            ((restored++)) || true
             log_debug "Restored: $relative_path"
         fi
     done
