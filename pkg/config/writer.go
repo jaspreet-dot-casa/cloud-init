@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -64,12 +65,10 @@ func (w *Writer) WriteConfigEnv(cfg *FullConfig) error {
 	buf.WriteString("# Package Configuration\n")
 	buf.WriteString("#==============================================================================\n\n")
 
-	// Write package enables
-	allPackages := []string{"lazygit", "lazydocker", "starship", "delta", "zellij", "zoxide", "btop", "gh", "yq"}
-	for _, pkg := range allPackages {
-		enabled := containsPackage(cfg.EnabledPackages, pkg)
+	// Write package enables (only enabled packages are written)
+	for _, pkg := range cfg.EnabledPackages {
 		envName := strings.ToUpper(strings.ReplaceAll(pkg, "-", "_"))
-		buf.WriteString(fmt.Sprintf("PACKAGE_%s_ENABLED=%t\n", envName, enabled))
+		buf.WriteString(fmt.Sprintf("PACKAGE_%s_ENABLED=true\n", envName))
 		buf.WriteString(fmt.Sprintf("PACKAGE_%s_VERSION=latest\n", envName))
 	}
 	buf.WriteString("\n")
@@ -89,6 +88,12 @@ func (w *Writer) WriteConfigEnv(cfg *FullConfig) error {
 
 // WriteSecretsEnv writes the secrets.env file.
 func (w *Writer) WriteSecretsEnv(cfg *FullConfig) error {
+	// Ensure cloud-init directory exists
+	cloudInitDir := filepath.Join(w.ProjectRoot, "cloud-init")
+	if err := os.MkdirAll(cloudInitDir, 0755); err != nil {
+		return fmt.Errorf("failed to create cloud-init directory: %w", err)
+	}
+
 	var buf bytes.Buffer
 
 	buf.WriteString("# Cloud-Init Secrets Configuration\n")

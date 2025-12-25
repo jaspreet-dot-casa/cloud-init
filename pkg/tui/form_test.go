@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/packages"
@@ -46,7 +47,7 @@ func TestValidateHostname(t *testing.T) {
 		{"empty string", "", true},
 		{"starts with hyphen", "-server", true},
 		{"ends with hyphen", "server-", true},
-		{"too long", "a" + string(make([]byte, 64)), true},
+		{"too long", strings.Repeat("a", 64), true},
 		{"contains underscore", "my_server", true},
 		{"uppercase converted", "MyServer", false}, // Should work after lowercase conversion
 	}

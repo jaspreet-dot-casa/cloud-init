@@ -389,7 +389,7 @@ See all packages that can be installed:
 ```
 
 Example output:
-```
+```text
 Found 9 packages:
 
 CLI Tools:
