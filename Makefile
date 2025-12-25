@@ -1,10 +1,17 @@
-.PHONY: help update update-dry verify-cloud test-syntax lint shellcheck test-multipass test-multipass-keep test-multipass-clean pre-commit
+.PHONY: help update update-dry verify-cloud test-syntax lint shellcheck test-multipass test-multipass-keep test-multipass-clean pre-commit build-cli run-cli test-cli install-cli clean-cli
 
 # Get the directory where this Makefile resides
 ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 help:
 	echo "Available targets:"
+	echo ""
+	echo "Go CLI (ucli):"
+	echo "  make build-cli         - Build the ucli binary"
+	echo "  make run-cli           - Run the CLI interactively"
+	echo "  make test-cli          - Run Go tests"
+	echo "  make install-cli       - Install ucli to GOPATH/bin"
+	echo "  make clean-cli         - Clean build artifacts"
 	echo ""
 	echo "Cloud-Init Installation:"
 	echo "  make update            - Update all packages idempotently"
@@ -117,3 +124,37 @@ test-multipass-clean:
 	multipass list --format csv 2>/dev/null | grep cloud-init-test | cut -d',' -f1 | xargs -I {} multipass delete {} 2>/dev/null || true
 	multipass purge 2>/dev/null || true
 	echo "Cleanup complete"
+
+# ============================================================================
+# Go CLI Targets
+# ============================================================================
+
+# Version injection via ldflags
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+LDFLAGS := -ldflags "-X main.version=$(VERSION)"
+
+# Build the ucli binary
+build-cli:
+	@echo "Building ucli (version: $(VERSION))..."
+	go build $(LDFLAGS) -o bin/ucli ./cmd/ucli
+	@echo "✓ Built: bin/ucli"
+
+# Run the CLI interactively
+run-cli: build-cli
+	./bin/ucli generate
+
+# Run Go tests
+test-cli:
+	@echo "Running Go tests..."
+	go test -v ./...
+
+# Install CLI to GOPATH/bin
+install-cli:
+	@echo "Installing ucli..."
+	go install ./cmd/ucli
+	@echo "✓ Installed: ucli"
+
+# Clean build artifacts
+clean-cli:
+	rm -rf bin/ucli
+	@echo "✓ Cleaned: bin/ucli"

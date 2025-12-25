@@ -85,3 +85,6 @@ multipass shell <vm-name>        # SSH into kept VM
 - `scripts/local-remote-login` - Post-login auth script (Tailscale + Git SSH)
 - `cloud-init/cloud-init.template.yaml` - Cloud-init configuration template
 - `config/tailscale.conf` - Tailscale configuration
+
+# Notes from user: Please do not ignore any of them
+- In Makefile, only use `@` for echo statements, not for any other commands.
