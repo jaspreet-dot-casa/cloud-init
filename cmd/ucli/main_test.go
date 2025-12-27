@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -63,19 +64,122 @@ func TestPackagesCmd(t *testing.T) {
 }
 
 func TestValidateCmd(t *testing.T) {
-	rootCmd := newRootCmd()
-	rootCmd.SetArgs([]string{"validate"})
+	t.Run("returns error when config files missing", func(t *testing.T) {
+		// Save current directory and change to temp dir
+		origDir, _ := os.Getwd()
+		tmpDir := t.TempDir()
+		os.Chdir(tmpDir)
+		defer os.Chdir(origDir)
 
-	err := rootCmd.Execute()
-	assert.NoError(t, err)
+		// Create minimal project structure so findProjectRoot works
+		os.MkdirAll("scripts/packages", 0755)
+
+		rootCmd := newRootCmd()
+		rootCmd.SetArgs([]string{"validate"})
+
+		err := rootCmd.Execute()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "validation failed")
+	})
+
+	t.Run("succeeds with valid config files", func(t *testing.T) {
+		origDir, _ := os.Getwd()
+		tmpDir := t.TempDir()
+		os.Chdir(tmpDir)
+		defer os.Chdir(origDir)
+
+		// Create project structure
+		os.MkdirAll("scripts/packages", 0755)
+		os.MkdirAll("cloud-init", 0755)
+
+		// Create valid secrets.env
+		secretsContent := `
+USERNAME="testuser"
+HOSTNAME="test-host"
+SSH_PUBLIC_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITest test@example.com"
+USER_NAME="Test User"
+USER_EMAIL="test@example.com"
+`
+		os.WriteFile("cloud-init/secrets.env", []byte(secretsContent), 0600)
+
+		// Create valid config.env
+		configContent := `
+GIT_PUSH_AUTO_SETUP_REMOTE=true
+DOCKER_ENABLED=true
+`
+		os.WriteFile("config.env", []byte(configContent), 0644)
+
+		rootCmd := newRootCmd()
+		rootCmd.SetArgs([]string{"validate"})
+
+		err := rootCmd.Execute()
+		assert.NoError(t, err)
+	})
 }
 
 func TestBuildCmd(t *testing.T) {
-	rootCmd := newRootCmd()
-	rootCmd.SetArgs([]string{"build"})
+	t.Run("returns error when config files missing", func(t *testing.T) {
+		origDir, _ := os.Getwd()
+		tmpDir := t.TempDir()
+		os.Chdir(tmpDir)
+		defer os.Chdir(origDir)
 
-	err := rootCmd.Execute()
-	assert.NoError(t, err)
+		// Create minimal project structure
+		os.MkdirAll("scripts/packages", 0755)
+
+		rootCmd := newRootCmd()
+		rootCmd.SetArgs([]string{"build"})
+
+		err := rootCmd.Execute()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "validation failed")
+	})
+
+	t.Run("succeeds with valid config files and template", func(t *testing.T) {
+		origDir, _ := os.Getwd()
+		tmpDir := t.TempDir()
+		os.Chdir(tmpDir)
+		defer os.Chdir(origDir)
+
+		// Create project structure
+		os.MkdirAll("scripts/packages", 0755)
+		os.MkdirAll("cloud-init", 0755)
+
+		// Create valid secrets.env
+		secretsContent := `
+USERNAME="testuser"
+HOSTNAME="test-host"
+SSH_PUBLIC_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITest test@example.com"
+USER_NAME="Test User"
+USER_EMAIL="test@example.com"
+`
+		os.WriteFile("cloud-init/secrets.env", []byte(secretsContent), 0600)
+
+		// Create valid config.env
+		configContent := `
+GIT_PUSH_AUTO_SETUP_REMOTE=true
+DOCKER_ENABLED=true
+`
+		os.WriteFile("config.env", []byte(configContent), 0644)
+
+		// Create template
+		templateContent := `#cloud-config
+users:
+  - name: ${USERNAME}
+hostname: ${HOSTNAME}
+`
+		os.WriteFile("cloud-init/cloud-init.template.yaml", []byte(templateContent), 0644)
+
+		rootCmd := newRootCmd()
+		rootCmd.SetArgs([]string{"build"})
+
+		err := rootCmd.Execute()
+		assert.NoError(t, err)
+
+		// Verify output file was created
+		_, err = os.Stat("cloud-init/cloud-init.yaml")
+		assert.NoError(t, err)
+	})
 }
 
 func TestSubcommandHelp(t *testing.T) {
