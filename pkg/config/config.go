@@ -8,11 +8,12 @@ import (
 // FullConfig represents all configuration needed for cloud-init.
 type FullConfig struct {
 	// User configuration
-	Username     string
-	Hostname     string
-	SSHPublicKey string
-	FullName     string
-	Email        string
+	Username      string
+	Hostname      string
+	SSHPublicKeys []string // Multiple SSH keys supported
+	FullName      string   // Git commit name
+	Email         string   // Git commit email
+	MachineName   string   // Display name for the machine user
 
 	// Package configuration
 	EnabledPackages []string
@@ -49,11 +50,12 @@ type FullConfig struct {
 func NewFullConfigFromFormResult(result *tui.FormResult) *FullConfig {
 	cfg := &FullConfig{
 		// User configuration
-		Username:     result.User.Username,
-		Hostname:     result.User.Hostname,
-		SSHPublicKey: result.User.SSHPublicKey,
-		FullName:     result.User.FullName,
-		Email:        result.User.Email,
+		Username:      result.User.Username,
+		Hostname:      result.User.Hostname,
+		SSHPublicKeys: result.User.SSHPublicKeys,
+		FullName:      result.User.FullName,
+		Email:         result.User.Email,
+		MachineName:   result.User.MachineName,
 
 		// Package configuration
 		EnabledPackages: result.SelectedPackages,

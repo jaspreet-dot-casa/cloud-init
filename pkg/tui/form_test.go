@@ -171,11 +171,12 @@ func TestOutputMode(t *testing.T) {
 func TestFormResult(t *testing.T) {
 	result := &FormResult{
 		User: UserConfig{
-			Username:     "testuser",
-			Hostname:     "testhost",
-			SSHPublicKey: "ssh-ed25519 AAAA...",
-			FullName:     "Test User",
-			Email:        "test@example.com",
+			Username:      "testuser",
+			Hostname:      "testhost",
+			SSHPublicKeys: []string{"ssh-ed25519 AAAA...", "ssh-rsa BBBB..."},
+			FullName:      "Test User",
+			Email:         "test@example.com",
+			MachineName:   "Test User",
 		},
 		SelectedPackages: []string{"lazygit", "starship"},
 		Optional: OptionalConfig{
@@ -186,6 +187,8 @@ func TestFormResult(t *testing.T) {
 
 	assert.Equal(t, "testuser", result.User.Username)
 	assert.Equal(t, "testhost", result.User.Hostname)
+	assert.Len(t, result.User.SSHPublicKeys, 2)
+	assert.Equal(t, "Test User", result.User.MachineName)
 	assert.Len(t, result.SelectedPackages, 2)
 	assert.Equal(t, "testgh", result.Optional.GithubUser)
 	assert.Equal(t, OutputCloudInit, result.OutputMode)

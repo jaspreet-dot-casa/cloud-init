@@ -75,6 +75,13 @@ cloud-init/
 ### Go CLI
 - **Package discovery**: `pkg/packages/` scans `scripts/packages/*.sh` parsing PACKAGE_NAME and comments
 - **TUI forms**: Uses `charmbracelet/huh` for interactive forms, `lipgloss` for styling
+- **Multi-step wizard flow**:
+  1. SSH Key Source (GitHub/Local/Manual)
+  2. SSH Key Selection (multi-select if GitHub has multiple keys)
+  3. Git Configuration (auto-fill from GitHub profile, always shown)
+  4. Host Details (username, hostname, display name defaults to git name)
+  5. Package Selection, Optional Services, Output Mode
+- **GitHub integration**: Fetches SSH keys from `github.com/<user>.keys`, profile from GitHub API
 - **Config generation**: `pkg/config/writer.go` generates shell-sourceable env files
 - **Cobra commands**: CLI structure follows `rootCmd` → subcommands pattern
 

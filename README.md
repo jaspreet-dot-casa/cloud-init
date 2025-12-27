@@ -371,10 +371,19 @@ The wizard walks you through:
 
 | Step | What You Configure |
 |------|-------------------|
-| **User Setup** | Username, hostname, SSH public key, git name/email |
+| **SSH Key Source** | Choose to fetch from GitHub, use local ~/.ssh key, or enter manually |
+| **SSH Key Selection** | If GitHub: select one or more keys (multi-select, all selected by default) |
+| **Git Configuration** | Git name and email for commits (can auto-fill from GitHub profile) |
+| **Host Details** | Username, hostname, display name (defaults to git name) |
 | **Package Selection** | Choose which tools to install (all enabled by default) |
 | **Optional Services** | GitHub username, Tailscale auth key, GitHub PAT |
 | **Output Mode** | Config files only, cloud-init.yaml, or bootable ISO |
+
+**Features:**
+- Fetch SSH keys from GitHub username (supports multiple keys)
+- Auto-fill git name/email from GitHub public profile
+- Use local SSH key from ~/.ssh/ automatically
+- Smart defaults - select "Use from GitHub" with one keypress
 
 **Output files generated:**
 - `config.env` - Package enables, git settings, Tailscale options

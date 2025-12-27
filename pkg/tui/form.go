@@ -35,11 +35,12 @@ const (
 
 // UserConfig holds user configuration inputs.
 type UserConfig struct {
-	Username     string
-	Hostname     string
-	SSHPublicKey string
-	FullName     string
-	Email        string
+	Username      string
+	Hostname      string
+	SSHPublicKeys []string // Multiple SSH keys supported
+	FullName      string   // Git commit name
+	Email         string   // Git commit email
+	MachineName   string   // Display name for the machine user (can differ from git name)
 }
 
 // OptionalConfig holds optional service configuration.
@@ -64,7 +65,9 @@ func RunForm(registry *packages.Registry) (*FormResult, error) {
 		OutputMode: OutputConfigOnly,
 	}
 
-	// Step 1: Get SSH key source preference
+	// =========================================================================
+	// Step 1: SSH Key Source Selection
+	// =========================================================================
 	sshKeySource := SSHKeyFromLocal
 	githubUsername := ""
 
@@ -89,7 +92,9 @@ func RunForm(registry *packages.Registry) (*FormResult, error) {
 	// Track what we fetched from GitHub for later form customization
 	var githubProfile *GitHubProfile
 
-	// Step 2: Handle SSH key based on source
+	// =========================================================================
+	// Step 2: SSH Key Details (based on source)
+	// =========================================================================
 	switch sshKeySource {
 	case SSHKeyFromGitHub:
 		// Ask for GitHub username
@@ -119,39 +124,32 @@ func RunForm(registry *packages.Registry) (*FormResult, error) {
 			fmt.Println("Falling back to manual entry...")
 			fmt.Println()
 		} else {
-			// Let user select which key to use if multiple
-			if len(keys) == 1 {
-				result.User.SSHPublicKey = keys[0]
-				fmt.Printf("\n%s Fetched SSH key from GitHub\n", SuccessStyle.Render("✓"))
-			} else {
-				// Multiple keys - let user choose
-				selectedKey := ""
-				keyOptions := make([]huh.Option[string], len(keys))
-				for i, key := range keys {
-					// Truncate key for display
-					displayKey := key
-					if len(key) > 60 {
-						displayKey = key[:57] + "..."
-					}
-					keyOptions[i] = huh.NewOption(displayKey, key)
+			// Multi-select SSH keys (all selected by default)
+			keyOptions := make([]huh.Option[string], len(keys))
+			for i, key := range keys {
+				// Truncate key for display
+				displayKey := key
+				if len(key) > 60 {
+					displayKey = key[:57] + "..."
 				}
-
-				keySelectForm := huh.NewForm(
-					huh.NewGroup(
-						huh.NewSelect[string]().
-							Title("Select SSH Key").
-							Description(fmt.Sprintf("Found %d keys for %s", len(keys), githubUsername)).
-							Options(keyOptions...).
-							Value(&selectedKey),
-					).Title("Choose SSH Key"),
-				).WithTheme(Theme())
-
-				if err := keySelectForm.Run(); err != nil {
-					return nil, fmt.Errorf("form cancelled: %w", err)
-				}
-				result.User.SSHPublicKey = selectedKey
-				fmt.Printf("\n%s Selected SSH key from GitHub\n", SuccessStyle.Render("✓"))
+				keyOptions[i] = huh.NewOption(displayKey, key).Selected(true) // All selected by default
 			}
+
+			keySelectForm := huh.NewForm(
+				huh.NewGroup(
+					huh.NewMultiSelect[string]().
+						Title("Select SSH Keys").
+						Description(fmt.Sprintf("Found %d keys for %s (all selected by default)", len(keys), githubUsername)).
+						Options(keyOptions...).
+						Value(&result.User.SSHPublicKeys),
+				).Title("Choose SSH Keys"),
+			).WithTheme(Theme())
+
+			if err := keySelectForm.Run(); err != nil {
+				return nil, fmt.Errorf("form cancelled: %w", err)
+			}
+			fmt.Printf("\n%s Selected %d SSH key(s) from GitHub\n", SuccessStyle.Render("✓"), len(result.User.SSHPublicKeys))
+
 			// Store GitHub username for later use
 			result.Optional.GithubUser = githubUsername
 		}
@@ -169,60 +167,10 @@ func RunForm(registry *packages.Registry) (*FormResult, error) {
 			}
 		}
 
-		// Let user choose to use GitHub name or enter manually
-		if githubProfile != nil && githubProfile.Name != "" {
-			useGitHubName := ""
-			nameForm := huh.NewForm(
-				huh.NewGroup(
-					huh.NewSelect[string]().
-						Title("Full Name").
-						Description("Use name from GitHub or enter your own?").
-						Options(
-							huh.NewOption(fmt.Sprintf("Use \"%s\" from GitHub", githubProfile.Name), githubProfile.Name),
-							huh.NewOption("Enter manually", ""),
-						).
-						Value(&useGitHubName),
-				).Title("Git Configuration"),
-			).WithTheme(Theme())
-
-			if err := nameForm.Run(); err != nil {
-				return nil, fmt.Errorf("form cancelled: %w", err)
-			}
-
-			if useGitHubName != "" {
-				result.User.FullName = useGitHubName
-			}
-		}
-
-		// Let user choose to use GitHub email or enter manually
-		if githubProfile != nil && githubProfile.Email != "" {
-			useGitHubEmail := ""
-			emailForm := huh.NewForm(
-				huh.NewGroup(
-					huh.NewSelect[string]().
-						Title("Email").
-						Description("Use email from GitHub or enter your own?").
-						Options(
-							huh.NewOption(fmt.Sprintf("Use \"%s\" from GitHub", githubProfile.Email), githubProfile.Email),
-							huh.NewOption("Enter manually", ""),
-						).
-						Value(&useGitHubEmail),
-				).Title("Git Configuration"),
-			).WithTheme(Theme())
-
-			if err := emailForm.Run(); err != nil {
-				return nil, fmt.Errorf("form cancelled: %w", err)
-			}
-
-			if useGitHubEmail != "" {
-				result.User.Email = useGitHubEmail
-			}
-		}
-
 	case SSHKeyFromLocal:
 		localKey := getDefaultSSHKey()
 		if localKey != "" {
-			result.User.SSHPublicKey = localKey
+			result.User.SSHPublicKeys = []string{localKey}
 			fmt.Printf("\n%s Found local SSH key\n\n", SuccessStyle.Render("✓"))
 		} else {
 			fmt.Printf("\n%s No local SSH key found in ~/.ssh/\n", WarningStyle.Render("⚠"))
@@ -231,15 +179,182 @@ func RunForm(registry *packages.Registry) (*FormResult, error) {
 		}
 
 	case SSHKeyManual:
-		// Will be handled in the main form
+		// Will be handled in the host details form
 	}
 
-	// Step 3: Build and run the main form
-	form := buildForm(result, registry, sshKeySource)
+	// =========================================================================
+	// Step 3: Git Configuration (ALWAYS shown)
+	// =========================================================================
+
+	// Git Name - offer choice if we have GitHub profile, otherwise simple input
+	if githubProfile != nil && githubProfile.Name != "" {
+		// Bind directly to result.User.FullName - empty string means "Enter manually"
+		result.User.FullName = githubProfile.Name // Default to GitHub name (first option selected)
+
+		gitNameForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title("Git Name").
+					Description("Name for Git commits").
+					Options(
+						huh.NewOption(fmt.Sprintf("Use \"%s\" from GitHub", githubProfile.Name), githubProfile.Name),
+						huh.NewOption("Enter manually", ""),
+					).
+					Value(&result.User.FullName),
+			).Title("Git Configuration"),
+		).WithTheme(Theme())
+
+		if err := gitNameForm.Run(); err != nil {
+			return nil, fmt.Errorf("form cancelled: %w", err)
+		}
+
+		// If user chose "Enter manually", ask for input
+		if result.User.FullName == "" {
+			manualNameForm := huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().
+						Title("Git Name").
+						Description("Enter your name for Git commits").
+						Placeholder("Your Name").
+						Value(&result.User.FullName).
+						Validate(validateRequired("Git Name")),
+				).Title("Git Configuration"),
+			).WithTheme(Theme())
+
+			if err := manualNameForm.Run(); err != nil {
+				return nil, fmt.Errorf("form cancelled: %w", err)
+			}
+		}
+	} else {
+		// No GitHub profile - simple input
+		gitNameForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Git Name").
+					Description("Your name for Git commits").
+					Placeholder("Your Name").
+					Value(&result.User.FullName).
+					Validate(validateRequired("Git Name")),
+			).Title("Git Configuration"),
+		).WithTheme(Theme())
+
+		if err := gitNameForm.Run(); err != nil {
+			return nil, fmt.Errorf("form cancelled: %w", err)
+		}
+	}
+
+	// Git Email - offer choice if we have GitHub profile, otherwise simple input
+	if githubProfile != nil && githubProfile.Email != "" {
+		// Bind directly to result.User.Email - empty string means "Enter manually"
+		result.User.Email = githubProfile.Email // Default to GitHub email (first option selected)
+
+		gitEmailForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title("Git Email").
+					Description("Email for Git commits").
+					Options(
+						huh.NewOption(fmt.Sprintf("Use \"%s\" from GitHub", githubProfile.Email), githubProfile.Email),
+						huh.NewOption("Enter manually", ""),
+					).
+					Value(&result.User.Email),
+			).Title("Git Configuration"),
+		).WithTheme(Theme())
+
+		if err := gitEmailForm.Run(); err != nil {
+			return nil, fmt.Errorf("form cancelled: %w", err)
+		}
+
+		// If user chose "Enter manually", ask for input
+		if result.User.Email == "" {
+			manualEmailForm := huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().
+						Title("Git Email").
+						Description("Enter your email for Git commits").
+						Placeholder("you@example.com").
+						Value(&result.User.Email).
+						Validate(validateEmail),
+				).Title("Git Configuration"),
+			).WithTheme(Theme())
+
+			if err := manualEmailForm.Run(); err != nil {
+				return nil, fmt.Errorf("form cancelled: %w", err)
+			}
+		}
+	} else {
+		// No GitHub profile - simple input
+		gitEmailForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Git Email").
+					Description("Your email for Git commits").
+					Placeholder("you@example.com").
+					Value(&result.User.Email).
+					Validate(validateEmail),
+			).Title("Git Configuration"),
+		).WithTheme(Theme())
+
+		if err := gitEmailForm.Run(); err != nil {
+			return nil, fmt.Errorf("form cancelled: %w", err)
+		}
+	}
+
+	// =========================================================================
+	// Step 4: Build and run the main form (Host Details, Packages, Optional, Output)
+	// =========================================================================
+	form := buildForm(result, registry)
 
 	err := form.Run()
 	if err != nil {
 		return nil, fmt.Errorf("form cancelled or failed: %w", err)
+	}
+
+	// =========================================================================
+	// Step 5: Post-form processing
+	// =========================================================================
+
+	// Handle "Your Name" manual entry if user chose "Enter different name"
+	if result.User.MachineName == "" {
+		machineNameForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Your Name").
+					Description("Enter your display name for this machine").
+					Placeholder("Your Name").
+					Value(&result.User.MachineName).
+					Validate(validateRequired("Your Name")),
+			).Title("Host Details"),
+		).WithTheme(Theme())
+
+		if err := machineNameForm.Run(); err != nil {
+			return nil, fmt.Errorf("form cancelled: %w", err)
+		}
+	}
+
+	// Handle manual SSH key entry if needed
+	if len(result.User.SSHPublicKeys) == 0 {
+		var manualSSHKey string
+		sshKeyForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewText().
+					Title("SSH Public Key").
+					Description("Your SSH public key for passwordless login").
+					Placeholder("ssh-ed25519 AAAA...").
+					Value(&manualSSHKey).
+					Validate(validateSSHKey).
+					Lines(3).
+					CharLimit(1000),
+			).Title("SSH Key"),
+		).WithTheme(Theme())
+
+		if err := sshKeyForm.Run(); err != nil {
+			return nil, fmt.Errorf("form cancelled: %w", err)
+		}
+
+		if manualSSHKey != "" {
+			result.User.SSHPublicKeys = []string{manualSSHKey}
+		}
 	}
 
 	return result, nil
@@ -325,13 +440,14 @@ func fetchGitHubProfile(username string) (*GitHubProfile, error) {
 	return &profile, nil
 }
 
-// buildForm creates the complete multi-step form.
-func buildForm(result *FormResult, registry *packages.Registry, sshKeySource SSHKeySource) *huh.Form {
+// buildForm creates the complete multi-step form for Host Details, Packages, Optional Services, and Output.
+// Note: SSH keys and Git configuration are handled before this in RunForm.
+func buildForm(result *FormResult, registry *packages.Registry) *huh.Form {
 	// Build package options with all enabled by default
 	packageOptions := buildPackageOptions(registry)
 
-	// Build user config fields
-	userFields := []huh.Field{
+	// Build host details fields
+	hostFields := []huh.Field{
 		huh.NewInput().
 			Title("Username").
 			Description("System username for the new account").
@@ -347,43 +463,33 @@ func buildForm(result *FormResult, registry *packages.Registry, sshKeySource SSH
 			Validate(validateHostname),
 	}
 
-	// Only show SSH key input if we don't have one yet or if manual entry was chosen
-	if result.User.SSHPublicKey == "" || sshKeySource == SSHKeyManual {
-		userFields = append(userFields,
-			huh.NewText().
-				Title("SSH Public Key").
-				Description("Your SSH public key for passwordless login").
-				Placeholder("ssh-ed25519 AAAA...").
-				Value(&result.User.SSHPublicKey).
-				Validate(validateSSHKey).
-				Lines(3).
-				CharLimit(1000),
+	// "Your Name" (MachineName) - offer to use Git name or enter different
+	// Default to git name (FullName was set in Step 3)
+	if result.User.FullName != "" {
+		result.User.MachineName = result.User.FullName // Default to git name
+		hostFields = append(hostFields,
+			huh.NewSelect[string]().
+				Title("Your Name").
+				Description("Display name for this machine's user account").
+				Options(
+					huh.NewOption(fmt.Sprintf("Use \"%s\" (same as Git)", result.User.FullName), result.User.FullName),
+					huh.NewOption("Enter different name", ""),
+				).
+				Value(&result.User.MachineName),
 		)
-	}
-
-	// Only show Full Name input if not already set from GitHub
-	if result.User.FullName == "" {
-		userFields = append(userFields,
+	} else {
+		// Fallback if git name somehow wasn't set
+		hostFields = append(hostFields,
 			huh.NewInput().
-				Title("Full Name").
-				Description("Your name for Git commits").
+				Title("Your Name").
+				Description("Display name for this machine's user account").
 				Placeholder("Your Name").
-				Value(&result.User.FullName).
-				Validate(validateRequired("Full Name")),
+				Value(&result.User.MachineName).
+				Validate(validateRequired("Your Name")),
 		)
 	}
 
-	// Only show Email input if not already set from GitHub
-	if result.User.Email == "" {
-		userFields = append(userFields,
-			huh.NewInput().
-				Title("Email").
-				Description("Your email for Git commits").
-				Placeholder("you@example.com").
-				Value(&result.User.Email).
-				Validate(validateEmail),
-		)
-	}
+	// Note: SSH key manual entry is handled in post-form processing in RunForm
 
 	// Build optional services fields - skip GitHub username if already set from SSH key fetch
 	optionalFields := []huh.Field{}
@@ -415,10 +521,10 @@ func buildForm(result *FormResult, registry *packages.Registry, sshKeySource SSH
 	)
 
 	return huh.NewForm(
-		// Group 1: User Configuration
-		huh.NewGroup(userFields...).
-			Title("User Configuration").
-			Description("Configure your user account"),
+		// Group 1: Host Details
+		huh.NewGroup(hostFields...).
+			Title("Host Details").
+			Description("Configure your machine"),
 
 		// Group 2: Package Selection
 		huh.NewGroup(

@@ -108,7 +108,25 @@ func (w *Writer) WriteSecretsEnv(cfg *FullConfig) error {
 	buf.WriteString("# =============================================================================\n\n")
 	buf.WriteString(fmt.Sprintf("USERNAME=%q\n", cfg.Username))
 	buf.WriteString(fmt.Sprintf("HOSTNAME=%q\n", cfg.Hostname))
-	buf.WriteString(fmt.Sprintf("SSH_PUBLIC_KEY=%q\n", cfg.SSHPublicKey))
+
+	// Write SSH keys - support multiple keys
+	// SSH_PUBLIC_KEY contains the first key for backward compatibility
+	// SSH_PUBLIC_KEYS contains all keys as a YAML-formatted list for cloud-init
+	if len(cfg.SSHPublicKeys) > 0 {
+		buf.WriteString(fmt.Sprintf("SSH_PUBLIC_KEY=%q\n", cfg.SSHPublicKeys[0]))
+
+		// Write all keys as YAML list items for cloud-init template
+		var yamlKeys strings.Builder
+		for _, key := range cfg.SSHPublicKeys {
+			yamlKeys.WriteString(fmt.Sprintf("      - %s\n", key))
+		}
+		buf.WriteString(fmt.Sprintf("SSH_PUBLIC_KEYS_YAML=%q\n", strings.TrimSuffix(yamlKeys.String(), "\n")))
+		buf.WriteString(fmt.Sprintf("SSH_KEY_COUNT=%d\n", len(cfg.SSHPublicKeys)))
+	} else {
+		buf.WriteString("SSH_PUBLIC_KEY=\"\"\n")
+		buf.WriteString("SSH_PUBLIC_KEYS_YAML=\"\"\n")
+		buf.WriteString("SSH_KEY_COUNT=0\n")
+	}
 	buf.WriteString("\n")
 
 	// User Information
@@ -117,6 +135,12 @@ func (w *Writer) WriteSecretsEnv(cfg *FullConfig) error {
 	buf.WriteString("# =============================================================================\n\n")
 	buf.WriteString(fmt.Sprintf("USER_NAME=%q\n", cfg.FullName))
 	buf.WriteString(fmt.Sprintf("USER_EMAIL=%q\n", cfg.Email))
+	// MachineName is the display name for the machine user (may differ from git name)
+	machineName := cfg.MachineName
+	if machineName == "" {
+		machineName = cfg.FullName // Fallback to git name
+	}
+	buf.WriteString(fmt.Sprintf("MACHINE_USER_NAME=%q\n", machineName))
 	buf.WriteString("\n")
 
 	// Tailscale Authentication
