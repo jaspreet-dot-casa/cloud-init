@@ -14,11 +14,12 @@ import (
 func TestNewFullConfigFromFormResult(t *testing.T) {
 	result := &tui.FormResult{
 		User: tui.UserConfig{
-			Username:     "testuser",
-			Hostname:     "testhost",
-			SSHPublicKey: "ssh-ed25519 AAAA...",
-			FullName:     "Test User",
-			Email:        "test@example.com",
+			Username:      "testuser",
+			Hostname:      "testhost",
+			SSHPublicKeys: []string{"ssh-ed25519 AAAA...", "ssh-rsa BBBB..."},
+			FullName:      "Test User",
+			Email:         "test@example.com",
+			MachineName:   "Test User Machine",
 		},
 		SelectedPackages: []string{"lazygit", "docker", "starship"},
 		Optional: tui.OptionalConfig{
@@ -33,8 +34,10 @@ func TestNewFullConfigFromFormResult(t *testing.T) {
 
 	assert.Equal(t, "testuser", cfg.Username)
 	assert.Equal(t, "testhost", cfg.Hostname)
+	assert.Equal(t, []string{"ssh-ed25519 AAAA...", "ssh-rsa BBBB..."}, cfg.SSHPublicKeys)
 	assert.Equal(t, "Test User", cfg.FullName)
 	assert.Equal(t, "test@example.com", cfg.Email)
+	assert.Equal(t, "Test User Machine", cfg.MachineName)
 	assert.Equal(t, []string{"lazygit", "docker", "starship"}, cfg.EnabledPackages)
 	assert.Equal(t, "testgh", cfg.GithubUser)
 	assert.Equal(t, "tskey-test", cfg.TailscaleAuthKey)
@@ -102,9 +105,10 @@ func TestWriteSecretsEnv(t *testing.T) {
 	cfg := &FullConfig{
 		Username:         "testuser",
 		Hostname:         "testhost",
-		SSHPublicKey:     "ssh-ed25519 AAAA...",
+		SSHPublicKeys:    []string{"ssh-ed25519 AAAA...", "ssh-rsa BBBB..."},
 		FullName:         "Test User",
 		Email:            "test@example.com",
+		MachineName:      "Test User Machine",
 		TailscaleAuthKey: "tskey-test",
 		GithubPAT:        "ghp_test",
 		GithubUser:       "testgh",
@@ -125,7 +129,9 @@ func TestWriteSecretsEnv(t *testing.T) {
 	// Check for expected content
 	assert.Contains(t, contentStr, `USERNAME="testuser"`)
 	assert.Contains(t, contentStr, `HOSTNAME="testhost"`)
-	assert.Contains(t, contentStr, `SSH_PUBLIC_KEY="ssh-ed25519 AAAA..."`)
+	assert.Contains(t, contentStr, `SSH_PUBLIC_KEY="ssh-ed25519 AAAA..."`) // First key for backward compat
+	assert.Contains(t, contentStr, `SSH_KEY_COUNT=2`)                      // Multiple keys count
+	assert.Contains(t, contentStr, `MACHINE_USER_NAME="Test User Machine"`)
 	assert.Contains(t, contentStr, `TAILSCALE_AUTH_KEY="tskey-test"`)
 	assert.Contains(t, contentStr, `GITHUB_PAT="ghp_test"`)
 	assert.Contains(t, contentStr, `GITHUB_USER="testgh"`)
@@ -147,9 +153,10 @@ func TestWriteAll(t *testing.T) {
 	cfg := &FullConfig{
 		Username:        "testuser",
 		Hostname:        "testhost",
-		SSHPublicKey:    "ssh-ed25519 AAAA...",
+		SSHPublicKeys:   []string{"ssh-ed25519 AAAA..."},
 		FullName:        "Test User",
 		Email:           "test@example.com",
+		MachineName:     "Test User",
 		EnabledPackages: []string{"lazygit"},
 	}
 
@@ -163,6 +170,29 @@ func TestWriteAll(t *testing.T) {
 
 	_, err = os.Stat(filepath.Join(tmpDir, "cloud-init", "secrets.env"))
 	assert.NoError(t, err)
+}
+
+func TestWriteSecretsEnvNoSSHKeys(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg := &FullConfig{
+		Username:      "testuser",
+		Hostname:      "testhost",
+		SSHPublicKeys: []string{}, // Empty
+		FullName:      "Test User",
+		Email:         "test@example.com",
+	}
+
+	writer := NewWriter(tmpDir)
+	err := writer.WriteSecretsEnv(cfg)
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(filepath.Join(tmpDir, "cloud-init", "secrets.env"))
+	require.NoError(t, err)
+
+	contentStr := string(content)
+	assert.Contains(t, contentStr, `SSH_PUBLIC_KEY=""`)
+	assert.Contains(t, contentStr, `SSH_KEY_COUNT=0`)
 }
 
 func TestConfigEnvIsSourceable(t *testing.T) {
