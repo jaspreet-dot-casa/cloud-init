@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/envfile"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -277,7 +278,7 @@ KEY1=value=with=equals
 			require.NoError(t, err)
 			tmpFile.Close()
 
-			result, err := parseEnvFile(tmpFile.Name())
+			result, err := envfile.Parse(tmpFile.Name())
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.expected, result)

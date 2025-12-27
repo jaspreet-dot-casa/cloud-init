@@ -66,31 +66,44 @@ func TestPackagesCmd(t *testing.T) {
 func TestValidateCmd(t *testing.T) {
 	t.Run("returns error when config files missing", func(t *testing.T) {
 		// Save current directory and change to temp dir
-		origDir, _ := os.Getwd()
+		origDir, err := os.Getwd()
+		require.NoError(t, err)
 		tmpDir := t.TempDir()
-		os.Chdir(tmpDir)
-		defer os.Chdir(origDir)
+		err = os.Chdir(tmpDir)
+		require.NoError(t, err)
+		defer func() {
+			err := os.Chdir(origDir)
+			require.NoError(t, err)
+		}()
 
 		// Create minimal project structure so findProjectRoot works
-		os.MkdirAll("scripts/packages", 0755)
+		err = os.MkdirAll("scripts/packages", 0755)
+		require.NoError(t, err)
 
 		rootCmd := newRootCmd()
 		rootCmd.SetArgs([]string{"validate"})
 
-		err := rootCmd.Execute()
+		err = rootCmd.Execute()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "validation failed")
 	})
 
 	t.Run("succeeds with valid config files", func(t *testing.T) {
-		origDir, _ := os.Getwd()
+		origDir, err := os.Getwd()
+		require.NoError(t, err)
 		tmpDir := t.TempDir()
-		os.Chdir(tmpDir)
-		defer os.Chdir(origDir)
+		err = os.Chdir(tmpDir)
+		require.NoError(t, err)
+		defer func() {
+			err := os.Chdir(origDir)
+			require.NoError(t, err)
+		}()
 
 		// Create project structure
-		os.MkdirAll("scripts/packages", 0755)
-		os.MkdirAll("cloud-init", 0755)
+		err = os.MkdirAll("scripts/packages", 0755)
+		require.NoError(t, err)
+		err = os.MkdirAll("cloud-init", 0755)
+		require.NoError(t, err)
 
 		// Create valid secrets.env
 		secretsContent := `
@@ -100,50 +113,65 @@ SSH_PUBLIC_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITest test@example.com"
 USER_NAME="Test User"
 USER_EMAIL="test@example.com"
 `
-		os.WriteFile("cloud-init/secrets.env", []byte(secretsContent), 0600)
+		err = os.WriteFile("cloud-init/secrets.env", []byte(secretsContent), 0600)
+		require.NoError(t, err)
 
 		// Create valid config.env
 		configContent := `
 GIT_PUSH_AUTO_SETUP_REMOTE=true
 DOCKER_ENABLED=true
 `
-		os.WriteFile("config.env", []byte(configContent), 0644)
+		err = os.WriteFile("config.env", []byte(configContent), 0644)
+		require.NoError(t, err)
 
 		rootCmd := newRootCmd()
 		rootCmd.SetArgs([]string{"validate"})
 
-		err := rootCmd.Execute()
+		err = rootCmd.Execute()
 		assert.NoError(t, err)
 	})
 }
 
 func TestBuildCmd(t *testing.T) {
 	t.Run("returns error when config files missing", func(t *testing.T) {
-		origDir, _ := os.Getwd()
+		origDir, err := os.Getwd()
+		require.NoError(t, err)
 		tmpDir := t.TempDir()
-		os.Chdir(tmpDir)
-		defer os.Chdir(origDir)
+		err = os.Chdir(tmpDir)
+		require.NoError(t, err)
+		defer func() {
+			err := os.Chdir(origDir)
+			require.NoError(t, err)
+		}()
 
 		// Create minimal project structure
-		os.MkdirAll("scripts/packages", 0755)
+		err = os.MkdirAll("scripts/packages", 0755)
+		require.NoError(t, err)
 
 		rootCmd := newRootCmd()
 		rootCmd.SetArgs([]string{"build"})
 
-		err := rootCmd.Execute()
+		err = rootCmd.Execute()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "validation failed")
 	})
 
 	t.Run("succeeds with valid config files and template", func(t *testing.T) {
-		origDir, _ := os.Getwd()
+		origDir, err := os.Getwd()
+		require.NoError(t, err)
 		tmpDir := t.TempDir()
-		os.Chdir(tmpDir)
-		defer os.Chdir(origDir)
+		err = os.Chdir(tmpDir)
+		require.NoError(t, err)
+		defer func() {
+			err := os.Chdir(origDir)
+			require.NoError(t, err)
+		}()
 
 		// Create project structure
-		os.MkdirAll("scripts/packages", 0755)
-		os.MkdirAll("cloud-init", 0755)
+		err = os.MkdirAll("scripts/packages", 0755)
+		require.NoError(t, err)
+		err = os.MkdirAll("cloud-init", 0755)
+		require.NoError(t, err)
 
 		// Create valid secrets.env
 		secretsContent := `
@@ -153,14 +181,16 @@ SSH_PUBLIC_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITest test@example.com"
 USER_NAME="Test User"
 USER_EMAIL="test@example.com"
 `
-		os.WriteFile("cloud-init/secrets.env", []byte(secretsContent), 0600)
+		err = os.WriteFile("cloud-init/secrets.env", []byte(secretsContent), 0600)
+		require.NoError(t, err)
 
 		// Create valid config.env
 		configContent := `
 GIT_PUSH_AUTO_SETUP_REMOTE=true
 DOCKER_ENABLED=true
 `
-		os.WriteFile("config.env", []byte(configContent), 0644)
+		err = os.WriteFile("config.env", []byte(configContent), 0644)
+		require.NoError(t, err)
 
 		// Create template
 		templateContent := `#cloud-config
@@ -168,12 +198,13 @@ users:
   - name: ${USERNAME}
 hostname: ${HOSTNAME}
 `
-		os.WriteFile("cloud-init/cloud-init.template.yaml", []byte(templateContent), 0644)
+		err = os.WriteFile("cloud-init/cloud-init.template.yaml", []byte(templateContent), 0644)
+		require.NoError(t, err)
 
 		rootCmd := newRootCmd()
 		rootCmd.SetArgs([]string{"build"})
 
-		err := rootCmd.Execute()
+		err = rootCmd.Execute()
 		assert.NoError(t, err)
 
 		// Verify output file was created

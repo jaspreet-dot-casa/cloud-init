@@ -4,6 +4,7 @@ package generator
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -66,8 +67,8 @@ func (g *Generator) GenerateFromEnv() error {
 		return fmt.Errorf("failed to read config: %w", err)
 	}
 
-	templatePath := g.ProjectRoot + "/cloud-init/cloud-init.template.yaml"
-	outputPath := g.ProjectRoot + "/cloud-init/cloud-init.yaml"
+	templatePath := filepath.Join(g.ProjectRoot, "cloud-init", "cloud-init.template.yaml")
+	outputPath := filepath.Join(g.ProjectRoot, "cloud-init", "cloud-init.yaml")
 
 	return g.Generate(cfg, templatePath, outputPath)
 }
@@ -96,7 +97,10 @@ func configToVars(cfg *config.FullConfig) *TemplateVars {
 	if len(cfg.SSHPublicKeys) > 0 {
 		vars.SSH_PUBLIC_KEY = cfg.SSHPublicKeys[0]
 
-		// Build YAML formatted list of keys
+		// Build YAML formatted list of keys.
+		// Note: The 6-space indentation matches the cloud-init.template.yaml structure
+		// where ssh_authorized_keys is nested under users. If the template structure
+		// changes, this indentation may need to be updated.
 		var yamlKeys strings.Builder
 		for _, key := range cfg.SSHPublicKeys {
 			yamlKeys.WriteString(fmt.Sprintf("      - %s\n", key))

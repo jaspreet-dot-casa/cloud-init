@@ -1,12 +1,12 @@
 package config
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/envfile"
 )
 
 // Reader handles reading configuration files.
@@ -24,12 +24,12 @@ func (r *Reader) ReadAll() (*FullConfig, error) {
 	secretsPath := filepath.Join(r.ProjectRoot, "cloud-init", "secrets.env")
 	configPath := filepath.Join(r.ProjectRoot, "config.env")
 
-	secretsEnv, err := parseEnvFile(secretsPath)
+	secretsEnv, err := envfile.Parse(secretsPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read secrets.env: %w", err)
 	}
 
-	configEnv, err := parseEnvFile(configPath)
+	configEnv, err := envfile.Parse(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config.env: %w", err)
 	}
@@ -92,55 +92,13 @@ func (r *Reader) ReadAll() (*FullConfig, error) {
 // ReadSecretsEnv reads only the secrets.env file.
 func (r *Reader) ReadSecretsEnv() (map[string]string, error) {
 	secretsPath := filepath.Join(r.ProjectRoot, "cloud-init", "secrets.env")
-	return parseEnvFile(secretsPath)
+	return envfile.Parse(secretsPath)
 }
 
 // ReadConfigEnv reads only the config.env file.
 func (r *Reader) ReadConfigEnv() (map[string]string, error) {
 	configPath := filepath.Join(r.ProjectRoot, "config.env")
-	return parseEnvFile(configPath)
-}
-
-// parseEnvFile parses a shell-style env file and returns key-value pairs.
-func parseEnvFile(path string) (map[string]string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	envVars := make(map[string]string)
-	scanner := bufio.NewScanner(file)
-
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-
-		// Skip empty lines and comments
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		// Parse KEY=VALUE or KEY="VALUE"
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-
-		key := strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
-
-		// Remove quotes if present
-		if len(value) >= 2 {
-			if (value[0] == '"' && value[len(value)-1] == '"') ||
-				(value[0] == '\'' && value[len(value)-1] == '\'') {
-				value = value[1 : len(value)-1]
-			}
-		}
-
-		envVars[key] = value
-	}
-
-	return envVars, scanner.Err()
+	return envfile.Parse(configPath)
 }
 
 // parseEnabledPackages extracts enabled packages from config env vars.

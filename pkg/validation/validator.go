@@ -2,13 +2,14 @@
 package validation
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/envfile"
 )
 
 // Severity represents the severity of a validation issue.
@@ -106,7 +107,7 @@ func (v *Validator) ValidateSecretsEnv(path string) []Issue {
 	}
 
 	// Parse the env file
-	envVars, err := parseEnvFile(path)
+	envVars, err := envfile.Parse(path)
 	if err != nil {
 		issues = append(issues, Issue{
 			File:     path,
@@ -196,7 +197,7 @@ func (v *Validator) ValidateConfigEnv(path string) []Issue {
 	}
 
 	// Parse the env file
-	envVars, err := parseEnvFile(path)
+	envVars, err := envfile.Parse(path)
 	if err != nil {
 		issues = append(issues, Issue{
 			File:     path,
@@ -247,13 +248,14 @@ func (v *Validator) ValidateConfigEnv(path string) []Issue {
 	}
 
 	// Cross-reference validation: if TAILSCALE_SSH_ENABLED is true, check tailscale package
+	// This is an error because enabling Tailscale SSH without the package will cause runtime failures
 	if sshEnabled, exists := envVars["TAILSCALE_SSH_ENABLED"]; exists && sshEnabled == "true" {
 		if !hasPackageEnabled(envVars, "tailscale") {
 			issues = append(issues, Issue{
 				File:     path,
 				Field:    "TAILSCALE_SSH_ENABLED",
 				Message:  "TAILSCALE_SSH_ENABLED is true but PACKAGE_TAILSCALE_ENABLED is not set",
-				Severity: SeverityWarning,
+				Severity: SeverityError,
 			})
 		}
 	}
@@ -261,57 +263,18 @@ func (v *Validator) ValidateConfigEnv(path string) []Issue {
 	return issues
 }
 
-// parseEnvFile parses a shell-style env file and returns key-value pairs.
-func parseEnvFile(path string) (map[string]string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	envVars := make(map[string]string)
-	scanner := bufio.NewScanner(file)
-
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-
-		// Skip empty lines and comments
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		// Parse KEY=VALUE or KEY="VALUE"
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-
-		key := strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
-
-		// Remove quotes if present
-		if len(value) >= 2 {
-			if (value[0] == '"' && value[len(value)-1] == '"') ||
-				(value[0] == '\'' && value[len(value)-1] == '\'') {
-				value = value[1 : len(value)-1]
-			}
-		}
-
-		envVars[key] = value
-	}
-
-	return envVars, scanner.Err()
-}
-
 // validateHostname validates hostname format (RFC 1123).
+// Valid hostnames are 1-63 characters, alphanumeric with optional hyphens (not at start/end).
 func validateHostname(s string) error {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return fmt.Errorf("hostname is required")
 	}
 
-	// RFC 1123 hostname validation
-	hostnameRegex := regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
+	// RFC 1123 hostname validation:
+	// - Single character: [a-z0-9]
+	// - Multiple characters: starts and ends with [a-z0-9], middle can have hyphens
+	hostnameRegex := regexp.MustCompile(`^(?:[a-z0-9]|[a-z0-9][a-z0-9-]{0,61}[a-z0-9])$`)
 	if !hostnameRegex.MatchString(strings.ToLower(s)) {
 		return fmt.Errorf("invalid hostname: must be alphanumeric with optional hyphens, no leading/trailing hyphens")
 	}
