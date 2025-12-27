@@ -172,6 +172,29 @@ func TestWriteAll(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestWriteSecretsEnvNoSSHKeys(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg := &FullConfig{
+		Username:      "testuser",
+		Hostname:      "testhost",
+		SSHPublicKeys: []string{}, // Empty
+		FullName:      "Test User",
+		Email:         "test@example.com",
+	}
+
+	writer := NewWriter(tmpDir)
+	err := writer.WriteSecretsEnv(cfg)
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(filepath.Join(tmpDir, "cloud-init", "secrets.env"))
+	require.NoError(t, err)
+
+	contentStr := string(content)
+	assert.Contains(t, contentStr, `SSH_PUBLIC_KEY=""`)
+	assert.Contains(t, contentStr, `SSH_KEY_COUNT=0`)
+}
+
 func TestConfigEnvIsSourceable(t *testing.T) {
 	tmpDir := t.TempDir()
 
