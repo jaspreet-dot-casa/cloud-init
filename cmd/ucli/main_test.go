@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -63,19 +64,153 @@ func TestPackagesCmd(t *testing.T) {
 }
 
 func TestValidateCmd(t *testing.T) {
-	rootCmd := newRootCmd()
-	rootCmd.SetArgs([]string{"validate"})
+	t.Run("returns error when config files missing", func(t *testing.T) {
+		// Save current directory and change to temp dir
+		origDir, err := os.Getwd()
+		require.NoError(t, err)
+		tmpDir := t.TempDir()
+		err = os.Chdir(tmpDir)
+		require.NoError(t, err)
+		defer func() {
+			err := os.Chdir(origDir)
+			require.NoError(t, err)
+		}()
 
-	err := rootCmd.Execute()
-	assert.NoError(t, err)
+		// Create minimal project structure so findProjectRoot works
+		err = os.MkdirAll("scripts/packages", 0755)
+		require.NoError(t, err)
+
+		rootCmd := newRootCmd()
+		rootCmd.SetArgs([]string{"validate"})
+
+		err = rootCmd.Execute()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "validation failed")
+	})
+
+	t.Run("succeeds with valid config files", func(t *testing.T) {
+		origDir, err := os.Getwd()
+		require.NoError(t, err)
+		tmpDir := t.TempDir()
+		err = os.Chdir(tmpDir)
+		require.NoError(t, err)
+		defer func() {
+			err := os.Chdir(origDir)
+			require.NoError(t, err)
+		}()
+
+		// Create project structure
+		err = os.MkdirAll("scripts/packages", 0755)
+		require.NoError(t, err)
+		err = os.MkdirAll("cloud-init", 0755)
+		require.NoError(t, err)
+
+		// Create valid secrets.env
+		secretsContent := `
+USERNAME="testuser"
+HOSTNAME="test-host"
+SSH_PUBLIC_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITest test@example.com"
+USER_NAME="Test User"
+USER_EMAIL="test@example.com"
+`
+		err = os.WriteFile("cloud-init/secrets.env", []byte(secretsContent), 0600)
+		require.NoError(t, err)
+
+		// Create valid config.env
+		configContent := `
+GIT_PUSH_AUTO_SETUP_REMOTE=true
+DOCKER_ENABLED=true
+`
+		err = os.WriteFile("config.env", []byte(configContent), 0644)
+		require.NoError(t, err)
+
+		rootCmd := newRootCmd()
+		rootCmd.SetArgs([]string{"validate"})
+
+		err = rootCmd.Execute()
+		assert.NoError(t, err)
+	})
 }
 
 func TestBuildCmd(t *testing.T) {
-	rootCmd := newRootCmd()
-	rootCmd.SetArgs([]string{"build"})
+	t.Run("returns error when config files missing", func(t *testing.T) {
+		origDir, err := os.Getwd()
+		require.NoError(t, err)
+		tmpDir := t.TempDir()
+		err = os.Chdir(tmpDir)
+		require.NoError(t, err)
+		defer func() {
+			err := os.Chdir(origDir)
+			require.NoError(t, err)
+		}()
 
-	err := rootCmd.Execute()
-	assert.NoError(t, err)
+		// Create minimal project structure
+		err = os.MkdirAll("scripts/packages", 0755)
+		require.NoError(t, err)
+
+		rootCmd := newRootCmd()
+		rootCmd.SetArgs([]string{"build"})
+
+		err = rootCmd.Execute()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "validation failed")
+	})
+
+	t.Run("succeeds with valid config files and template", func(t *testing.T) {
+		origDir, err := os.Getwd()
+		require.NoError(t, err)
+		tmpDir := t.TempDir()
+		err = os.Chdir(tmpDir)
+		require.NoError(t, err)
+		defer func() {
+			err := os.Chdir(origDir)
+			require.NoError(t, err)
+		}()
+
+		// Create project structure
+		err = os.MkdirAll("scripts/packages", 0755)
+		require.NoError(t, err)
+		err = os.MkdirAll("cloud-init", 0755)
+		require.NoError(t, err)
+
+		// Create valid secrets.env
+		secretsContent := `
+USERNAME="testuser"
+HOSTNAME="test-host"
+SSH_PUBLIC_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITest test@example.com"
+USER_NAME="Test User"
+USER_EMAIL="test@example.com"
+`
+		err = os.WriteFile("cloud-init/secrets.env", []byte(secretsContent), 0600)
+		require.NoError(t, err)
+
+		// Create valid config.env
+		configContent := `
+GIT_PUSH_AUTO_SETUP_REMOTE=true
+DOCKER_ENABLED=true
+`
+		err = os.WriteFile("config.env", []byte(configContent), 0644)
+		require.NoError(t, err)
+
+		// Create template
+		templateContent := `#cloud-config
+users:
+  - name: ${USERNAME}
+hostname: ${HOSTNAME}
+`
+		err = os.WriteFile("cloud-init/cloud-init.template.yaml", []byte(templateContent), 0644)
+		require.NoError(t, err)
+
+		rootCmd := newRootCmd()
+		rootCmd.SetArgs([]string{"build"})
+
+		err = rootCmd.Execute()
+		assert.NoError(t, err)
+
+		// Verify output file was created
+		_, err = os.Stat("cloud-init/cloud-init.yaml")
+		assert.NoError(t, err)
+	})
 }
 
 func TestSubcommandHelp(t *testing.T) {
