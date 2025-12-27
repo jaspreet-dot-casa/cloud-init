@@ -139,11 +139,26 @@ func TestBuildPackageOptions(t *testing.T) {
 
 	options := buildPackageOptions(registry)
 
+	// Verify correct number of options
 	assert.Len(t, options, 3)
 
-	// Options should be created for each package
-	// Note: We can't easily test the option values without accessing internal fields
-	// but we can verify the count
+	// Collect option values and keys for verification
+	values := make(map[string]string) // value -> key mapping
+	for _, opt := range options {
+		values[opt.Value] = opt.Key
+	}
+
+	// Verify all packages are represented
+	assert.Contains(t, values, "lazygit")
+	assert.Contains(t, values, "starship")
+	assert.Contains(t, values, "docker")
+
+	// Verify labels are formatted correctly (with description)
+	assert.Equal(t, "lazygit - A simple terminal UI for git", values["lazygit"])
+	assert.Equal(t, "starship - Cross-shell prompt", values["starship"])
+
+	// Verify label without description uses just the name
+	assert.Equal(t, "docker", values["docker"])
 }
 
 func TestOutputMode(t *testing.T) {
@@ -179,4 +194,37 @@ func TestFormResult(t *testing.T) {
 func TestTheme(t *testing.T) {
 	theme := Theme()
 	assert.NotNil(t, theme)
+
+	// Verify theme has customized focused styles
+	assert.NotNil(t, theme.Focused)
+	assert.NotNil(t, theme.Focused.Title)
+	assert.NotNil(t, theme.Focused.Description)
+	assert.NotNil(t, theme.Focused.SelectedOption)
+}
+
+func TestStyles(t *testing.T) {
+	// Verify TitleStyle has expected properties
+	titleRender := TitleStyle.Render("Test")
+	assert.NotEmpty(t, titleRender)
+	assert.Contains(t, titleRender, "Test")
+
+	// Verify SubtitleStyle renders correctly
+	subtitleRender := SubtitleStyle.Render("Subtitle")
+	assert.NotEmpty(t, subtitleRender)
+	assert.Contains(t, subtitleRender, "Subtitle")
+
+	// Verify SuccessStyle renders correctly
+	successRender := SuccessStyle.Render("Success")
+	assert.NotEmpty(t, successRender)
+	assert.Contains(t, successRender, "Success")
+
+	// Verify ErrorStyle renders correctly
+	errorRender := ErrorStyle.Render("Error")
+	assert.NotEmpty(t, errorRender)
+	assert.Contains(t, errorRender, "Error")
+
+	// Verify WarningStyle renders correctly
+	warningRender := WarningStyle.Render("Warning")
+	assert.NotEmpty(t, warningRender)
+	assert.Contains(t, warningRender, "Warning")
 }
