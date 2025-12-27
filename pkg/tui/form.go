@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -85,6 +86,9 @@ func RunForm(registry *packages.Registry) (*FormResult, error) {
 		return nil, fmt.Errorf("form cancelled: %w", err)
 	}
 
+	// Track what we fetched from GitHub for later form customization
+	var githubProfile *GitHubProfile
+
 	// Step 2: Handle SSH key based on source
 	switch sshKeySource {
 	case SSHKeyFromGitHub:
@@ -93,11 +97,11 @@ func RunForm(registry *packages.Registry) (*FormResult, error) {
 			huh.NewGroup(
 				huh.NewInput().
 					Title("GitHub Username").
-					Description("We'll fetch your SSH keys from github.com/<username>.keys").
+					Description("We'll fetch your SSH keys and profile info").
 					Placeholder("your-github-username").
 					Value(&githubUsername).
 					Validate(validateRequired("GitHub username")),
-			).Title("GitHub SSH Keys"),
+			).Title("GitHub Integration"),
 		).WithTheme(Theme())
 
 		if err := githubForm.Run(); err != nil {
@@ -118,7 +122,7 @@ func RunForm(registry *packages.Registry) (*FormResult, error) {
 			// Let user select which key to use if multiple
 			if len(keys) == 1 {
 				result.User.SSHPublicKey = keys[0]
-				fmt.Printf("\n%s Fetched SSH key from GitHub\n\n", SuccessStyle.Render("✓"))
+				fmt.Printf("\n%s Fetched SSH key from GitHub\n", SuccessStyle.Render("✓"))
 			} else {
 				// Multiple keys - let user choose
 				selectedKey := ""
@@ -146,10 +150,73 @@ func RunForm(registry *packages.Registry) (*FormResult, error) {
 					return nil, fmt.Errorf("form cancelled: %w", err)
 				}
 				result.User.SSHPublicKey = selectedKey
-				fmt.Printf("\n%s Selected SSH key from GitHub\n\n", SuccessStyle.Render("✓"))
+				fmt.Printf("\n%s Selected SSH key from GitHub\n", SuccessStyle.Render("✓"))
 			}
-			// Also store GitHub username for later use
+			// Store GitHub username for later use
 			result.Optional.GithubUser = githubUsername
+		}
+
+		// Fetch GitHub profile for name/email
+		profile, err := fetchGitHubProfile(githubUsername)
+		if err != nil {
+			fmt.Printf("%s Could not fetch profile info: %v\n\n", WarningStyle.Render("⚠"), err)
+		} else {
+			githubProfile = profile
+			if profile.Name != "" || profile.Email != "" {
+				fmt.Printf("%s Fetched profile from GitHub\n\n", SuccessStyle.Render("✓"))
+			} else {
+				fmt.Printf("%s Profile fetched but name/email are private\n\n", WarningStyle.Render("⚠"))
+			}
+		}
+
+		// Let user choose to use GitHub name or enter manually
+		if githubProfile != nil && githubProfile.Name != "" {
+			useGitHubName := ""
+			nameForm := huh.NewForm(
+				huh.NewGroup(
+					huh.NewSelect[string]().
+						Title("Full Name").
+						Description("Use name from GitHub or enter your own?").
+						Options(
+							huh.NewOption(fmt.Sprintf("Use \"%s\" from GitHub", githubProfile.Name), githubProfile.Name),
+							huh.NewOption("Enter manually", ""),
+						).
+						Value(&useGitHubName),
+				).Title("Git Configuration"),
+			).WithTheme(Theme())
+
+			if err := nameForm.Run(); err != nil {
+				return nil, fmt.Errorf("form cancelled: %w", err)
+			}
+
+			if useGitHubName != "" {
+				result.User.FullName = useGitHubName
+			}
+		}
+
+		// Let user choose to use GitHub email or enter manually
+		if githubProfile != nil && githubProfile.Email != "" {
+			useGitHubEmail := ""
+			emailForm := huh.NewForm(
+				huh.NewGroup(
+					huh.NewSelect[string]().
+						Title("Email").
+						Description("Use email from GitHub or enter your own?").
+						Options(
+							huh.NewOption(fmt.Sprintf("Use \"%s\" from GitHub", githubProfile.Email), githubProfile.Email),
+							huh.NewOption("Enter manually", ""),
+						).
+						Value(&useGitHubEmail),
+				).Title("Git Configuration"),
+			).WithTheme(Theme())
+
+			if err := emailForm.Run(); err != nil {
+				return nil, fmt.Errorf("form cancelled: %w", err)
+			}
+
+			if useGitHubEmail != "" {
+				result.User.Email = useGitHubEmail
+			}
 		}
 
 	case SSHKeyFromLocal:
@@ -176,6 +243,13 @@ func RunForm(registry *packages.Registry) (*FormResult, error) {
 	}
 
 	return result, nil
+}
+
+// GitHubProfile holds public profile information from GitHub.
+type GitHubProfile struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+	Login string `json:"login"`
 }
 
 // fetchGitHubSSHKeys fetches public SSH keys from GitHub for a given username.
@@ -214,6 +288,43 @@ func fetchGitHubSSHKeys(username string) ([]string, error) {
 	return keys, nil
 }
 
+// fetchGitHubProfile fetches public profile information from GitHub API.
+func fetchGitHubProfile(username string) (*GitHubProfile, error) {
+	url := fmt.Sprintf("https://api.github.com/users/%s", username)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to GitHub API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return nil, fmt.Errorf("GitHub user '%s' not found", username)
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	var profile GitHubProfile
+	if err := json.Unmarshal(body, &profile); err != nil {
+		return nil, fmt.Errorf("failed to parse GitHub response: %w", err)
+	}
+
+	return &profile, nil
+}
+
 // buildForm creates the complete multi-step form.
 func buildForm(result *FormResult, registry *packages.Registry, sshKeySource SSHKeySource) *huh.Form {
 	// Build package options with all enabled by default
@@ -250,21 +361,29 @@ func buildForm(result *FormResult, registry *packages.Registry, sshKeySource SSH
 		)
 	}
 
-	userFields = append(userFields,
-		huh.NewInput().
-			Title("Full Name").
-			Description("Your name for Git commits").
-			Placeholder("Your Name").
-			Value(&result.User.FullName).
-			Validate(validateRequired("Full Name")),
+	// Only show Full Name input if not already set from GitHub
+	if result.User.FullName == "" {
+		userFields = append(userFields,
+			huh.NewInput().
+				Title("Full Name").
+				Description("Your name for Git commits").
+				Placeholder("Your Name").
+				Value(&result.User.FullName).
+				Validate(validateRequired("Full Name")),
+		)
+	}
 
-		huh.NewInput().
-			Title("Email").
-			Description("Your email for Git commits").
-			Placeholder("you@example.com").
-			Value(&result.User.Email).
-			Validate(validateEmail),
-	)
+	// Only show Email input if not already set from GitHub
+	if result.User.Email == "" {
+		userFields = append(userFields,
+			huh.NewInput().
+				Title("Email").
+				Description("Your email for Git commits").
+				Placeholder("you@example.com").
+				Value(&result.User.Email).
+				Validate(validateEmail),
+		)
+	}
 
 	// Build optional services fields - skip GitHub username if already set from SSH key fetch
 	optionalFields := []huh.Field{}

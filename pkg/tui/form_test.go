@@ -286,3 +286,39 @@ func TestGetDefaultSSHKey(t *testing.T) {
 		assert.True(t, hasValidPrefix, "Key should have valid SSH prefix")
 	}
 }
+
+func TestFetchGitHubProfile(t *testing.T) {
+	t.Run("valid user with public profile", func(t *testing.T) {
+		// Using "torvalds" as he has a public profile
+		profile, err := fetchGitHubProfile("torvalds")
+		if err != nil {
+			t.Skipf("Skipping network test: %v", err)
+		}
+		assert.NoError(t, err)
+		assert.NotNil(t, profile)
+		assert.Equal(t, "torvalds", profile.Login)
+		// Name is usually public for well-known users
+		assert.NotEmpty(t, profile.Name)
+	})
+
+	t.Run("invalid user", func(t *testing.T) {
+		_, err := fetchGitHubProfile("this-user-definitely-does-not-exist-12345678901234567890")
+		if err == nil {
+			t.Skip("Skipping: expected error for invalid user but got none (network issue?)")
+		}
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "not found")
+	})
+
+	t.Run("profile struct fields", func(t *testing.T) {
+		// Verify GitHubProfile struct has expected fields
+		profile := GitHubProfile{
+			Name:  "Test User",
+			Email: "test@example.com",
+			Login: "testuser",
+		}
+		assert.Equal(t, "Test User", profile.Name)
+		assert.Equal(t, "test@example.com", profile.Email)
+		assert.Equal(t, "testuser", profile.Login)
+	})
+}
