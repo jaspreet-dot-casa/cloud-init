@@ -40,7 +40,29 @@ bash scripts/cloud-init/install-all.sh
 
 ## Quick Start
 
-### New to this? Start here! 👋
+### Option 1: Interactive CLI (Recommended)
+
+Use the `ucli` CLI tool for an interactive, guided setup experience:
+
+```bash
+# Clone the repository
+git clone https://github.com/your-username/your-repo.git ~/cloud-init
+cd ~/cloud-init
+
+# Build the CLI
+make build-cli
+
+# Run the interactive configuration wizard
+./bin/ucli generate
+```
+
+The wizard guides you through:
+1. User configuration (username, hostname, SSH key)
+2. Package selection (choose which tools to install)
+3. Optional integrations (GitHub, Tailscale)
+4. Output format (config files, cloud-init.yaml, or bootable ISO)
+
+### Option 2: Manual Installation
 
 **What you need:**
 - An Ubuntu server (22.04 or 24.04)
@@ -67,23 +89,27 @@ bash scripts/cloud-init/install-all.sh
    ssh your-server  # Shell changes take effect
    ```
 
-That's it! You now have a fully configured development server. 🎉
+That's it! You now have a fully configured development server.
 
-### Already using cloud-init? ☁️
+### Option 3: Cloud-Init Automation
 
 If you're deploying VMs with cloud-init (AWS, DigitalOcean, etc.), you can automate the entire setup on first boot:
 
-1. **Generate your cloud-init file**
-   ```bash
-   cd cloud-init/
-   cp secrets.env.template secrets.env
-   # Edit secrets.env with your credentials (Git name, email, SSH keys, etc.)
-   ./generate.sh
-   ```
+**Using the CLI (recommended):**
+```bash
+./bin/ucli generate
+# Select "Cloud-Init YAML" as output format
+```
 
-2. **Use the generated `cloud-init.yaml` with your cloud provider**
+**Manual method:**
+```bash
+cd cloud-init/
+cp secrets.env.template secrets.env
+# Edit secrets.env with your credentials
+./generate.sh
+```
 
-   Your VM will automatically configure itself on first boot - no manual steps needed!
+Use the generated `cloud-init.yaml` with your cloud provider - your VM will automatically configure itself on first boot!
 
 ## What Gets Installed
 
@@ -314,6 +340,101 @@ make test-syntax      # Validate scripts
 make shellcheck       # Lint scripts
 ```
 
+## CLI Tool (ucli)
+
+The `ucli` CLI provides an interactive way to configure and generate cloud-init configurations.
+
+### Installation
+
+```bash
+# Build from source
+make build-cli
+
+# Or install to your GOPATH
+make install-cli
+
+# Verify installation
+./bin/ucli --version
+```
+
+### Commands
+
+#### `ucli generate` - Interactive Configuration
+
+Launch the interactive TUI wizard to configure your server:
+
+```bash
+./bin/ucli generate
+```
+
+The wizard walks you through:
+
+| Step | What You Configure |
+|------|-------------------|
+| **User Setup** | Username, hostname, SSH public key, git name/email |
+| **Package Selection** | Choose which tools to install (all enabled by default) |
+| **Optional Services** | GitHub username, Tailscale auth key, GitHub PAT |
+| **Output Mode** | Config files only, cloud-init.yaml, or bootable ISO |
+
+**Output files generated:**
+- `config.env` - Package enables, git settings, Tailscale options
+- `cloud-init/secrets.env` - Credentials (SSH keys, auth tokens)
+
+#### `ucli packages` - List Available Packages
+
+See all packages that can be installed:
+
+```bash
+./bin/ucli packages
+```
+
+Example output:
+```text
+Found 9 packages:
+
+CLI Tools:
+  - lazygit: A simple terminal UI for git commands
+  - btop: Resource monitor
+  - yq: YAML processor
+
+Shell & Terminal:
+  - starship: Cross-shell prompt
+  - zoxide: Smarter cd command
+
+Docker & Containers:
+  - lazydocker: Docker TUI
+  - docker: Container runtime
+```
+
+#### `ucli validate` - Validate Configuration
+
+Check your config files for errors:
+
+```bash
+./bin/ucli validate
+```
+
+#### `ucli build` - Non-Interactive Build
+
+Generate cloud-init config from existing files (useful for CI/CD):
+
+```bash
+./bin/ucli build
+```
+
+### CLI Development
+
+```bash
+# Run tests
+make test-cli
+
+# Build and run interactively
+make run-cli
+
+# Clean build artifacts
+make clean-cli
+```
+
 ## Troubleshooting
 
 ### "Docker permission denied"
@@ -453,6 +574,23 @@ tailscale up --exit-node=
 
 ```
 cloud-init/
+├── cmd/
+│   └── ucli/                       # CLI entry point
+│       ├── main.go                 # Main CLI with cobra commands
+│       └── main_test.go            # CLI tests
+├── pkg/
+│   ├── config/                     # Configuration generation
+│   │   ├── config.go               # FullConfig type
+│   │   ├── writer.go               # Write config.env/secrets.env
+│   │   └── writer_test.go
+│   ├── packages/                   # Package discovery
+│   │   ├── package.go              # Package/Registry types
+│   │   ├── discovery.go            # Scan scripts/packages/
+│   │   └── discovery_test.go
+│   └── tui/                        # Interactive TUI
+│       ├── form.go                 # huh form implementation
+│       ├── styles.go               # Lipgloss theming
+│       └── form_test.go
 ├── config/
 │   └── tailscale.conf              # Tailscale settings
 ├── cloud-init/
@@ -466,6 +604,9 @@ cloud-init/
 │   └── shared/                     # Shared config scripts
 ├── tests/
 │   └── multipass/                  # VM testing
+├── bin/                            # Built binaries (gitignored)
+├── go.mod                          # Go module definition
+├── go.sum                          # Go dependencies
 ├── config.env                      # Package enables, git config
 └── Makefile                        # Automation commands
 ```
