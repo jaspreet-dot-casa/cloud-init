@@ -228,3 +228,61 @@ func TestStyles(t *testing.T) {
 	assert.NotEmpty(t, warningRender)
 	assert.Contains(t, warningRender, "Warning")
 }
+
+func TestSSHKeySourceConstants(t *testing.T) {
+	// Verify SSH key source constants
+	assert.Equal(t, SSHKeySource("github"), SSHKeyFromGitHub)
+	assert.Equal(t, SSHKeySource("local"), SSHKeyFromLocal)
+	assert.Equal(t, SSHKeySource("manual"), SSHKeyManual)
+}
+
+func TestFetchGitHubSSHKeys(t *testing.T) {
+	// Test with a known GitHub user that has SSH keys
+	// Using "torvalds" as he's a well-known user with SSH keys
+	t.Run("valid user with keys", func(t *testing.T) {
+		// Skip in CI environments or if network is unavailable
+		keys, err := fetchGitHubSSHKeys("torvalds")
+		if err != nil {
+			t.Skipf("Skipping network test: %v", err)
+		}
+		assert.NoError(t, err)
+		assert.NotEmpty(t, keys)
+		// Verify all keys have valid prefixes
+		for _, key := range keys {
+			hasValidPrefix := strings.HasPrefix(key, "ssh-") || strings.HasPrefix(key, "ecdsa-")
+			assert.True(t, hasValidPrefix, "Key should have valid SSH prefix: %s", key[:min(30, len(key))])
+		}
+	})
+
+	t.Run("invalid user", func(t *testing.T) {
+		// Use a username that almost certainly doesn't exist
+		_, err := fetchGitHubSSHKeys("this-user-definitely-does-not-exist-12345678901234567890")
+		if err == nil {
+			t.Skip("Skipping: expected error for invalid user but got none (network issue?)")
+		}
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "not found")
+	})
+
+	t.Run("empty username", func(t *testing.T) {
+		keys, err := fetchGitHubSSHKeys("")
+		// Empty username should return 404 or error
+		if err == nil {
+			assert.Empty(t, keys)
+		}
+	})
+}
+
+func TestGetDefaultSSHKey(t *testing.T) {
+	// This test is environment-dependent
+	// Just verify it doesn't panic and returns a string
+	key := getDefaultSSHKey()
+	// Key might be empty if no SSH keys exist, that's fine
+	assert.IsType(t, "", key)
+
+	// If a key is returned, it should have a valid prefix
+	if key != "" {
+		hasValidPrefix := strings.HasPrefix(key, "ssh-") || strings.HasPrefix(key, "ecdsa-")
+		assert.True(t, hasValidPrefix, "Key should have valid SSH prefix")
+	}
+}

@@ -2,12 +2,24 @@ package tui
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/packages"
+)
+
+// SSHKeySource represents where to get the SSH key from.
+type SSHKeySource string
+
+const (
+	SSHKeyFromGitHub SSHKeySource = "github"
+	SSHKeyFromLocal  SSHKeySource = "local"
+	SSHKeyManual     SSHKeySource = "manual"
 )
 
 // OutputMode represents what the CLI should generate.
@@ -51,10 +63,113 @@ func RunForm(registry *packages.Registry) (*FormResult, error) {
 		OutputMode: OutputConfigOnly,
 	}
 
-	// Build the form
-	form := buildForm(result, registry)
+	// Step 1: Get SSH key source preference
+	sshKeySource := SSHKeyFromLocal
+	githubUsername := ""
 
-	// Run the form
+	sshSourceForm := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[SSHKeySource]().
+				Title("SSH Key Source").
+				Description("Where should we get your SSH public key from?").
+				Options(
+					huh.NewOption("Fetch from GitHub username", SSHKeyFromGitHub),
+					huh.NewOption("Use local machine key (~/.ssh/id_*.pub)", SSHKeyFromLocal),
+					huh.NewOption("Enter manually", SSHKeyManual),
+				).
+				Value(&sshKeySource),
+		).Title("SSH Key Configuration"),
+	).WithTheme(Theme())
+
+	if err := sshSourceForm.Run(); err != nil {
+		return nil, fmt.Errorf("form cancelled: %w", err)
+	}
+
+	// Step 2: Handle SSH key based on source
+	switch sshKeySource {
+	case SSHKeyFromGitHub:
+		// Ask for GitHub username
+		githubForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("GitHub Username").
+					Description("We'll fetch your SSH keys from github.com/<username>.keys").
+					Placeholder("your-github-username").
+					Value(&githubUsername).
+					Validate(validateRequired("GitHub username")),
+			).Title("GitHub SSH Keys"),
+		).WithTheme(Theme())
+
+		if err := githubForm.Run(); err != nil {
+			return nil, fmt.Errorf("form cancelled: %w", err)
+		}
+
+		// Fetch SSH keys from GitHub
+		keys, err := fetchGitHubSSHKeys(githubUsername)
+		if err != nil {
+			fmt.Printf("\n%s Failed to fetch SSH keys: %v\n", ErrorStyle.Render("✗"), err)
+			fmt.Println("Falling back to manual entry...")
+			fmt.Println()
+		} else if len(keys) == 0 {
+			fmt.Printf("\n%s No SSH keys found for user '%s'\n", WarningStyle.Render("⚠"), githubUsername)
+			fmt.Println("Falling back to manual entry...")
+			fmt.Println()
+		} else {
+			// Let user select which key to use if multiple
+			if len(keys) == 1 {
+				result.User.SSHPublicKey = keys[0]
+				fmt.Printf("\n%s Fetched SSH key from GitHub\n\n", SuccessStyle.Render("✓"))
+			} else {
+				// Multiple keys - let user choose
+				selectedKey := ""
+				keyOptions := make([]huh.Option[string], len(keys))
+				for i, key := range keys {
+					// Truncate key for display
+					displayKey := key
+					if len(key) > 60 {
+						displayKey = key[:57] + "..."
+					}
+					keyOptions[i] = huh.NewOption(displayKey, key)
+				}
+
+				keySelectForm := huh.NewForm(
+					huh.NewGroup(
+						huh.NewSelect[string]().
+							Title("Select SSH Key").
+							Description(fmt.Sprintf("Found %d keys for %s", len(keys), githubUsername)).
+							Options(keyOptions...).
+							Value(&selectedKey),
+					).Title("Choose SSH Key"),
+				).WithTheme(Theme())
+
+				if err := keySelectForm.Run(); err != nil {
+					return nil, fmt.Errorf("form cancelled: %w", err)
+				}
+				result.User.SSHPublicKey = selectedKey
+				fmt.Printf("\n%s Selected SSH key from GitHub\n\n", SuccessStyle.Render("✓"))
+			}
+			// Also store GitHub username for later use
+			result.Optional.GithubUser = githubUsername
+		}
+
+	case SSHKeyFromLocal:
+		localKey := getDefaultSSHKey()
+		if localKey != "" {
+			result.User.SSHPublicKey = localKey
+			fmt.Printf("\n%s Found local SSH key\n\n", SuccessStyle.Render("✓"))
+		} else {
+			fmt.Printf("\n%s No local SSH key found in ~/.ssh/\n", WarningStyle.Render("⚠"))
+			fmt.Println("You'll need to enter it manually...")
+			fmt.Println()
+		}
+
+	case SSHKeyManual:
+		// Will be handled in the main form
+	}
+
+	// Step 3: Build and run the main form
+	form := buildForm(result, registry, sshKeySource)
+
 	err := form.Run()
 	if err != nil {
 		return nil, fmt.Errorf("form cancelled or failed: %w", err)
@@ -63,28 +178,67 @@ func RunForm(registry *packages.Registry) (*FormResult, error) {
 	return result, nil
 }
 
+// fetchGitHubSSHKeys fetches public SSH keys from GitHub for a given username.
+func fetchGitHubSSHKeys(username string) ([]string, error) {
+	url := fmt.Sprintf("https://github.com/%s.keys", username)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to GitHub: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return nil, fmt.Errorf("GitHub user '%s' not found", username)
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("GitHub returned status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// Parse keys (one per line)
+	lines := strings.Split(strings.TrimSpace(string(body)), "\n")
+	keys := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			keys = append(keys, line)
+		}
+	}
+
+	return keys, nil
+}
+
 // buildForm creates the complete multi-step form.
-func buildForm(result *FormResult, registry *packages.Registry) *huh.Form {
+func buildForm(result *FormResult, registry *packages.Registry, sshKeySource SSHKeySource) *huh.Form {
 	// Build package options with all enabled by default
 	packageOptions := buildPackageOptions(registry)
 
-	return huh.NewForm(
-		// Group 1: User Configuration
-		huh.NewGroup(
-			huh.NewInput().
-				Title("Username").
-				Description("System username for the new account").
-				Placeholder("ubuntu").
-				Value(&result.User.Username).
-				Validate(validateRequired("Username")),
+	// Build user config fields
+	userFields := []huh.Field{
+		huh.NewInput().
+			Title("Username").
+			Description("System username for the new account").
+			Placeholder("ubuntu").
+			Value(&result.User.Username).
+			Validate(validateRequired("Username")),
 
-			huh.NewInput().
-				Title("Hostname").
-				Description("Machine hostname").
-				Placeholder("ubuntu-server").
-				Value(&result.User.Hostname).
-				Validate(validateHostname),
+		huh.NewInput().
+			Title("Hostname").
+			Description("Machine hostname").
+			Placeholder("ubuntu-server").
+			Value(&result.User.Hostname).
+			Validate(validateHostname),
+	}
 
+	// Only show SSH key input if we don't have one yet or if manual entry was chosen
+	if result.User.SSHPublicKey == "" || sshKeySource == SSHKeyManual {
+		userFields = append(userFields,
 			huh.NewText().
 				Title("SSH Public Key").
 				Description("Your SSH public key for passwordless login").
@@ -93,21 +247,59 @@ func buildForm(result *FormResult, registry *packages.Registry) *huh.Form {
 				Validate(validateSSHKey).
 				Lines(3).
 				CharLimit(1000),
+		)
+	}
 
-			huh.NewInput().
-				Title("Full Name").
-				Description("Your name for Git commits").
-				Placeholder("Your Name").
-				Value(&result.User.FullName).
-				Validate(validateRequired("Full Name")),
+	userFields = append(userFields,
+		huh.NewInput().
+			Title("Full Name").
+			Description("Your name for Git commits").
+			Placeholder("Your Name").
+			Value(&result.User.FullName).
+			Validate(validateRequired("Full Name")),
 
+		huh.NewInput().
+			Title("Email").
+			Description("Your email for Git commits").
+			Placeholder("you@example.com").
+			Value(&result.User.Email).
+			Validate(validateEmail),
+	)
+
+	// Build optional services fields - skip GitHub username if already set from SSH key fetch
+	optionalFields := []huh.Field{}
+
+	if result.Optional.GithubUser == "" {
+		optionalFields = append(optionalFields,
 			huh.NewInput().
-				Title("Email").
-				Description("Your email for Git commits").
-				Placeholder("you@example.com").
-				Value(&result.User.Email).
-				Validate(validateEmail),
-		).Title("User Configuration").Description("Configure your user account"),
+				Title("GitHub Username").
+				Description("For importing SSH authorized keys (optional)").
+				Placeholder("your-github-username").
+				Value(&result.Optional.GithubUser),
+		)
+	}
+
+	optionalFields = append(optionalFields,
+		huh.NewInput().
+			Title("Tailscale Auth Key").
+			Description("For automatic Tailscale setup (optional)").
+			Placeholder("tskey-auth-...").
+			Value(&result.Optional.TailscaleKey).
+			EchoMode(huh.EchoModePassword),
+
+		huh.NewInput().
+			Title("GitHub Personal Access Token").
+			Description("For gh CLI authentication (optional)").
+			Placeholder("ghp_...").
+			Value(&result.Optional.GithubPAT).
+			EchoMode(huh.EchoModePassword),
+	)
+
+	return huh.NewForm(
+		// Group 1: User Configuration
+		huh.NewGroup(userFields...).
+			Title("User Configuration").
+			Description("Configure your user account"),
 
 		// Group 2: Package Selection
 		huh.NewGroup(
@@ -119,27 +311,9 @@ func buildForm(result *FormResult, registry *packages.Registry) *huh.Form {
 		).Title("Package Selection").Description("Select packages to install"),
 
 		// Group 3: Optional Services
-		huh.NewGroup(
-			huh.NewInput().
-				Title("GitHub Username").
-				Description("For importing SSH authorized keys (optional)").
-				Placeholder("your-github-username").
-				Value(&result.Optional.GithubUser),
-
-			huh.NewInput().
-				Title("Tailscale Auth Key").
-				Description("For automatic Tailscale setup (optional)").
-				Placeholder("tskey-auth-...").
-				Value(&result.Optional.TailscaleKey).
-				EchoMode(huh.EchoModePassword),
-
-			huh.NewInput().
-				Title("GitHub Personal Access Token").
-				Description("For gh CLI authentication (optional)").
-				Placeholder("ghp_...").
-				Value(&result.Optional.GithubPAT).
-				EchoMode(huh.EchoModePassword),
-		).Title("Optional Services").Description("Configure optional integrations"),
+		huh.NewGroup(optionalFields...).
+			Title("Optional Services").
+			Description("Configure optional integrations"),
 
 		// Group 4: Output Mode
 		huh.NewGroup(
