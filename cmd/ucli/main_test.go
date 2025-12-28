@@ -33,6 +33,7 @@ func TestRootCmdHelp(t *testing.T) {
 	assert.Contains(t, output, "packages")
 	assert.Contains(t, output, "validate")
 	assert.Contains(t, output, "build")
+	assert.Contains(t, output, "build-iso")
 }
 
 func TestRootCmdVersion(t *testing.T) {
@@ -238,6 +239,11 @@ func TestSubcommandHelp(t *testing.T) {
 			name:    "build help",
 			args:    []string{"build", "--help"},
 			expects: []string{"Non-interactive", "config.env"},
+		},
+		{
+			name:    "build-iso help",
+			args:    []string{"build-iso", "--help"},
+			expects: []string{"bootable", "xorriso", "Ubuntu"},
 		},
 	}
 

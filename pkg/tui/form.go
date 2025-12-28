@@ -50,13 +50,20 @@ type OptionalConfig struct {
 	GithubPAT    string
 }
 
+// ISOConfig holds ISO generation configuration.
+type ISOConfig struct {
+	SourcePath    string // Path to source Ubuntu ISO
+	UbuntuVersion string // "22.04" or "24.04"
+	StorageLayout string // "lvm", "direct", or "zfs"
+}
+
 // FormResult holds all collected user input.
 type FormResult struct {
 	User             UserConfig
 	SelectedPackages []string
 	Optional         OptionalConfig
 	OutputMode       OutputMode
-	ISOPath          string // Path to selected ISO (if OutputBootableISO)
+	ISO              ISOConfig // ISO options (if OutputBootableISO)
 }
 
 // RunForm executes the interactive TUI form and returns the result.
@@ -311,7 +318,51 @@ func RunForm(registry *packages.Registry) (*FormResult, error) {
 	}
 
 	// =========================================================================
-	// Step 5: Post-form processing
+	// Step 5: ISO Options (if OutputBootableISO selected)
+	// =========================================================================
+
+	if result.OutputMode == OutputBootableISO {
+		// Set defaults
+		result.ISO.UbuntuVersion = "24.04"
+		result.ISO.StorageLayout = "lvm"
+
+		isoForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Source Ubuntu ISO").
+					Description("Path to Ubuntu Server ISO file").
+					Placeholder("/path/to/ubuntu-24.04-live-server-amd64.iso").
+					Value(&result.ISO.SourcePath).
+					Validate(validateISOPath),
+
+				huh.NewSelect[string]().
+					Title("Ubuntu Version").
+					Description("Version of the source ISO").
+					Options(
+						huh.NewOption("Ubuntu 24.04 LTS", "24.04"),
+						huh.NewOption("Ubuntu 22.04 LTS", "22.04"),
+					).
+					Value(&result.ISO.UbuntuVersion),
+
+				huh.NewSelect[string]().
+					Title("Storage Layout").
+					Description("Disk partitioning scheme for installation").
+					Options(
+						huh.NewOption("LVM (recommended)", "lvm"),
+						huh.NewOption("Direct (no LVM)", "direct"),
+						huh.NewOption("ZFS (experimental)", "zfs"),
+					).
+					Value(&result.ISO.StorageLayout),
+			).Title("Bootable ISO Options"),
+		).WithTheme(Theme())
+
+		if err := isoForm.Run(); err != nil {
+			return nil, fmt.Errorf("form cancelled: %w", err)
+		}
+	}
+
+	// =========================================================================
+	// Step 6: Post-form processing
 	// =========================================================================
 
 	// Handle "Your Name" manual entry if user chose "Enter different name"
@@ -658,6 +709,34 @@ func validateEmail(s string) error {
 	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 	if !emailRegex.MatchString(s) {
 		return fmt.Errorf("invalid email format")
+	}
+
+	return nil
+}
+
+func validateISOPath(s string) error {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return fmt.Errorf("source ISO path is required")
+	}
+
+	// Check file exists
+	info, err := os.Stat(s)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("file not found: %s", s)
+	}
+	if err != nil {
+		return fmt.Errorf("cannot access file: %v", err)
+	}
+
+	// Check it's a file, not a directory
+	if info.IsDir() {
+		return fmt.Errorf("path is a directory, not a file")
+	}
+
+	// Check file extension
+	if !strings.HasSuffix(strings.ToLower(s), ".iso") {
+		return fmt.Errorf("file must have .iso extension")
 	}
 
 	return nil
