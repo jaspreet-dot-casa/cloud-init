@@ -26,4 +26,3 @@ bin/
 *.test
 *.out
 coverage.txt
-.tmp/
