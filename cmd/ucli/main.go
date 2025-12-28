@@ -8,6 +8,7 @@ import (
 
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/config"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/generator"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/iso"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/packages"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/tui"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/validation"
@@ -49,6 +50,7 @@ It supports:
 		newPackagesCmd(),
 		newValidateCmd(),
 		newBuildCmd(),
+		newBuildISOCmd(),
 	)
 
 	return rootCmd
@@ -94,6 +96,36 @@ func newBuildCmd() *cobra.Command {
 	}
 }
 
+// newBuildISOCmd creates the build-iso subcommand
+func newBuildISOCmd() *cobra.Command {
+	var sourceISO, outputPath, version, storage string
+	var verbose bool
+
+	cmd := &cobra.Command{
+		Use:   "build-iso",
+		Short: "Build bootable ISO from existing config files",
+		Long: `Build a bootable Ubuntu autoinstall ISO using existing config.env and secrets.env files.
+
+Requires xorriso to be installed:
+  macOS: brew install xorriso
+  Linux: sudo apt install xorriso`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runBuildISO(sourceISO, outputPath, version, storage, verbose)
+		},
+	}
+
+	cmd.Flags().StringVarP(&sourceISO, "source", "s", "", "Source Ubuntu ISO path (required)")
+	cmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output ISO path (defaults to ./output/ubuntu-<version>-autoinstall.iso)")
+	cmd.Flags().StringVarP(&version, "version", "v", "24.04", "Ubuntu version (22.04 or 24.04)")
+	cmd.Flags().StringVar(&storage, "storage", "lvm", "Storage layout (lvm, direct, zfs)")
+	cmd.Flags().BoolVar(&verbose, "verbose", false, "Enable verbose output")
+	if err := cmd.MarkFlagRequired("source"); err != nil {
+		panic(err)
+	}
+
+	return cmd
+}
+
 // runGenerate launches the interactive TUI for configuration generation.
 func runGenerate(_ *cobra.Command, _ []string) error {
 	projectRoot, err := findProjectRoot()
@@ -136,9 +168,38 @@ func runGenerate(_ *cobra.Command, _ []string) error {
 		fmt.Printf("  cd %s && ./cloud-init/generate.sh\n", projectRoot)
 	}
 
-	// ISO creation placeholder
+	// Bootable ISO creation
 	if result.OutputMode == tui.OutputBootableISO {
-		fmt.Println("\n(Bootable ISO creation will be implemented in Phase 5)")
+		fmt.Println("\nBuilding bootable ISO...")
+
+		builder := iso.NewBuilder(projectRoot)
+		builder.SetVerbose(true)
+
+		// Check if tools are available
+		if err := builder.CheckTools(); err != nil {
+			fmt.Printf("\nError: %v\n", err)
+			fmt.Printf("\n%s\n", builder.InstallInstructions())
+			return fmt.Errorf("required tools not installed")
+		}
+
+		outputPath := filepath.Join(projectRoot, "output", fmt.Sprintf("ubuntu-%s-autoinstall.iso", result.ISO.UbuntuVersion))
+
+		opts := &iso.ISOOptions{
+			SourceISO:     result.ISO.SourcePath,
+			OutputPath:    outputPath,
+			UbuntuVersion: result.ISO.UbuntuVersion,
+			StorageLayout: iso.StorageLayout(result.ISO.StorageLayout),
+			Timezone:      "UTC",
+			Locale:        "en_US.UTF-8",
+		}
+
+		if err := builder.Build(cfg, opts); err != nil {
+			return fmt.Errorf("failed to build ISO: %w", err)
+		}
+
+		fmt.Printf("\nBootable ISO created: %s\n", outputPath)
+		fmt.Println("\nTo write to USB:")
+		fmt.Printf("  sudo dd if=%s of=/dev/sdX bs=4M status=progress\n", outputPath)
 	}
 
 	return nil
@@ -307,6 +368,80 @@ func runBuild(_ *cobra.Command, _ []string) error {
 	}
 
 	fmt.Printf("\nGenerated: %s\n", outputPath)
+	fmt.Println("\nBuild complete!")
+
+	return nil
+}
+
+// runBuildISO builds a bootable ISO from existing config files.
+func runBuildISO(sourceISO, outputPath, version, storage string, verbose bool) error {
+	projectRoot, err := findProjectRoot()
+	if err != nil {
+		return fmt.Errorf("could not find project root: %w", err)
+	}
+
+	// Step 1: Check tools
+	builder := iso.NewBuilder(projectRoot)
+	builder.SetVerbose(verbose)
+
+	if err := builder.CheckTools(); err != nil {
+		fmt.Printf("Error: %v\n", err)
+		fmt.Printf("\n%s\n", builder.InstallInstructions())
+		return fmt.Errorf("required tools not installed")
+	}
+
+	// Step 2: Validate configuration files
+	fmt.Println("Validating configuration files...")
+	validator := validation.NewValidator(projectRoot)
+	result := validator.ValidateAll()
+
+	if result.HasErrors() {
+		for _, issue := range result.Issues {
+			if issue.Severity == validation.SeverityError {
+				if issue.Field != "" {
+					fmt.Printf("[ERROR] %s: %s (%s)\n", issue.File, issue.Message, issue.Field)
+				} else {
+					fmt.Printf("[ERROR] %s: %s\n", issue.File, issue.Message)
+				}
+			}
+		}
+		return fmt.Errorf("validation failed with %d error(s), fix errors before building", result.ErrorCount())
+	}
+
+	fmt.Println("Configuration valid.")
+
+	// Step 3: Read configuration
+	fmt.Println("Reading configuration...")
+	reader := config.NewReader(projectRoot)
+	cfg, err := reader.ReadAll()
+	if err != nil {
+		return fmt.Errorf("failed to read config: %w", err)
+	}
+
+	// Step 4: Set output path if not specified
+	if outputPath == "" {
+		outputPath = filepath.Join(projectRoot, "output", fmt.Sprintf("ubuntu-%s-autoinstall.iso", version))
+	}
+
+	// Step 5: Build ISO
+	fmt.Println("Building bootable ISO...")
+
+	opts := &iso.ISOOptions{
+		SourceISO:     sourceISO,
+		OutputPath:    outputPath,
+		UbuntuVersion: version,
+		StorageLayout: iso.StorageLayout(storage),
+		Timezone:      "UTC",
+		Locale:        "en_US.UTF-8",
+	}
+
+	if err := builder.Build(cfg, opts); err != nil {
+		return fmt.Errorf("failed to build ISO: %w", err)
+	}
+
+	fmt.Printf("\nBootable ISO created: %s\n", outputPath)
+	fmt.Println("\nTo write to USB:")
+	fmt.Printf("  sudo dd if=%s of=/dev/sdX bs=4M status=progress\n", outputPath)
 	fmt.Println("\nBuild complete!")
 
 	return nil
