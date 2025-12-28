@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -718,6 +719,14 @@ func validateISOPath(s string) error {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return fmt.Errorf("source ISO path is required")
+	}
+
+	// Expand home directory if path starts with ~/
+	if strings.HasPrefix(s, "~/") {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			s = filepath.Join(home, s[2:])
+		}
 	}
 
 	// Check file exists

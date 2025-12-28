@@ -185,7 +185,8 @@ func (b *Builder) modifyGrubConfig(extractDir string) error {
 	modified := string(content)
 
 	// Add autoinstall datasource parameter before "---"
-	autoinstallParam := "autoinstall ds=nocloud;s=/cdrom/nocloud/"
+	// Note: semicolon must be escaped with backslash for GRUB
+	autoinstallParam := "autoinstall ds=nocloud\\;s=/cdrom/nocloud/"
 	if !strings.Contains(modified, "autoinstall") {
 		modified = strings.ReplaceAll(modified, "---", autoinstallParam+" ---")
 	}

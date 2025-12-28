@@ -3,6 +3,7 @@ package iso
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/config"
@@ -65,9 +66,9 @@ func TestBuilder_Build_MissingSourceISO(t *testing.T) {
 	assert.Error(t, err)
 	// Either tools not available or source ISO not found
 	assert.True(t,
-		contains(err.Error(), "xorriso") ||
-			contains(err.Error(), "not found") ||
-			contains(err.Error(), "source ISO"))
+		strings.Contains(err.Error(), "xorriso") ||
+			strings.Contains(err.Error(), "not found") ||
+			strings.Contains(err.Error(), "source ISO"))
 }
 
 func TestBuilder_Build_InvalidOptions(t *testing.T) {
@@ -231,31 +232,6 @@ func TestBuilder_modifyGrubConfig_AlreadyHasAutoinstall(t *testing.T) {
 	require.NoError(t, err)
 
 	// Count occurrences of autoinstall
-	count := countOccurrences(string(content), "autoinstall")
+	count := strings.Count(string(content), "autoinstall")
 	assert.Equal(t, 1, count, "Should not duplicate autoinstall parameter")
-}
-
-// Helper function to check if string contains substring
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
-}
-
-func containsHelper(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
-
-// Helper function to count occurrences of a substring
-func countOccurrences(s, substr string) int {
-	count := 0
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			count++
-		}
-	}
-	return count
 }

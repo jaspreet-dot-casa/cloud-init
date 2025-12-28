@@ -2,10 +2,17 @@ package iso
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/config"
 	"gopkg.in/yaml.v3"
 )
+
+// escapeShellArg escapes a string for safe use in single-quoted shell arguments.
+// Replaces ' with '\'' (end quote, escaped quote, start quote).
+func escapeShellArg(s string) string {
+	return strings.ReplaceAll(s, "'", "'\\''")
+}
 
 // AutoInstallConfig represents Ubuntu autoinstall configuration.
 // See: https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-reference.html
@@ -197,8 +204,8 @@ func (g *AutoInstallGenerator) buildLateCommands(cfg *config.FullConfig, opts *I
 	// Configure git if email and name provided
 	if cfg.Email != "" && cfg.FullName != "" {
 		commands = append(commands,
-			fmt.Sprintf("curtin in-target -- sudo -u %s git config --global user.email '%s'", username, cfg.Email),
-			fmt.Sprintf("curtin in-target -- sudo -u %s git config --global user.name '%s'", username, cfg.FullName),
+			fmt.Sprintf("curtin in-target -- sudo -u %s git config --global user.email '%s'", username, escapeShellArg(cfg.Email)),
+			fmt.Sprintf("curtin in-target -- sudo -u %s git config --global user.name '%s'", username, escapeShellArg(cfg.FullName)),
 			fmt.Sprintf("curtin in-target -- sudo -u %s git config --global init.defaultBranch main", username),
 		)
 	}
