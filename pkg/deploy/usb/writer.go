@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/config"
@@ -97,10 +98,23 @@ func (d *Deployer) Deploy(ctx context.Context, opts *deploy.DeployOptions, progr
 	builder := iso.NewBuilder(d.projectRoot)
 	builder.SetVerbose(d.verbose)
 
-	// Determine output path
+	// Determine output path by appending hostname and timestamp to source ISO name
 	outputPath := opts.USB.OutputISO
 	if outputPath == "" {
-		outputPath = filepath.Join(d.projectRoot, "output", fmt.Sprintf("ubuntu-%s-autoinstall.iso", opts.USB.UbuntuVersion))
+		hostname := "server"
+		if opts.Config != nil && opts.Config.Hostname != "" {
+			hostname = opts.Config.Hostname
+		}
+		timestamp := time.Now().Format("200601021504")
+
+		// Get source ISO base name and remove .iso extension
+		sourceBase := filepath.Base(opts.USB.SourceISO)
+		sourceName := strings.TrimSuffix(sourceBase, ".iso")
+		sourceName = strings.TrimSuffix(sourceName, ".ISO")
+
+		// Append hostname, timestamp, and autoinstall suffix
+		outputName := fmt.Sprintf("%s-%s-%s-autoinstall.iso", sourceName, hostname, timestamp)
+		outputPath = filepath.Join(d.projectRoot, "output", outputName)
 	}
 
 	// Build ISO options
