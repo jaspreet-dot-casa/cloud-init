@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/config"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/create"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/generator"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/iso"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/packages"
@@ -46,6 +47,7 @@ It supports:
 	}
 
 	rootCmd.AddCommand(
+		newCreateCmd(),
 		newGenerateCmd(),
 		newPackagesCmd(),
 		newValidateCmd(),
@@ -56,14 +58,39 @@ It supports:
 	return rootCmd
 }
 
-// newGenerateCmd creates the generate subcommand
-func newGenerateCmd() *cobra.Command {
+// newCreateCmd creates the create subcommand (main command)
+func newCreateCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "generate",
-		Short: "Interactive configuration generator",
-		Long:  `Launch the interactive TUI to configure cloud-init settings and select packages.`,
-		RunE:  runGenerate,
+		Use:   "create",
+		Short: "Create and deploy Ubuntu configuration (interactive)",
+		Long: `Launch the interactive TUI to configure cloud-init settings, select packages,
+and deploy to a target (Multipass VM, USB, SSH, or Terraform).
+
+This is the main command for end-to-end Ubuntu server configuration and deployment.`,
+		RunE: runCreate,
 	}
+}
+
+// runCreate launches the interactive Bubble Tea TUI for the create command.
+func runCreate(_ *cobra.Command, _ []string) error {
+	projectRoot, err := findProjectRoot()
+	if err != nil {
+		return fmt.Errorf("could not find project root: %w", err)
+	}
+
+	return create.Run(projectRoot)
+}
+
+// newGenerateCmd creates the generate subcommand (deprecated, use create instead)
+func newGenerateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:        "generate",
+		Short:      "Interactive configuration generator (deprecated: use 'create' instead)",
+		Long:       `Launch the interactive TUI to configure cloud-init settings and select packages.`,
+		RunE:       runGenerate,
+		Deprecated: "use 'ucli create' instead for end-to-end configuration and deployment",
+	}
+	return cmd
 }
 
 // newPackagesCmd creates the packages subcommand
@@ -138,7 +165,7 @@ func runGenerate(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to discover packages: %w", err)
 	}
 
-	result, err := tui.RunForm(registry)
+	result, err := tui.RunForm(registry, nil) // nil = show all questions including output mode
 	if err != nil {
 		return err
 	}

@@ -49,6 +49,7 @@ packages:
   - jq
   - htop
   - unzip
+  - neovim
   - build-essential
   - ca-certificates
   - gnupg

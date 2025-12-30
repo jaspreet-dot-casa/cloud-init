@@ -29,7 +29,7 @@ func TestRootCmdHelp(t *testing.T) {
 
 	output := buf.String()
 	assert.Contains(t, output, "ucli")
-	assert.Contains(t, output, "generate")
+	assert.Contains(t, output, "create")    // Main command (replaced generate)
 	assert.Contains(t, output, "packages")
 	assert.Contains(t, output, "validate")
 	assert.Contains(t, output, "build")
@@ -50,10 +50,16 @@ func TestRootCmdVersion(t *testing.T) {
 	assert.Contains(t, output, "ucli version")
 }
 
+func TestCreateCmd(t *testing.T) {
+	// Skip this test as create command requires an interactive TTY
+	// The TUI forms are tested separately in pkg/tui/form_test.go
+	t.Skip("create command requires interactive TTY")
+}
+
 func TestGenerateCmd(t *testing.T) {
 	// Skip this test as generate command requires an interactive TTY
 	// The TUI forms are tested separately in pkg/tui/form_test.go
-	t.Skip("generate command requires interactive TTY")
+	t.Skip("generate command requires interactive TTY (deprecated, use create)")
 }
 
 func TestPackagesCmd(t *testing.T) {
@@ -220,6 +226,11 @@ func TestSubcommandHelp(t *testing.T) {
 		args    []string
 		expects []string
 	}{
+		{
+			name:    "create help",
+			args:    []string{"create", "--help"},
+			expects: []string{"TUI", "deploy", "Multipass"},
+		},
 		{
 			name:    "generate help",
 			args:    []string{"generate", "--help"},

@@ -16,6 +16,7 @@ config.env
 
 # Go build artifacts
 bin/
+output/
 *.exe
 *.exe~
 *.dll

@@ -39,4 +39,7 @@ var (
 
 	WarningStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("214"))
+
+	InfoStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("39"))
 )

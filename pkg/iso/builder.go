@@ -43,8 +43,12 @@ func (b *Builder) Build(cfg *config.FullConfig, opts *ISOOptions) error {
 		return fmt.Errorf("invalid options: %w", err)
 	}
 
-	// Step 3: Create temporary work directory
-	workDir, err := os.MkdirTemp("", "ucli-iso-*")
+	// Step 3: Create temporary work directory in project .tmp
+	tmpBase := filepath.Join(b.projectRoot, ".tmp")
+	if err := os.MkdirAll(tmpBase, 0755); err != nil {
+		return fmt.Errorf("failed to create .tmp directory: %w", err)
+	}
+	workDir, err := os.MkdirTemp(tmpBase, "iso-*")
 	if err != nil {
 		return fmt.Errorf("failed to create work directory: %w", err)
 	}
@@ -113,16 +117,10 @@ func (b *Builder) extractISO(isoPath, extractDir string) error {
 	}
 
 	// Make all files writable (xorriso preserves read-only permissions from ISO)
-	if err := filepath.Walk(extractDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return os.Chmod(path, 0755)
-		}
-		return os.Chmod(path, 0644)
-	}); err != nil {
-		return fmt.Errorf("failed to fix permissions: %w", err)
+	// Use chmod -R which can handle read-only directories better than filepath.Walk
+	chmodCmd := exec.Command("chmod", "-R", "u+w", extractDir)
+	if chmodOutput, err := chmodCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to fix permissions: %w\n%s", err, string(chmodOutput))
 	}
 
 	return nil
@@ -215,46 +213,69 @@ func (b *Builder) repackISO(extractDir string, opts *ISOOptions) error {
 	b.log("Repacking ISO: %s", opts.OutputPath)
 
 	// Build xorriso command for creating bootable ISO
-	volumeID := fmt.Sprintf("UBUNTU-AUTOINSTALL-%s", strings.ReplaceAll(opts.UbuntuVersion, ".", ""))
+	// Volume ID must be max 32 chars, uppercase, limited charset for ISO 9660 compliance
+	volumeID := fmt.Sprintf("UBUNTU_AUTOINSTALL_%s", strings.ReplaceAll(opts.UbuntuVersion, ".", "_"))
+	if len(volumeID) > 32 {
+		volumeID = volumeID[:32]
+	}
 
 	args := []string{
 		"-as", "mkisofs",
-		"-r",                       // Rock Ridge extensions
-		"-V", volumeID,             // Volume ID
-		"-J",                       // Joliet extensions
-		"-joliet-long",             // Allow long Joliet names
-		"-l",                       // Allow full 31-character filenames
-		"-iso-level", "3",          // ISO 9660 level 3
-		"-partition_offset", "16",  // Partition offset for hybrid ISO
+		"-r",              // Rock Ridge extensions
+		"-V", volumeID,    // Volume ID
+		"-J",              // Joliet extensions
+		"-joliet-long",    // Allow long Joliet names
+		"-l",              // Allow full 31-character filenames
+		"-iso-level", "3", // ISO 9660 level 3
 	}
 
-	// Add BIOS boot support
-	biosBootImg := filepath.Join(extractDir, "boot", "grub", "i386-pc", "eltorito.img")
-	if _, err := os.Stat(biosBootImg); err == nil {
+	// Check what boot files exist in the extracted ISO
+	eltoritoImg := filepath.Join(extractDir, "boot", "grub", "i386-pc", "eltorito.img")
+	bootHybridImg := filepath.Join(extractDir, "boot", "grub", "i386-pc", "boot_hybrid.img")
+	efiBootImg := filepath.Join(extractDir, "boot", "grub", "efi.img")
+
+	// Log what we find
+	b.log("Checking boot files:")
+	b.log("  eltorito.img: %v", fileExists(eltoritoImg))
+	b.log("  boot_hybrid.img: %v", fileExists(bootHybridImg))
+	b.log("  efi.img: %v", fileExists(efiBootImg))
+
+	// Add BIOS boot support (only if both required files exist)
+	if fileExists(eltoritoImg) && fileExists(bootHybridImg) {
 		args = append(args,
+			"-partition_offset", "16",
 			"-b", "boot/grub/i386-pc/eltorito.img",
 			"-c", "boot.catalog",
 			"-no-emul-boot",
 			"-boot-load-size", "4",
 			"-boot-info-table",
 			"--grub2-boot-info",
-			"--grub2-mbr", filepath.Join(extractDir, "boot", "grub", "i386-pc", "boot_hybrid.img"),
+			"--grub2-mbr", bootHybridImg,
+		)
+	} else if fileExists(eltoritoImg) {
+		// BIOS boot without hybrid MBR
+		args = append(args,
+			"-b", "boot/grub/i386-pc/eltorito.img",
+			"-c", "boot.catalog",
+			"-no-emul-boot",
+			"-boot-load-size", "4",
+			"-boot-info-table",
 		)
 	}
 
 	// Add EFI boot support
-	efiBootImg := filepath.Join(extractDir, "boot", "grub", "efi.img")
-	if _, err := os.Stat(efiBootImg); err == nil {
+	if fileExists(efiBootImg) {
 		args = append(args,
 			"-eltorito-alt-boot",
 			"-e", "boot/grub/efi.img",
 			"-no-emul-boot",
-			"-isohybrid-gpt-basdat",
 		)
 	}
 
 	// Add output path and source directory
 	args = append(args, "-o", opts.OutputPath, extractDir)
+
+	b.log("Running xorriso with args: %v", args)
 
 	cmd := exec.Command(b.tools.XorrisoPath, args...)
 	output, err := cmd.CombinedOutput()
@@ -263,6 +284,12 @@ func (b *Builder) repackISO(extractDir string, opts *ISOOptions) error {
 	}
 
 	return nil
+}
+
+// fileExists returns true if the file exists.
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // log prints a message if verbose mode is enabled.
