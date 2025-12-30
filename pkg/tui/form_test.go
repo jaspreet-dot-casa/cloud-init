@@ -232,11 +232,103 @@ func TestStyles(t *testing.T) {
 	assert.Contains(t, warningRender, "Warning")
 }
 
-func TestSSHKeySourceConstants(t *testing.T) {
-	// Verify SSH key source constants
-	assert.Equal(t, SSHKeySource("github"), SSHKeyFromGitHub)
-	assert.Equal(t, SSHKeySource("local"), SSHKeyFromLocal)
-	assert.Equal(t, SSHKeySource("manual"), SSHKeyManual)
+func TestSSHKeyInfo(t *testing.T) {
+	// Verify SSHKeyInfo struct works correctly
+	info := SSHKeyInfo{
+		Path:        "~/.ssh/id_ed25519.pub",
+		Type:        "ed25519",
+		Content:     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG... user@host",
+		Fingerprint: "ssh-ed25519 AAAA...xyz",
+	}
+	assert.Equal(t, "~/.ssh/id_ed25519.pub", info.Path)
+	assert.Equal(t, "ed25519", info.Type)
+	assert.NotEmpty(t, info.Content)
+	assert.NotEmpty(t, info.Fingerprint)
+}
+
+func TestGitHubProfileNoReplyEmail(t *testing.T) {
+	tests := []struct {
+		name     string
+		profile  GitHubProfile
+		expected string
+	}{
+		{
+			name: "valid profile with ID and login",
+			profile: GitHubProfile{
+				ID:    12345678,
+				Login: "testuser",
+				Name:  "Test User",
+				Email: "",
+			},
+			expected: "12345678+testuser@users.noreply.github.com",
+		},
+		{
+			name: "missing ID",
+			profile: GitHubProfile{
+				ID:    0,
+				Login: "testuser",
+			},
+			expected: "",
+		},
+		{
+			name: "missing login",
+			profile: GitHubProfile{
+				ID:    12345678,
+				Login: "",
+			},
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.profile.NoReplyEmail()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestGitHubProfileBestEmail(t *testing.T) {
+	tests := []struct {
+		name     string
+		profile  GitHubProfile
+		expected string
+	}{
+		{
+			name: "public email available",
+			profile: GitHubProfile{
+				ID:    12345678,
+				Login: "testuser",
+				Email: "public@example.com",
+			},
+			expected: "public@example.com",
+		},
+		{
+			name: "no public email, uses noreply",
+			profile: GitHubProfile{
+				ID:    12345678,
+				Login: "testuser",
+				Email: "",
+			},
+			expected: "12345678+testuser@users.noreply.github.com",
+		},
+		{
+			name: "no public email, no ID",
+			profile: GitHubProfile{
+				ID:    0,
+				Login: "testuser",
+				Email: "",
+			},
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.profile.BestEmail()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }
 
 func TestFetchGitHubSSHKeys(t *testing.T) {
