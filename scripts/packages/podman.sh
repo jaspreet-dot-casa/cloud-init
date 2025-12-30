@@ -29,6 +29,7 @@ source "${SCRIPT_DIR}/../lib/lock.sh"
 # Configuration
 #==============================================================================
 
+# Podman: daemonless container engine for developing, managing, and running OCI containers
 PACKAGE_NAME="podman"
 
 #==============================================================================
@@ -82,7 +83,16 @@ do_install() {
     if [[ "${PODMAN_SOCKET_ENABLED:-true}" == "true" ]]; then
         log_info "Enabling Podman socket for Docker API compatibility..."
         if ! is_dry_run; then
-            systemctl --user enable --now podman.socket 2>/dev/null || true
+            # systemctl --user requires an active user session and may fail in cloud-init context
+            if [ "$(id -u)" -eq 0 ]; then
+                log_warn "Running as root - skipping user socket enablement"
+                log_info "Users can enable with: systemctl --user enable --now podman.socket"
+            elif systemctl --user enable --now podman.socket 2>&1; then
+                log_success "Podman socket enabled for current user"
+            else
+                log_warn "Failed to enable Podman socket - may need manual setup after login"
+                log_info "Run: systemctl --user enable --now podman.socket"
+            fi
         else
             echo "[DRY-RUN] Would enable podman.socket"
         fi

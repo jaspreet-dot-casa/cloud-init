@@ -105,7 +105,8 @@ func (d *Deployer) Deploy(ctx context.Context, opts *deploy.DeployOptions, progr
 		if opts.Config != nil && opts.Config.Hostname != "" {
 			hostname = opts.Config.Hostname
 		}
-		timestamp := time.Now().Format("200601021504")
+		// Use a clear, 4-digit-year timestamp format: YYYYMMDD-HHMMSS
+		timestamp := time.Now().Format("20060102-150405")
 
 		// Get source ISO base name and remove .iso extension
 		sourceBase := filepath.Base(opts.USB.SourceISO)

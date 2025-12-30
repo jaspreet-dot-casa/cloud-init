@@ -286,6 +286,18 @@ func RunForm(registry *packages.Registry, opts *FormOptions) (*FormResult, error
 		if err := isoForm.Run(); err != nil {
 			return nil, fmt.Errorf("form cancelled: %w", err)
 		}
+
+		// Expand home directory in ISO path (validator only validates, doesn't modify)
+		if strings.HasPrefix(result.ISO.SourcePath, "~/") {
+			if home, err := os.UserHomeDir(); err == nil {
+				result.ISO.SourcePath = filepath.Join(home, result.ISO.SourcePath[2:])
+			}
+		}
+
+		// Detect Ubuntu version from ISO filename (e.g., ubuntu-24.04-live-server-amd64.iso)
+		if result.ISO.UbuntuVersion == "" {
+			result.ISO.UbuntuVersion = detectUbuntuVersion(result.ISO.SourcePath)
+		}
 	}
 
 	// =========================================================================
@@ -720,4 +732,25 @@ func validateISOPath(s string) error {
 	}
 
 	return nil
+}
+
+// detectUbuntuVersion extracts the Ubuntu version from an ISO filename.
+// Supports patterns like: ubuntu-24.04-live-server-amd64.iso, ubuntu-22.04.3-live-server-amd64.iso
+func detectUbuntuVersion(isoPath string) string {
+	filename := filepath.Base(isoPath)
+
+	// Try to match version pattern (e.g., 24.04, 22.04.3)
+	versionRegex := regexp.MustCompile(`(\d{2}\.\d{2}(?:\.\d+)?)`)
+	if matches := versionRegex.FindStringSubmatch(filename); len(matches) > 1 {
+		// Return just major.minor (e.g., 24.04 from 22.04.3)
+		version := matches[1]
+		parts := strings.Split(version, ".")
+		if len(parts) >= 2 {
+			return parts[0] + "." + parts[1]
+		}
+		return version
+	}
+
+	// Default to 24.04 if detection fails
+	return "24.04"
 }

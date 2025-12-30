@@ -129,6 +129,7 @@ func (d *Deployer) Deploy(ctx context.Context, opts *deploy.DeployOptions, progr
 	vmName := opts.Multipass.VMName
 	if vmName == "" {
 		vmName = d.generateVMName()
+		opts.Multipass.VMName = vmName // Store for Cleanup() to use
 	}
 	result.Outputs["vm_name"] = vmName
 

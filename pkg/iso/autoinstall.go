@@ -161,9 +161,9 @@ func (g *AutoInstallGenerator) buildLateCommands(cfg *config.FullConfig, opts *I
 	commands := []string{}
 	username := cfg.Username
 
-	// Set timezone
+	// Set timezone (escape to prevent command injection)
 	commands = append(commands,
-		fmt.Sprintf("curtin in-target -- timedatectl set-timezone %s", opts.Timezone),
+		fmt.Sprintf("curtin in-target -- timedatectl set-timezone '%s'", escapeShellArg(opts.Timezone)),
 	)
 
 	// Install Docker if enabled

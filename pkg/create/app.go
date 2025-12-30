@@ -14,6 +14,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/config"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy"
@@ -627,7 +629,9 @@ func formatOutputLabel(key string) string {
 	case "iso_size":
 		return "ISO Size"
 	default:
-		return strings.Title(strings.ReplaceAll(key, "_", " "))
+		// Use cases.Title instead of deprecated strings.Title
+		caser := cases.Title(language.English)
+		return caser.String(strings.ReplaceAll(key, "_", " "))
 	}
 }
 
