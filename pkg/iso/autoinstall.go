@@ -170,7 +170,7 @@ func (g *AutoInstallGenerator) buildLateCommands(cfg *config.FullConfig, opts *I
 	if cfg.DockerEnabled {
 		commands = append(commands,
 			"curtin in-target -- bash -c 'curl -fsSL https://get.docker.com | sh'",
-			fmt.Sprintf("curtin in-target -- usermod -aG docker %s", username),
+			fmt.Sprintf("curtin in-target -- usermod -aG docker '%s'", escapeShellArg(username)),
 			"curtin in-target -- systemctl enable docker",
 		)
 	}
@@ -192,21 +192,22 @@ func (g *AutoInstallGenerator) buildLateCommands(cfg *config.FullConfig, opts *I
 
 	// Set default shell to zsh
 	commands = append(commands,
-		fmt.Sprintf("curtin in-target -- chsh -s /bin/zsh %s", username),
+		fmt.Sprintf("curtin in-target -- chsh -s /bin/zsh '%s'", escapeShellArg(username)),
 	)
 
-	// Create user directories
+	// Create user directories (escape username in paths to prevent command injection)
+	escapedUsername := escapeShellArg(username)
 	commands = append(commands,
-		fmt.Sprintf("curtin in-target -- mkdir -p /home/%s/.config /home/%s/.local/bin", username, username),
-		fmt.Sprintf("curtin in-target -- chown -R %s:%s /home/%s/.config /home/%s/.local", username, username, username, username),
+		fmt.Sprintf("curtin in-target -- mkdir -p '/home/%s/.config' '/home/%s/.local/bin'", escapedUsername, escapedUsername),
+		fmt.Sprintf("curtin in-target -- chown -R '%s':'%s' '/home/%s/.config' '/home/%s/.local'", escapedUsername, escapedUsername, escapedUsername, escapedUsername),
 	)
 
 	// Configure git if email and name provided
 	if cfg.Email != "" && cfg.FullName != "" {
 		commands = append(commands,
-			fmt.Sprintf("curtin in-target -- sudo -u %s git config --global user.email '%s'", username, escapeShellArg(cfg.Email)),
-			fmt.Sprintf("curtin in-target -- sudo -u %s git config --global user.name '%s'", username, escapeShellArg(cfg.FullName)),
-			fmt.Sprintf("curtin in-target -- sudo -u %s git config --global init.defaultBranch main", username),
+			fmt.Sprintf("curtin in-target -- sudo -u '%s' git config --global user.email '%s'", escapedUsername, escapeShellArg(cfg.Email)),
+			fmt.Sprintf("curtin in-target -- sudo -u '%s' git config --global user.name '%s'", escapedUsername, escapeShellArg(cfg.FullName)),
+			fmt.Sprintf("curtin in-target -- sudo -u '%s' git config --global init.defaultBranch main", escapedUsername),
 		)
 	}
 

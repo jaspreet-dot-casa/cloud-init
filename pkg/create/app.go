@@ -124,9 +124,17 @@ func Run(projectRoot string) error {
 	// Merge target-specific options
 	switch target {
 	case deploy.TargetMultipass:
-		opts.Multipass = targetOpts.(deploy.MultipassOptions)
+		multipassOpts, ok := targetOpts.(deploy.MultipassOptions)
+		if !ok {
+			return fmt.Errorf("internal error: expected MultipassOptions but got %T", targetOpts)
+		}
+		opts.Multipass = multipassOpts
 	case deploy.TargetUSB:
-		opts.USB = targetOpts.(deploy.USBOptions)
+		usbOpts, ok := targetOpts.(deploy.USBOptions)
+		if !ok {
+			return fmt.Errorf("internal error: expected USBOptions but got %T", targetOpts)
+		}
+		opts.USB = usbOpts
 	}
 
 	// Step 7: Run deployment with progress UI
