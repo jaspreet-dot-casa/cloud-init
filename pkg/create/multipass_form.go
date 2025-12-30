@@ -10,6 +10,21 @@ import (
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/tui"
 )
 
+// OSImage represents an available OS image for Multipass.
+type OSImage struct {
+	Name  string // Display name
+	Image string // Multipass image identifier
+}
+
+// osImages contains available OS images for Multipass (from `multipass find`).
+var osImages = []OSImage{
+	{"Ubuntu 24.04 LTS (Noble Numbat)", "24.04"},
+	{"Ubuntu 25.04 (Plucky Puffin)", "25.04"},
+	{"Ubuntu 25.10 (Questing Quail)", "25.10"},
+	{"Ubuntu 22.04 LTS (Jammy Jellyfish)", "22.04"},
+	{"Ubuntu 26.04 LTS Daily (Resolute)", "daily:26.04"},
+}
+
 // runMultipassOptions prompts for Multipass-specific options.
 func runMultipassOptions() (deploy.MultipassOptions, error) {
 	opts := deploy.DefaultMultipassOptions()

@@ -52,7 +52,7 @@ func validateSSHKey(s string) error {
 	}
 
 	if !hasValidPrefix {
-		return fmt.Errorf("invalid SSH key: must start with ssh-rsa, ssh-ed25519, or ssh-ecdsa")
+		return fmt.Errorf("invalid SSH public key format")
 	}
 
 	return nil

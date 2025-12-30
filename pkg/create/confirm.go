@@ -19,7 +19,23 @@ func confirmDeployment(result *tui.FormResult, target deploy.DeploymentTarget, t
 	var targetDetails string
 	switch target {
 	case deploy.TargetMultipass:
-		if opts, ok := targetOpts.(deploy.MultipassOptions); ok {
+		var opts deploy.MultipassOptions
+		switch v := targetOpts.(type) {
+		case deploy.MultipassOptions:
+			opts = v
+		case *deploy.MultipassOptions:
+			opts = *v
+		default:
+			// Fallback to default display if type assertion fails
+			targetDetails = fmt.Sprintf(`
+%s
+  Target:    %s`,
+				successStyle.Render("Deployment"),
+				target.DisplayName(),
+			)
+			break
+		}
+		if targetDetails == "" {
 			targetDetails = fmt.Sprintf(`
 %s
   Target:    %s
@@ -36,7 +52,23 @@ func confirmDeployment(result *tui.FormResult, target deploy.DeploymentTarget, t
 			)
 		}
 	case deploy.TargetUSB:
-		if opts, ok := targetOpts.(deploy.USBOptions); ok {
+		var opts deploy.USBOptions
+		switch v := targetOpts.(type) {
+		case deploy.USBOptions:
+			opts = v
+		case *deploy.USBOptions:
+			opts = *v
+		default:
+			// Fallback to default display if type assertion fails
+			targetDetails = fmt.Sprintf(`
+%s
+  Target:    %s`,
+				successStyle.Render("Deployment"),
+				target.DisplayName(),
+			)
+			break
+		}
+		if targetDetails == "" {
 			targetDetails = fmt.Sprintf(`
 %s
   Target:    %s
