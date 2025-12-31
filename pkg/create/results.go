@@ -38,9 +38,12 @@ func printDeploymentResults(result *deploy.DeployResult, deployerName string) {
 
 			// Order outputs nicely based on target type
 			var orderedKeys []string
-			if result.Target == deploy.TargetUSB {
+			switch result.Target {
+			case deploy.TargetUSB:
 				orderedKeys = []string{"iso_path", "iso_size", "storage_layout", "source_iso"}
-			} else {
+			case deploy.TargetTerraform:
+				orderedKeys = []string{"vm_name", "ip", "user", "ssh_command", "console_command", "vnc_port", "cloud_init_path"}
+			default:
 				orderedKeys = []string{"vm_name", "ip", "user", "ssh_command", "multipass_shell", "cloud_init_path"}
 			}
 			printedKeys := make(map[string]bool)
@@ -66,7 +69,19 @@ func printDeploymentResults(result *deploy.DeployResult, deployerName string) {
 		if vmName, ok := result.Outputs["vm_name"]; ok {
 			fmt.Println()
 			fmt.Println(dimStyle.Render("  To access the VM:"))
-			fmt.Printf("    multipass shell %s\n", vmName)
+			switch result.Target {
+			case deploy.TargetTerraform:
+				if ip, ok := result.Outputs["ip"]; ok && ip != "" && ip != "pending" {
+					user := result.Outputs["user"]
+					if user == "" {
+						user = "ubuntu"
+					}
+					fmt.Printf("    ssh %s@%s\n", user, ip)
+				}
+				fmt.Printf("    virsh console %s\n", vmName)
+			default:
+				fmt.Printf("    multipass shell %s\n", vmName)
+			}
 		}
 
 		if isoPath, ok := result.Outputs["iso_path"]; ok {
@@ -118,6 +133,10 @@ func formatOutputLabel(key string) string {
 		return "Storage"
 	case "iso_size":
 		return "ISO Size"
+	case "console_command":
+		return "Console"
+	case "vnc_port":
+		return "VNC Port"
 	default:
 		// Use cases.Title instead of deprecated strings.Title
 		caser := cases.Title(language.English)

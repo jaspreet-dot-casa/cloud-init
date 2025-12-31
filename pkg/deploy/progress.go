@@ -18,6 +18,12 @@ const (
 	StageComplete    Stage = "complete"
 	StageCleanup     Stage = "cleanup"
 	StageError       Stage = "error"
+
+	// Terraform-specific stages
+	StagePreparing  Stage = "preparing"  // Generating terraform.tfvars
+	StagePlanning   Stage = "planning"   // Running terraform plan
+	StageConfirming Stage = "confirming" // Waiting for user confirmation
+	StageApplying   Stage = "applying"   // Running terraform apply
 )
 
 // String returns the string representation of the stage.
@@ -52,6 +58,14 @@ func (s Stage) DisplayName() string {
 		return "Cleaning Up"
 	case StageError:
 		return "Error"
+	case StagePreparing:
+		return "Preparing"
+	case StagePlanning:
+		return "Planning"
+	case StageConfirming:
+		return "Awaiting Confirmation"
+	case StageApplying:
+		return "Applying"
 	default:
 		return string(s)
 	}

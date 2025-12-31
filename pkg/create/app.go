@@ -8,6 +8,7 @@ import (
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/config"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy/multipass"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy/terraform"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy/usb"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/packages"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/tui"
@@ -46,7 +47,10 @@ func Run(projectRoot string) error {
 	case deploy.TargetSSH:
 		return fmt.Errorf("SSH target not yet implemented")
 	case deploy.TargetTerraform:
-		return fmt.Errorf("Terraform target not yet implemented")
+		targetOpts, err = runTerraformOptions()
+		if err != nil {
+			return err
+		}
 	}
 
 	// Step 4: Run the configuration wizard (SSH, Git, Host, Packages, Optional)
@@ -84,6 +88,12 @@ func Run(projectRoot string) error {
 			return fmt.Errorf("internal error: expected USBOptions but got %T", targetOpts)
 		}
 		opts.USB = usbOpts
+	case deploy.TargetTerraform:
+		tfOpts, ok := targetOpts.(deploy.TerraformOptions)
+		if !ok {
+			return fmt.Errorf("internal error: expected TerraformOptions but got %T", targetOpts)
+		}
+		opts.Terraform = tfOpts
 	}
 
 	// Step 7: Run deployment with progress UI
@@ -99,6 +109,8 @@ func runDeployment(target deploy.DeploymentTarget, opts *deploy.DeployOptions) e
 		deployer = multipass.New()
 	case deploy.TargetUSB:
 		deployer = usb.New(opts.ProjectRoot)
+	case deploy.TargetTerraform:
+		deployer = terraform.New(opts.ProjectRoot)
 	default:
 		return fmt.Errorf("deployer not implemented for target: %s", target)
 	}

@@ -141,7 +141,7 @@ build-cli:
 
 # Run the CLI interactively
 run-cli: build-cli
-	./bin/ucli generate
+	./bin/ucli create
 
 # Run Go tests
 test-cli:

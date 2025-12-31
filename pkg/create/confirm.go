@@ -80,6 +80,41 @@ func confirmDeployment(result *tui.FormResult, target deploy.DeploymentTarget, t
 				opts.StorageLayout,
 			)
 		}
+	case deploy.TargetTerraform:
+		var opts deploy.TerraformOptions
+		switch v := targetOpts.(type) {
+		case deploy.TerraformOptions:
+			opts = v
+		case *deploy.TerraformOptions:
+			opts = *v
+		default:
+			// Fallback to default display if type assertion fails
+			targetDetails = fmt.Sprintf(`
+%s
+  Target:    %s`,
+				successStyle.Render("Deployment"),
+				target.DisplayName(),
+			)
+			break
+		}
+		if targetDetails == "" {
+			targetDetails = fmt.Sprintf(`
+%s
+  Target:    %s
+  VM Name:   %s
+  Resources: %d CPU, %d MB RAM, %d GB disk
+  Libvirt:   %s
+  Network:   %s`,
+				successStyle.Render("Deployment"),
+				target.DisplayName(),
+				opts.VMName,
+				opts.CPUs,
+				opts.MemoryMB,
+				opts.DiskGB,
+				opts.LibvirtURI,
+				opts.NetworkName,
+			)
+		}
 	default:
 		targetDetails = fmt.Sprintf(`
 %s

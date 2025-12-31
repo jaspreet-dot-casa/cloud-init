@@ -148,21 +148,32 @@ func DefaultSSHOptions() SSHOptions {
 
 // TerraformOptions contains Terraform-specific deployment options.
 type TerraformOptions struct {
-	WorkDir     string // Terraform working directory
-	AutoApprove bool   // Skip interactive approval
-	VMName      string
-	CPUs        int
-	MemoryMB    int
-	DiskGB      int
+	WorkDir       string // Terraform working directory (relative to project root)
+	AutoApprove   bool   // Skip interactive approval
+	VMName        string
+	CPUs          int
+	MemoryMB      int
+	DiskGB        int
+	LibvirtURI    string // Libvirt connection URI (e.g., "qemu:///system")
+	StoragePool   string // Libvirt storage pool name
+	NetworkName   string // Libvirt network name
+	UbuntuImage   string // Path to Ubuntu cloud image
+	KeepOnFailure bool   // Keep resources for debugging on failure
 }
 
 // DefaultTerraformOptions returns sensible defaults for Terraform.
 func DefaultTerraformOptions() TerraformOptions {
 	return TerraformOptions{
-		AutoApprove: false,
-		CPUs:        2,
-		MemoryMB:    2048,
-		DiskGB:      20,
+		WorkDir:       "terraform",
+		AutoApprove:   false,
+		CPUs:          2,
+		MemoryMB:      2048,
+		DiskGB:        20,
+		LibvirtURI:    "qemu:///system",
+		StoragePool:   "default",
+		NetworkName:   "default",
+		UbuntuImage:   "/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img",
+		KeepOnFailure: false,
 	}
 }
 

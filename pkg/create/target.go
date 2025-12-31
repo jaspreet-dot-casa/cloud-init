@@ -19,10 +19,10 @@ func runTargetSelection() (deploy.DeploymentTarget, error) {
 				Title("What would you like to create?").
 				Description("Select your deployment target").
 				Options(
+					huh.NewOption("Terraform/libvirt (local KVM)", deploy.TargetTerraform),
 					huh.NewOption("Multipass VM (local testing)", deploy.TargetMultipass),
 					huh.NewOption("Bootable ISO (bare metal install)", deploy.TargetUSB),
 					huh.NewOption("Remote SSH (existing server)", deploy.TargetSSH),
-					huh.NewOption("Terraform/libvirt (local KVM)", deploy.TargetTerraform),
 				).
 				Value(&target),
 		).Title("Deployment Target"),

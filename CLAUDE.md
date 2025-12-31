@@ -18,7 +18,7 @@ make build-cli                    # Build ucli binary to bin/ucli
 make run-cli                      # Build and run interactive TUI
 make test-cli                     # Run Go tests
 make install-cli                  # Install to GOPATH/bin
-./bin/ucli generate               # Interactive configuration wizard
+./bin/ucli create                 # Interactive configuration wizard
 ./bin/ucli packages               # List available packages
 
 # Cloud-init installation
@@ -40,7 +40,7 @@ go test ./...                     # Run all Go tests
 ```
 cloud-init/
 ├── cmd/ucli/              # Go CLI entry point
-│   ├── main.go            # Cobra commands (generate, packages, validate, build)
+│   ├── main.go            # Cobra commands (create, packages, validate, build)
 │   └── main_test.go       # CLI tests
 │
 ├── pkg/                   # Go packages
