@@ -161,7 +161,7 @@ setup_github_ssh_keys() {
             log_debug "Key already exists, skipping"
         else
             echo "${key}" >> "${auth_keys}"
-            ((added++))
+            added=$((added + 1))
         fi
     done <<< "${keys}"
 
