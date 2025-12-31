@@ -274,5 +274,8 @@ func RunForm(registry *packages.Registry, opts *FormOptions) (*FormResult, error
 		}
 	}
 
+	// Populate all available packages from registry (for calculating disabled packages)
+	result.AllPackages = registry.Names()
+
 	return result, nil
 }

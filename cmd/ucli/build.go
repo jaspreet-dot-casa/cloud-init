@@ -8,65 +8,43 @@ import (
 
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/config"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/generator"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/packages"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/project"
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/validation"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/tui"
 )
 
-// runBuild generates cloud-init config from existing files.
+// runBuild runs the interactive TUI and generates cloud-init.yaml.
 func runBuild(_ *cobra.Command, _ []string) error {
 	projectRoot, err := project.FindRoot()
 	if err != nil {
 		return fmt.Errorf("could not find project root: %w", err)
 	}
 
-	// Step 1: Validate configuration files
-	fmt.Println("Validating configuration files...")
-	validator := validation.NewValidator(projectRoot)
-	result := validator.ValidateAll()
+	// Step 1: Discover available packages
+	fmt.Println("Discovering packages...")
+	registry, err := packages.DiscoverFromProjectRoot(projectRoot)
+	if err != nil {
+		return fmt.Errorf("failed to discover packages: %w", err)
+	}
+	fmt.Printf("Found %d packages\n\n", len(registry.Packages))
 
-	if result.HasErrors() {
-		// Print errors
-		for _, issue := range result.Issues {
-			if issue.Severity == validation.SeverityError {
-				if issue.Field != "" {
-					fmt.Printf("[ERROR] %s: %s (%s)\n", issue.File, issue.Message, issue.Field)
-				} else {
-					fmt.Printf("[ERROR] %s: %s\n", issue.File, issue.Message)
-				}
-			}
-		}
-		return fmt.Errorf("validation failed with %d error(s), fix errors before building", result.ErrorCount())
+	// Step 2: Run interactive TUI
+	formResult, err := tui.RunForm(registry, nil)
+	if err != nil {
+		return fmt.Errorf("form cancelled: %w", err)
 	}
 
-	// Print warnings if any
-	for _, issue := range result.Issues {
-		if issue.Severity == validation.SeverityWarning {
-			if issue.Field != "" {
-				fmt.Printf("[WARNING] %s: %s (%s)\n", issue.File, issue.Message, issue.Field)
-			} else {
-				fmt.Printf("[WARNING] %s: %s\n", issue.File, issue.Message)
-			}
-		}
-	}
+	// Step 3: Convert to config
+	cfg := config.NewFullConfigFromFormResult(formResult)
 
-	fmt.Println("Configuration valid.")
-
-	// Step 2: Check template exists
+	// Step 4: Check template exists
 	templatePath := filepath.Join(projectRoot, "cloud-init", "cloud-init.template.yaml")
 	if err := generator.ValidateTemplate(templatePath); err != nil {
 		return fmt.Errorf("template error: %w", err)
 	}
 
-	// Step 3: Read configuration
-	fmt.Println("Reading configuration...")
-	reader := config.NewReader(projectRoot)
-	cfg, err := reader.ReadAll()
-	if err != nil {
-		return fmt.Errorf("failed to read config: %w", err)
-	}
-
-	// Step 4: Generate cloud-init.yaml
-	fmt.Println("Generating cloud-init.yaml...")
+	// Step 5: Generate cloud-init.yaml
+	fmt.Println("\nGenerating cloud-init.yaml...")
 	outputPath := filepath.Join(projectRoot, "cloud-init", "cloud-init.yaml")
 	gen := generator.NewGenerator(projectRoot)
 	if err := gen.Generate(cfg, templatePath, outputPath); err != nil {

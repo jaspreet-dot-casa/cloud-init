@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,11 +28,9 @@ func TestRootCmdHelp(t *testing.T) {
 
 	output := buf.String()
 	assert.Contains(t, output, "ucli")
-	assert.Contains(t, output, "create")    // Main command (replaced generate)
+	assert.Contains(t, output, "create")
 	assert.Contains(t, output, "packages")
-	assert.Contains(t, output, "validate")
 	assert.Contains(t, output, "build")
-	assert.Contains(t, output, "build-iso")
 }
 
 func TestRootCmdVersion(t *testing.T) {
@@ -56,12 +53,6 @@ func TestCreateCmd(t *testing.T) {
 	t.Skip("create command requires interactive TTY")
 }
 
-func TestGenerateCmd(t *testing.T) {
-	// Skip this test as generate command requires an interactive TTY
-	// The TUI forms are tested separately in pkg/tui/form_test.go
-	t.Skip("generate command requires interactive TTY (deprecated, use create)")
-}
-
 func TestPackagesCmd(t *testing.T) {
 	rootCmd := newRootCmd()
 	rootCmd.SetArgs([]string{"packages"})
@@ -70,154 +61,10 @@ func TestPackagesCmd(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestValidateCmd(t *testing.T) {
-	t.Run("returns error when config files missing", func(t *testing.T) {
-		// Save current directory and change to temp dir
-		origDir, err := os.Getwd()
-		require.NoError(t, err)
-		tmpDir := t.TempDir()
-		err = os.Chdir(tmpDir)
-		require.NoError(t, err)
-		defer func() {
-			err := os.Chdir(origDir)
-			require.NoError(t, err)
-		}()
-
-		// Create minimal project structure so findProjectRoot works
-		err = os.MkdirAll("scripts/packages", 0755)
-		require.NoError(t, err)
-
-		rootCmd := newRootCmd()
-		rootCmd.SetArgs([]string{"validate"})
-
-		err = rootCmd.Execute()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "validation failed")
-	})
-
-	t.Run("succeeds with valid config files", func(t *testing.T) {
-		origDir, err := os.Getwd()
-		require.NoError(t, err)
-		tmpDir := t.TempDir()
-		err = os.Chdir(tmpDir)
-		require.NoError(t, err)
-		defer func() {
-			err := os.Chdir(origDir)
-			require.NoError(t, err)
-		}()
-
-		// Create project structure
-		err = os.MkdirAll("scripts/packages", 0755)
-		require.NoError(t, err)
-		err = os.MkdirAll("cloud-init", 0755)
-		require.NoError(t, err)
-
-		// Create valid secrets.env
-		secretsContent := `
-USERNAME="testuser"
-HOSTNAME="test-host"
-SSH_PUBLIC_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITest test@example.com"
-USER_NAME="Test User"
-USER_EMAIL="test@example.com"
-`
-		err = os.WriteFile("cloud-init/secrets.env", []byte(secretsContent), 0600)
-		require.NoError(t, err)
-
-		// Create valid config.env
-		configContent := `
-GIT_PUSH_AUTO_SETUP_REMOTE=true
-DOCKER_ENABLED=true
-`
-		err = os.WriteFile("config.env", []byte(configContent), 0644)
-		require.NoError(t, err)
-
-		rootCmd := newRootCmd()
-		rootCmd.SetArgs([]string{"validate"})
-
-		err = rootCmd.Execute()
-		assert.NoError(t, err)
-	})
-}
-
 func TestBuildCmd(t *testing.T) {
-	t.Run("returns error when config files missing", func(t *testing.T) {
-		origDir, err := os.Getwd()
-		require.NoError(t, err)
-		tmpDir := t.TempDir()
-		err = os.Chdir(tmpDir)
-		require.NoError(t, err)
-		defer func() {
-			err := os.Chdir(origDir)
-			require.NoError(t, err)
-		}()
-
-		// Create minimal project structure
-		err = os.MkdirAll("scripts/packages", 0755)
-		require.NoError(t, err)
-
-		rootCmd := newRootCmd()
-		rootCmd.SetArgs([]string{"build"})
-
-		err = rootCmd.Execute()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "validation failed")
-	})
-
-	t.Run("succeeds with valid config files and template", func(t *testing.T) {
-		origDir, err := os.Getwd()
-		require.NoError(t, err)
-		tmpDir := t.TempDir()
-		err = os.Chdir(tmpDir)
-		require.NoError(t, err)
-		defer func() {
-			err := os.Chdir(origDir)
-			require.NoError(t, err)
-		}()
-
-		// Create project structure
-		err = os.MkdirAll("scripts/packages", 0755)
-		require.NoError(t, err)
-		err = os.MkdirAll("cloud-init", 0755)
-		require.NoError(t, err)
-
-		// Create valid secrets.env
-		secretsContent := `
-USERNAME="testuser"
-HOSTNAME="test-host"
-SSH_PUBLIC_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITest test@example.com"
-USER_NAME="Test User"
-USER_EMAIL="test@example.com"
-`
-		err = os.WriteFile("cloud-init/secrets.env", []byte(secretsContent), 0600)
-		require.NoError(t, err)
-
-		// Create valid config.env
-		configContent := `
-GIT_PUSH_AUTO_SETUP_REMOTE=true
-DOCKER_ENABLED=true
-`
-		err = os.WriteFile("config.env", []byte(configContent), 0644)
-		require.NoError(t, err)
-
-		// Create template
-		templateContent := `#cloud-config
-users:
-  - name: ${USERNAME}
-hostname: ${HOSTNAME}
-`
-		err = os.WriteFile("cloud-init/cloud-init.template.yaml", []byte(templateContent), 0644)
-		require.NoError(t, err)
-
-		rootCmd := newRootCmd()
-		rootCmd.SetArgs([]string{"build"})
-
-		err = rootCmd.Execute()
-		assert.NoError(t, err)
-
-		// Verify output file was created
-		_, err = os.Stat("cloud-init/cloud-init.yaml")
-		assert.NoError(t, err)
-	})
+	// Skip this test as build command now requires an interactive TTY
+	// The TUI forms are tested separately in pkg/tui/form_test.go
+	t.Skip("build command requires interactive TTY")
 }
 
 func TestSubcommandHelp(t *testing.T) {
@@ -232,29 +79,14 @@ func TestSubcommandHelp(t *testing.T) {
 			expects: []string{"TUI", "deploy", "Multipass"},
 		},
 		{
-			name:    "generate help",
-			args:    []string{"generate", "--help"},
-			expects: []string{"TUI", "cloud-init"},
-		},
-		{
 			name:    "packages help",
 			args:    []string{"packages", "--help"},
 			expects: []string{"packages", "cloud-init"},
 		},
 		{
-			name:    "validate help",
-			args:    []string{"validate", "--help"},
-			expects: []string{"config.env", "secrets.env"},
-		},
-		{
 			name:    "build help",
 			args:    []string{"build", "--help"},
-			expects: []string{"Non-interactive", "config.env"},
-		},
-		{
-			name:    "build-iso help",
-			args:    []string{"build-iso", "--help"},
-			expects: []string{"bootable", "xorriso", "Ubuntu"},
+			expects: []string{"TUI", "cloud-init.yaml"},
 		},
 	}
 

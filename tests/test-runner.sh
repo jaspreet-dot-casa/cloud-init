@@ -194,8 +194,6 @@ test_cloud_init_files_exist() {
 
     local files=(
         "cloud-init/cloud-init.template.yaml"
-        "cloud-init/secrets.env.template"
-        "cloud-init/generate.sh"
         "cloud-init/create-usb.sh"
         "cloud-init/Makefile"
     )
