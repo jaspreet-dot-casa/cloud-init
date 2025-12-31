@@ -12,8 +12,6 @@ import (
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/iso"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/vmlist"
-	createpkg "github.com/jaspreet-dot-casa/cloud-init/pkg/create"
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/project"
 )
 
@@ -50,66 +48,33 @@ Run without arguments to launch the full-screen TUI for VM management.`,
 	}
 
 	rootCmd.AddCommand(
-		newCreateCmd(),
 		newPackagesCmd(),
-		newBuildCmd(),
 	)
 
 	return rootCmd
 }
 
 // runTUI launches the full-screen TUI application.
-func runTUI(cmd *cobra.Command, args []string) error {
+func runTUI(_ *cobra.Command, _ []string) error {
 	// Find project root
 	projectDir, err := project.FindRoot()
 	if err != nil {
 		return fmt.Errorf("failed to find project root: %w", err)
 	}
 
-	for {
-		// Create the application with tabs
-		model := app.New(projectDir).WithTabs(
-			vmlist.New(projectDir),
-			create.New(projectDir),
-			iso.New(projectDir),
-			app.NewPlaceholderTab(app.TabConfig, "Config", "4", "  Configuration coming soon...\n\n  Press [1] for VMs, [2] for Create, or [q] to quit."),
-		)
+	// Create the application with tabs
+	model := app.New(projectDir).WithTabs(
+		vmlist.New(projectDir),
+		create.New(projectDir),
+		iso.New(projectDir),
+		app.NewPlaceholderTab(app.TabConfig, "Config", "4", "  Configuration coming soon...\n\n  Press [1] for VMs, [2] for Create, or [q] to quit."),
+	)
 
-		// Run the TUI
-		p := tea.NewProgram(model, tea.WithAltScreen())
-		finalModel, err := p.Run()
-		if err != nil {
-			return fmt.Errorf("error running TUI: %w", err)
-		}
-
-		// Check if there's a pending create request
-		appModel, ok := finalModel.(app.Model)
-		if !ok {
-			return nil
-		}
-
-		pending := appModel.PendingCreate()
-		if pending == nil {
-			// Normal exit
-			return nil
-		}
-
-		// Run the create flow for the selected target
-		fmt.Printf("\nLaunching create wizard for %s...\n\n", pending.Target)
-		if err := runCreateForTarget(pending.Target, pending.ProjectDir); err != nil {
-			fmt.Printf("Create failed: %v\n", err)
-			fmt.Println("Press Enter to return to the TUI...")
-			fmt.Scanln()
-		} else {
-			fmt.Println("\nPress Enter to return to the TUI...")
-			fmt.Scanln()
-		}
-		// Loop back to re-launch TUI
+	// Run the TUI
+	p := tea.NewProgram(model, tea.WithAltScreen())
+	if _, err := p.Run(); err != nil {
+		return fmt.Errorf("error running TUI: %w", err)
 	}
-}
 
-// runCreateForTarget runs the create flow for a specific target
-func runCreateForTarget(_ deploy.DeploymentTarget, projectDir string) error {
-	// Use the existing create package which handles target selection
-	return createpkg.Run(projectDir)
+	return nil
 }

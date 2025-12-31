@@ -218,6 +218,7 @@ install_binary_packages() {
         "zellij"
         "zoxide"
         "btop"
+        "bat"
         "mise"
         "tailscale"
         "podman"

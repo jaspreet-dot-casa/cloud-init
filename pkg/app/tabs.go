@@ -45,6 +45,10 @@ type Tab interface {
 
 	// KeyBindings returns the context-sensitive key bindings for the footer.
 	KeyBindings() []string
+
+	// HasFocusedInput returns true if this tab has a focused text input.
+	// When true, the app should not intercept alphanumeric keys for tab switching.
+	HasFocusedInput() bool
 }
 
 // BaseTab provides common functionality for tabs.
@@ -113,6 +117,11 @@ func (t *BaseTab) Blur() {
 	t.focused = false
 }
 
+// HasFocusedInput returns false by default (no text input focused).
+func (t BaseTab) HasFocusedInput() bool {
+	return false
+}
+
 // PlaceholderTab is a simple placeholder implementation.
 type PlaceholderTab struct {
 	BaseTab
@@ -161,4 +170,9 @@ func (t *PlaceholderTab) SetSize(width, height int) {
 // KeyBindings implements Tab.
 func (t *PlaceholderTab) KeyBindings() []string {
 	return nil
+}
+
+// HasFocusedInput implements Tab.
+func (t *PlaceholderTab) HasFocusedInput() bool {
+	return false
 }

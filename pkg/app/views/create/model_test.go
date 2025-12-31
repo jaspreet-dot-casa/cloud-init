@@ -3,7 +3,6 @@ package create
 import (
 	"testing"
 
-	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy"
@@ -17,9 +16,7 @@ func TestNew(t *testing.T) {
 	assert.Equal(t, "Create", m.Name())
 	assert.Equal(t, "2", m.ShortKey())
 	assert.Equal(t, "/test/project", m.ProjectDir())
-	assert.False(t, m.launching)
-	assert.Equal(t, 0, m.selected)
-	assert.Len(t, m.targets, 3) // Terraform, Multipass, USB
+	assert.Equal(t, PhaseTarget, m.wizard.Phase)
 }
 
 func TestModel_Init(t *testing.T) {
@@ -27,6 +24,7 @@ func TestModel_Init(t *testing.T) {
 
 	cmd := m.Init()
 
+	// Init returns nil - packages are loaded lazily in Focus()
 	assert.Nil(t, cmd)
 }
 
@@ -37,7 +35,6 @@ func TestModel_KeyBindings(t *testing.T) {
 
 	assert.NotEmpty(t, bindings)
 	assert.Contains(t, bindings, "[↑/↓] navigate")
-	assert.Contains(t, bindings, "[Enter] create")
 }
 
 func TestModel_SetSize(t *testing.T) {
@@ -57,6 +54,14 @@ func TestModel_Focus(t *testing.T) {
 
 	assert.True(t, m.IsFocused())
 	assert.Empty(t, m.message)
+	// First focus triggers package loading
+	assert.NotNil(t, cmd)
+	assert.True(t, m.loadingPackages)
+
+	// Second focus should not re-load
+	m.packagesLoaded = true
+	m.loadingPackages = false
+	cmd = m.Focus()
 	assert.Nil(t, cmd)
 }
 
@@ -69,151 +74,86 @@ func TestModel_Blur(t *testing.T) {
 	assert.False(t, m.IsFocused())
 }
 
-func TestModel_Update_NavigateDown(t *testing.T) {
+func TestModel_Update_NavigateDown_TargetPhase(t *testing.T) {
 	m := New("/test/project")
-	m.selected = 0
+	m.wizard.Phase = PhaseTarget
+	m.wizard.TargetSelected = 0
 
 	msg := tea.KeyMsg{Type: tea.KeyDown}
 	updated, _ := m.Update(msg)
 	model := updated.(*Model)
 
-	assert.Equal(t, 1, model.selected)
+	assert.Equal(t, 1, model.wizard.TargetSelected)
 }
 
-func TestModel_Update_NavigateUp(t *testing.T) {
+func TestModel_Update_NavigateUp_TargetPhase(t *testing.T) {
 	m := New("/test/project")
-	m.selected = 1
+	m.wizard.Phase = PhaseTarget
+	m.wizard.TargetSelected = 1
 
 	msg := tea.KeyMsg{Type: tea.KeyUp}
 	updated, _ := m.Update(msg)
 	model := updated.(*Model)
 
-	assert.Equal(t, 0, model.selected)
+	assert.Equal(t, 0, model.wizard.TargetSelected)
 }
 
 func TestModel_Update_NavigateDown_AtEnd(t *testing.T) {
 	m := New("/test/project")
-	m.selected = len(m.targets) - 1
+	m.wizard.Phase = PhaseTarget
+	m.wizard.TargetSelected = len(targets) - 1
 
 	msg := tea.KeyMsg{Type: tea.KeyDown}
 	updated, _ := m.Update(msg)
 	model := updated.(*Model)
 
 	// Should not go past last item
-	assert.Equal(t, len(m.targets)-1, model.selected)
+	assert.Equal(t, len(targets)-1, model.wizard.TargetSelected)
 }
 
 func TestModel_Update_NavigateUp_AtStart(t *testing.T) {
 	m := New("/test/project")
-	m.selected = 0
+	m.wizard.Phase = PhaseTarget
+	m.wizard.TargetSelected = 0
 
 	msg := tea.KeyMsg{Type: tea.KeyUp}
 	updated, _ := m.Update(msg)
 	model := updated.(*Model)
 
 	// Should not go before first item
-	assert.Equal(t, 0, model.selected)
+	assert.Equal(t, 0, model.wizard.TargetSelected)
 }
 
 func TestModel_Update_VimKeys(t *testing.T) {
 	m := New("/test/project")
-	m.selected = 0
+	m.wizard.Phase = PhaseTarget
+	m.wizard.TargetSelected = 0
 
 	// j for down
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")}
 	updated, _ := m.Update(msg)
 	model := updated.(*Model)
-	assert.Equal(t, 1, model.selected)
+	assert.Equal(t, 1, model.wizard.TargetSelected)
 
 	// k for up
 	msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")}
 	updated, _ = model.Update(msg)
 	model = updated.(*Model)
-	assert.Equal(t, 0, model.selected)
+	assert.Equal(t, 0, model.wizard.TargetSelected)
 }
 
-func TestModel_Update_Enter_LaunchesCreate(t *testing.T) {
+func TestModel_Update_Enter_AdvancesPhase(t *testing.T) {
 	m := New("/test/project")
-	m.selected = 0
+	m.wizard.Phase = PhaseTarget
+	m.wizard.TargetSelected = 0 // Terraform
 
 	msg := tea.KeyMsg{Type: tea.KeyEnter}
-	updated, cmd := m.Update(msg)
-	model := updated.(*Model)
-
-	assert.True(t, model.launching)
-	assert.Empty(t, model.message)
-	assert.NotNil(t, cmd)
-}
-
-func TestModel_Update_SkipsWhenLaunching(t *testing.T) {
-	m := New("/test/project")
-	m.launching = true
-
-	msg := tea.KeyMsg{Type: tea.KeyDown}
-	updated, cmd := m.Update(msg)
-
-	assert.Equal(t, m, updated)
-	assert.Nil(t, cmd)
-}
-
-func TestModel_Update_CreateCompleteMsg_Success(t *testing.T) {
-	m := New("/test/project")
-	m.launching = true
-
-	msg := CreateCompleteMsg{Success: true}
 	updated, _ := m.Update(msg)
 	model := updated.(*Model)
 
-	assert.False(t, model.launching)
-	assert.Contains(t, model.message, "successfully")
-}
-
-func TestModel_Update_CreateCompleteMsg_Error(t *testing.T) {
-	m := New("/test/project")
-	m.launching = true
-
-	msg := CreateCompleteMsg{Success: false, Error: assert.AnError}
-	updated, _ := m.Update(msg)
-	model := updated.(*Model)
-
-	assert.False(t, model.launching)
-	assert.Contains(t, model.message, "Error")
-}
-
-func TestModel_SelectedTarget(t *testing.T) {
-	m := New("/test/project")
-
-	// Default selection (Terraform)
-	m.selected = 0
-	assert.Equal(t, deploy.TargetTerraform, m.SelectedTarget())
-
-	// Multipass
-	m.selected = 1
-	assert.Equal(t, deploy.TargetMultipass, m.SelectedTarget())
-
-	// USB
-	m.selected = 2
-	assert.Equal(t, deploy.TargetUSB, m.SelectedTarget())
-}
-
-func TestModel_SelectedTarget_OutOfBounds(t *testing.T) {
-	m := New("/test/project")
-	m.selected = -1
-
-	// Should return default (Terraform)
-	assert.Equal(t, deploy.TargetTerraform, m.SelectedTarget())
-}
-
-func TestModel_View(t *testing.T) {
-	m := New("/test/project")
-	m.SetSize(100, 40)
-
-	view := m.View()
-
-	assert.Contains(t, view, "Create New VM")
-	assert.Contains(t, view, "Terraform")
-	assert.Contains(t, view, "Multipass")
-	assert.Contains(t, view, "Bootable USB")
+	// Should advance to target options phase
+	assert.Equal(t, PhaseTargetOptions, model.wizard.Phase)
+	assert.Equal(t, deploy.TargetTerraform, model.wizard.Data.Target)
 }
 
 func TestModel_View_ZeroWidth(t *testing.T) {
@@ -222,6 +162,20 @@ func TestModel_View_ZeroWidth(t *testing.T) {
 	view := m.View()
 
 	assert.Equal(t, "Loading...", view)
+}
+
+func TestModel_View_TargetPhase(t *testing.T) {
+	m := New("/test/project")
+	m.SetSize(100, 40)
+	m.wizard.Phase = PhaseTarget
+
+	view := m.View()
+
+	assert.Contains(t, view, "Select Deployment Target")
+	assert.Contains(t, view, "Terraform")
+	assert.Contains(t, view, "Multipass")
+	assert.Contains(t, view, "Bootable USB")
+	assert.Contains(t, view, "Generate Config")
 }
 
 func TestModel_View_WithMessage(t *testing.T) {
@@ -234,99 +188,77 @@ func TestModel_View_WithMessage(t *testing.T) {
 	assert.Contains(t, view, "Test message")
 }
 
-func TestModel_View_Launching(t *testing.T) {
-	m := New("/test/project")
-	m.SetSize(100, 40)
-	m.launching = true
-
-	view := m.View()
-
-	assert.Contains(t, view, "Launching")
-}
-
-func TestModel_handleKeyMsg(t *testing.T) {
-	m := New("/test/project")
-
-	// Test that handleKeyMsg is called correctly
-	msg := tea.KeyMsg{Type: tea.KeyDown}
-	updated, _ := m.handleKeyMsg(msg)
-	model := updated.(*Model)
-
-	assert.Equal(t, 1, model.selected)
-}
-
-func TestRunCreateMsg(t *testing.T) {
-	msg := app.RunCreateMsg{Target: deploy.TargetTerraform, ProjectDir: "/test"}
-	assert.Equal(t, deploy.TargetTerraform, msg.Target)
-	assert.Equal(t, "/test", msg.ProjectDir)
-}
-
-func TestCreateCompleteMsg(t *testing.T) {
-	msg := CreateCompleteMsg{Success: true, Error: nil}
-	assert.True(t, msg.Success)
-	assert.Nil(t, msg.Error)
-}
-
-func TestModel_launchCreate(t *testing.T) {
-	m := New("/test/project")
-	m.selected = 1 // Multipass
-
-	cmd := m.launchCreate()
-
-	assert.NotNil(t, cmd)
-
-	// Execute the command
-	msg := cmd()
-	launchMsg, ok := msg.(app.RunCreateMsg)
-	assert.True(t, ok)
-	assert.Equal(t, deploy.TargetMultipass, launchMsg.Target)
-	assert.Equal(t, "/test/project", launchMsg.ProjectDir)
-}
-
-func TestModel_targets(t *testing.T) {
-	m := New("/test/project")
-
+func TestTargets(t *testing.T) {
 	// Verify all targets are set up correctly
-	assert.Equal(t, deploy.TargetTerraform, m.targets[0].target)
-	assert.Equal(t, "Terraform/libvirt", m.targets[0].name)
+	assert.Equal(t, deploy.TargetTerraform, targets[0].target)
+	assert.Equal(t, "Terraform/libvirt", targets[0].name)
 
-	assert.Equal(t, deploy.TargetMultipass, m.targets[1].target)
-	assert.Equal(t, "Multipass", m.targets[1].name)
+	assert.Equal(t, deploy.TargetMultipass, targets[1].target)
+	assert.Equal(t, "Multipass", targets[1].name)
 
-	assert.Equal(t, deploy.TargetUSB, m.targets[2].target)
-	assert.Equal(t, "Bootable USB", m.targets[2].name)
+	assert.Equal(t, deploy.TargetUSB, targets[2].target)
+	assert.Equal(t, "Bootable USB", targets[2].name)
+
+	assert.Equal(t, TargetConfigOnly, targets[3].target)
+	assert.Equal(t, "Generate Config", targets[3].name)
 }
 
-func TestModel_handleKeyMsg_KeyBinding(t *testing.T) {
-	m := New("/test/project")
+func TestWizardState_NextPhase(t *testing.T) {
+	w := NewWizardState()
 
+	assert.Equal(t, PhaseTarget, w.Phase)
+
+	// NextPhase returns the next phase without modifying state
+	assert.Equal(t, PhaseTargetOptions, w.NextPhase())
+	assert.Equal(t, PhaseTarget, w.Phase) // State unchanged
+
+	// Advance actually moves to next phase
+	w.Advance()
+	assert.Equal(t, PhaseTargetOptions, w.Phase)
+
+	w.Advance()
+	assert.Equal(t, PhaseSSH, w.Phase)
+}
+
+func TestWizardState_PrevPhase(t *testing.T) {
+	w := NewWizardState()
+	w.Phase = PhaseSSH
+
+	// PrevPhase returns the prev phase without modifying state
+	assert.Equal(t, PhaseTargetOptions, w.PrevPhase())
+	assert.Equal(t, PhaseSSH, w.Phase) // State unchanged
+
+	// GoBack actually moves to previous phase
+	w.GoBack()
+	assert.Equal(t, PhaseTargetOptions, w.Phase)
+
+	w.GoBack()
+	assert.Equal(t, PhaseTarget, w.Phase)
+
+	// Should not go before target (CanGoBack returns false)
+	assert.False(t, w.CanGoBack())
+}
+
+func TestPhase_String(t *testing.T) {
 	tests := []struct {
-		name     string
-		key      key.Binding
-		startSel int
-		endSel   int
+		phase    Phase
+		expected string
 	}{
-		{"up from 1", key.NewBinding(key.WithKeys("up")), 1, 0},
-		{"down from 0", key.NewBinding(key.WithKeys("down")), 0, 1},
-		{"k from 1", key.NewBinding(key.WithKeys("k")), 1, 0},
-		{"j from 0", key.NewBinding(key.WithKeys("j")), 0, 1},
+		{PhaseTarget, "Select Target"},
+		{PhaseTargetOptions, "Target Options"},
+		{PhaseSSH, "SSH Keys"},
+		{PhaseGit, "Git Config"},
+		{PhaseHost, "Host Details"},
+		{PhasePackages, "Packages"},
+		{PhaseOptional, "Optional Services"},
+		{PhaseReview, "Review"},
+		{PhaseDeploy, "Deploying"},
+		{PhaseComplete, "Complete"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m.selected = tt.startSel
-			keys := tt.key.Keys()
-			var msg tea.KeyMsg
-			if keys[0] == "up" {
-				msg = tea.KeyMsg{Type: tea.KeyUp}
-			} else if keys[0] == "down" {
-				msg = tea.KeyMsg{Type: tea.KeyDown}
-			} else {
-				msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(keys[0])}
-			}
-			updated, _ := m.handleKeyMsg(msg)
-			model := updated.(*Model)
-			assert.Equal(t, tt.endSel, model.selected)
+		t.Run(tt.expected, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.phase.String())
 		})
 	}
 }

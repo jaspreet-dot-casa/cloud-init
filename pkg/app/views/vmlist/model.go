@@ -469,3 +469,8 @@ func (m *Model) KeyBindings() []string {
 		"[Enter] details",
 	}
 }
+
+// HasFocusedInput returns false as this tab has no text inputs
+func (m *Model) HasFocusedInput() bool {
+	return false
+}

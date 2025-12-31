@@ -440,3 +440,16 @@ func (m *Model) GetOptions() *isobuilder.ISOOptions {
 		Timezone:      tz,
 	}
 }
+
+// HasFocusedInput returns true if a text input is currently focused
+func (m *Model) HasFocusedInput() bool {
+	switch m.focusedField {
+	case fieldSourceISO:
+		return m.sourceInput.Focused()
+	case fieldOutputPath:
+		return m.outputInput.Focused()
+	case fieldTimezone:
+		return m.timezoneInput.Focused()
+	}
+	return false
+}

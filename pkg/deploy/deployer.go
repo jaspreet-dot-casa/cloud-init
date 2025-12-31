@@ -12,10 +12,11 @@ import (
 type DeploymentTarget string
 
 const (
-	TargetMultipass DeploymentTarget = "multipass"
-	TargetUSB       DeploymentTarget = "usb"
-	TargetSSH       DeploymentTarget = "ssh"
-	TargetTerraform DeploymentTarget = "terraform"
+	TargetMultipass   DeploymentTarget = "multipass"
+	TargetUSB         DeploymentTarget = "usb"
+	TargetSSH         DeploymentTarget = "ssh"
+	TargetTerraform   DeploymentTarget = "terraform"
+	TargetConfigOnly  DeploymentTarget = "config"
 )
 
 // String returns the string representation of the target.
@@ -34,6 +35,8 @@ func (t DeploymentTarget) DisplayName() string {
 		return "Remote SSH"
 	case TargetTerraform:
 		return "Terraform/libvirt"
+	case TargetConfigOnly:
+		return "Config Only"
 	default:
 		return string(t)
 	}
@@ -50,6 +53,8 @@ func (t DeploymentTarget) Description() string {
 		return "Deploy to an existing server via SSH"
 	case TargetTerraform:
 		return "Create a local KVM VM using Terraform"
+	case TargetConfigOnly:
+		return "Generate config files only (no deployment)"
 	default:
 		return ""
 	}

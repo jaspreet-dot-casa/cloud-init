@@ -6,32 +6,17 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy"
 )
-
-// RunCreateMsg signals that the create wizard should run.
-// This is handled by the main app to launch the external create flow.
-type RunCreateMsg struct {
-	Target     deploy.DeploymentTarget
-	ProjectDir string
-}
-
-// CreateDoneMsg signals that the create wizard has completed.
-type CreateDoneMsg struct {
-	Success bool
-	Error   error
-}
 
 // Model is the main application model.
 type Model struct {
-	tabs          []Tab
-	activeTab     int
-	width         int
-	height        int
-	quitting      bool
-	err           error
-	projectDir    string
-	pendingCreate *RunCreateMsg
+	tabs       []Tab
+	activeTab  int
+	width      int
+	height     int
+	quitting   bool
+	err        error
+	projectDir string
 }
 
 // New creates a new application model.
@@ -81,89 +66,71 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 
-	case RunCreateMsg:
-		// Store the create request and signal to main.go
-		m.pendingCreate = &msg
-		return m, tea.Quit
-
-	case CreateDoneMsg:
-		// Create wizard completed, refresh VM list if successful
-		m.pendingCreate = nil
-		if msg.Success {
-			// Switch to VM list tab and trigger refresh
-			m.activeTab = 0
-			if len(m.tabs) > 0 {
-				return m, m.tabs[0].Focus()
-			}
-		}
-		return m, nil
-
 	case error:
 		m.err = msg
 		return m, nil
 	}
 
-	// Forward to active tab and check for RunCreateMsg
+	// Forward to active tab
 	if len(m.tabs) > 0 && m.activeTab < len(m.tabs) {
 		var cmd tea.Cmd
 		m.tabs[m.activeTab], cmd = m.tabs[m.activeTab].Update(msg)
-
-		// If the tab returned a command, wrap it to intercept RunCreateMsg
-		if cmd != nil {
-			return m, m.interceptCreateMsg(cmd)
-		}
-		return m, nil
+		return m, cmd
 	}
 
 	return m, nil
 }
 
-// interceptCreateMsg wraps a command to intercept create-related messages
-func (m Model) interceptCreateMsg(cmd tea.Cmd) tea.Cmd {
-	return func() tea.Msg {
-		msg := cmd()
-		// Check if it's a LaunchCreateMsg from the create view
-		if launchMsg, ok := msg.(interface{ GetTarget() deploy.DeploymentTarget }); ok {
-			_ = launchMsg // Convert to RunCreateMsg
-		}
-		return msg
-	}
-}
-
 // handleKeyMsg processes key events.
 func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Global keybindings
-	switch {
-	case key.Matches(msg, keys.Quit):
+	// Check if active tab has a focused text input
+	hasFocusedInput := false
+	if len(m.tabs) > 0 && m.activeTab < len(m.tabs) {
+		hasFocusedInput = m.tabs[m.activeTab].HasFocusedInput()
+	}
+
+	// Always allow Ctrl+C to quit
+	if msg.Type == tea.KeyCtrlC {
 		m.quitting = true
 		return m, tea.Quit
+	}
 
-	case key.Matches(msg, keys.Help):
-		// Toggle help in active tab if it supports it
-		if len(m.tabs) > 0 && m.activeTab < len(m.tabs) {
-			if h, ok := m.tabs[m.activeTab].(interface{ ToggleHelp() }); ok {
-				h.ToggleHelp()
+	// When text input is focused, skip most global keybindings
+	// to allow typing alphanumeric characters
+	if !hasFocusedInput {
+		// Global keybindings (only when no input is focused)
+		switch {
+		case key.Matches(msg, keys.Quit):
+			m.quitting = true
+			return m, tea.Quit
+
+		case key.Matches(msg, keys.Help):
+			// Toggle help in active tab if it supports it
+			if len(m.tabs) > 0 && m.activeTab < len(m.tabs) {
+				if h, ok := m.tabs[m.activeTab].(interface{ ToggleHelp() }); ok {
+					h.ToggleHelp()
+				}
 			}
-		}
-		return m, nil
+			return m, nil
 
-	case key.Matches(msg, keys.Tab1):
-		return m.switchTab(0)
-	case key.Matches(msg, keys.Tab2):
-		return m.switchTab(1)
-	case key.Matches(msg, keys.Tab3):
-		return m.switchTab(2)
-	case key.Matches(msg, keys.Tab4):
-		return m.switchTab(3)
+		case key.Matches(msg, keys.Tab1):
+			return m.switchTab(0)
+		case key.Matches(msg, keys.Tab2):
+			return m.switchTab(1)
+		case key.Matches(msg, keys.Tab3):
+			return m.switchTab(2)
+		case key.Matches(msg, keys.Tab4):
+			return m.switchTab(3)
 
-	case key.Matches(msg, keys.NextTab):
-		return m.switchTab((m.activeTab + 1) % len(m.tabs))
-	case key.Matches(msg, keys.PrevTab):
-		idx := m.activeTab - 1
-		if idx < 0 {
-			idx = len(m.tabs) - 1
+		case key.Matches(msg, keys.NextTab):
+			return m.switchTab((m.activeTab + 1) % len(m.tabs))
+		case key.Matches(msg, keys.PrevTab):
+			idx := m.activeTab - 1
+			if idx < 0 {
+				idx = len(m.tabs) - 1
+			}
+			return m.switchTab(idx)
 		}
-		return m.switchTab(idx)
 	}
 
 	// Forward to active tab
@@ -254,9 +221,4 @@ func (m Model) Error() error {
 // ProjectDir returns the project directory.
 func (m Model) ProjectDir() string {
 	return m.projectDir
-}
-
-// PendingCreate returns the pending create request, if any.
-func (m Model) PendingCreate() *RunCreateMsg {
-	return m.pendingCreate
 }

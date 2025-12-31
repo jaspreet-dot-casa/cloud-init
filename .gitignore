@@ -4,6 +4,9 @@
 *.swo
 *~
 
+# Generated config (user-specific, from config.env.template)
+config.env
+
 # OS files
 .DS_Store
 Thumbs.db
