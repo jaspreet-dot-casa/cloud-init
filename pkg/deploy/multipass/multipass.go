@@ -78,23 +78,12 @@ func (d *Deployer) Deploy(ctx context.Context, opts *deploy.DeployOptions, progr
 		return d.fail(result, err, start), err
 	}
 
-	// Stage 2: Generate config files
-	progress(deploy.NewProgressEventWithDetail(
-		deploy.StageConfig,
-		"Writing configuration files...",
-		fmt.Sprintf("Writing to %s/config.env", opts.ProjectRoot),
-		15,
-	))
-	if err := d.writeConfigs(opts); err != nil {
-		return d.fail(result, err, start), err
-	}
-
-	// Stage 3: Generate cloud-init.yaml
+	// Stage 2: Generate cloud-init.yaml
 	progress(deploy.NewProgressEventWithDetail(
 		deploy.StageCloudInit,
 		"Generating cloud-init.yaml...",
 		fmt.Sprintf("Template: cloud-init/cloud-init.template.yaml"),
-		25,
+		15,
 	))
 	cloudInitPath, err := d.generateCloudInit(opts)
 	if err != nil {
@@ -102,7 +91,7 @@ func (d *Deployer) Deploy(ctx context.Context, opts *deploy.DeployOptions, progr
 	}
 	result.Outputs["cloud_init_path"] = cloudInitPath
 
-	// Stage 4: Determine VM name
+	// Stage 3: Determine VM name
 	vmName := opts.Multipass.VMName
 	if vmName == "" {
 		vmName = d.generateVMName()
@@ -110,7 +99,7 @@ func (d *Deployer) Deploy(ctx context.Context, opts *deploy.DeployOptions, progr
 	}
 	result.Outputs["vm_name"] = vmName
 
-	// Stage 5: Launch VM
+	// Stage 4: Launch VM
 	mp := opts.Multipass
 	version := mp.UbuntuVersion
 	if version == "" {
@@ -129,7 +118,7 @@ func (d *Deployer) Deploy(ctx context.Context, opts *deploy.DeployOptions, progr
 		return d.fail(result, err, start), err
 	}
 
-	// Stage 6: Wait for cloud-init
+	// Stage 5: Wait for cloud-init
 	progress(deploy.NewProgressEventWithCommand(
 		deploy.StageWaiting,
 		"Waiting for cloud-init to complete...",
@@ -141,7 +130,7 @@ func (d *Deployer) Deploy(ctx context.Context, opts *deploy.DeployOptions, progr
 		result.Logs = append(result.Logs, fmt.Sprintf("Warning: %v", err))
 	}
 
-	// Stage 7: Get VM info
+	// Stage 6: Get VM info
 	progress(deploy.NewProgressEventWithCommand(
 		deploy.StageVerifying,
 		"Retrieving VM information...",

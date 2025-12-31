@@ -91,31 +91,15 @@ write_files:
       # Set ownership
       chown -R "$CLONE_USER:$CLONE_USER" "$CLONE_DIR"
 
+      # Package configuration (disabled packages)
+      ${DISABLED_PACKAGE_EXPORTS}
+
       # Run installation as user
       echo "Running installation..."
       cd "$CLONE_DIR"
       sudo -u "$CLONE_USER" CLOUD_INIT=true bash scripts/cloud-init/install-all.sh -y
 
       echo "=== Bootstrap Complete ==="
-
-  # Config file (created in final stage after user exists)
-  - path: /home/${USERNAME}/.local-remote/config.env
-    permissions: "600"
-    defer: true
-    content: |
-      # Cloud-init generated configuration
-      USER_NAME="${USER_NAME}"
-      USER_EMAIL="${USER_EMAIL}"
-      USER_USERNAME="${USERNAME}"
-
-      GIT_DEFAULT_BRANCH="main"
-      GIT_PUSH_AUTO_SETUP_REMOTE=true
-      GIT_PULL_REBASE=true
-      GIT_PAGER="delta"
-
-      TAILSCALE_SSH_ENABLED=true
-      TAILSCALE_EXIT_NODE_ADVERTISE=true
-      TAILSCALE_SSH_CHECK_PERIOD="12h"
 
   # Tailscale auth key (if provided, created in final stage after user exists)
   - path: /home/${USERNAME}/.local-remote/tailscale-auth-key
@@ -290,6 +274,16 @@ runcmd:
 
   # Run bootstrap script
   - /opt/local-remote/bootstrap.sh
+
+  # Configure Git for user (directly, no config.env needed)
+  - |
+    sudo -u ${USERNAME} git config --global user.name "${USER_NAME}"
+    sudo -u ${USERNAME} git config --global user.email "${USER_EMAIL}"
+    sudo -u ${USERNAME} git config --global init.defaultBranch "main"
+    sudo -u ${USERNAME} git config --global push.autoSetupRemote true
+    sudo -u ${USERNAME} git config --global pull.rebase true
+    sudo -u ${USERNAME} git config --global core.pager "delta"
+    sudo -u ${USERNAME} git config --global url."git@github.com:".insteadOf "https://github.com/"
 
   # Create symlinks for user-accessible scripts
   - ln -sf /home/${USERNAME}/local-remote/scripts/local-remote-login /usr/local/bin/local-remote-login

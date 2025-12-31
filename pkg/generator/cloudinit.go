@@ -4,7 +4,6 @@ package generator
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -25,6 +24,9 @@ type TemplateVars struct {
 	GITHUB_PAT         string
 	REPO_URL           string
 	REPO_BRANCH        string
+
+	// Package configuration
+	DISABLED_PACKAGE_EXPORTS string // Shell export statements for disabled packages
 }
 
 // Generator generates cloud-init.yaml files.
@@ -57,20 +59,6 @@ func (g *Generator) Generate(cfg *config.FullConfig, templatePath, outputPath st
 	}
 
 	return nil
-}
-
-// GenerateFromEnv generates cloud-init.yaml using environment files.
-func (g *Generator) GenerateFromEnv() error {
-	reader := config.NewReader(g.ProjectRoot)
-	cfg, err := reader.ReadAll()
-	if err != nil {
-		return fmt.Errorf("failed to read config: %w", err)
-	}
-
-	templatePath := filepath.Join(g.ProjectRoot, "cloud-init", "cloud-init.template.yaml")
-	outputPath := filepath.Join(g.ProjectRoot, "cloud-init", "cloud-init.yaml")
-
-	return g.Generate(cfg, templatePath, outputPath)
 }
 
 // configToVars converts FullConfig to TemplateVars.
@@ -116,25 +104,46 @@ func configToVars(cfg *config.FullConfig) *TemplateVars {
 		vars.REPO_URL = "https://github.com/jaspreet-dot-casa/cloud-init.git"
 	}
 
+	// Build disabled package exports
+	vars.DISABLED_PACKAGE_EXPORTS = buildDisabledPackageExports(cfg.DisabledPackages)
+
 	return vars
+}
+
+// buildDisabledPackageExports generates shell export statements for disabled packages.
+// Each disabled package gets an export like: export PACKAGE_LAZYGIT_ENABLED=false
+func buildDisabledPackageExports(disabledPackages []string) string {
+	if len(disabledPackages) == 0 {
+		return "# All packages enabled"
+	}
+
+	var exports strings.Builder
+	exports.WriteString("# Disabled packages\n")
+	for _, pkg := range disabledPackages {
+		// Convert package name to env var format: lazygit -> PACKAGE_LAZYGIT_ENABLED
+		envVar := "PACKAGE_" + strings.ToUpper(strings.ReplaceAll(pkg, "-", "_")) + "_ENABLED"
+		exports.WriteString(fmt.Sprintf("export %s=false\n", envVar))
+	}
+	return strings.TrimSuffix(exports.String(), "\n")
 }
 
 // substituteVars replaces ${VARIABLE} placeholders with values.
 func substituteVars(template string, vars *TemplateVars) string {
 	// Map of variable names to values
 	varMap := map[string]string{
-		"USERNAME":           vars.USERNAME,
-		"HOSTNAME":           vars.HOSTNAME,
-		"SSH_PUBLIC_KEY":     vars.SSH_PUBLIC_KEY,
-		"SSH_PUBLIC_KEYS":    vars.SSH_PUBLIC_KEYS,
-		"USER_NAME":          vars.USER_NAME,
-		"USER_EMAIL":         vars.USER_EMAIL,
-		"MACHINE_USER_NAME":  vars.MACHINE_USER_NAME,
-		"TAILSCALE_AUTH_KEY": vars.TAILSCALE_AUTH_KEY,
-		"GITHUB_USER":        vars.GITHUB_USER,
-		"GITHUB_PAT":         vars.GITHUB_PAT,
-		"REPO_URL":           vars.REPO_URL,
-		"REPO_BRANCH":        vars.REPO_BRANCH,
+		"USERNAME":                 vars.USERNAME,
+		"HOSTNAME":                 vars.HOSTNAME,
+		"SSH_PUBLIC_KEY":           vars.SSH_PUBLIC_KEY,
+		"SSH_PUBLIC_KEYS":          vars.SSH_PUBLIC_KEYS,
+		"USER_NAME":                vars.USER_NAME,
+		"USER_EMAIL":               vars.USER_EMAIL,
+		"MACHINE_USER_NAME":        vars.MACHINE_USER_NAME,
+		"TAILSCALE_AUTH_KEY":       vars.TAILSCALE_AUTH_KEY,
+		"GITHUB_USER":              vars.GITHUB_USER,
+		"GITHUB_PAT":               vars.GITHUB_PAT,
+		"REPO_URL":                 vars.REPO_URL,
+		"REPO_BRANCH":              vars.REPO_BRANCH,
+		"DISABLED_PACKAGE_EXPORTS": vars.DISABLED_PACKAGE_EXPORTS,
 	}
 
 	result := template

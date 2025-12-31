@@ -38,6 +38,7 @@ type ISOConfig struct {
 type FormResult struct {
 	User             UserConfig
 	SelectedPackages []string
+	AllPackages      []string // All available packages (for calculating disabled)
 	Optional         OptionalConfig
 	OutputMode       OutputMode
 	ISO              ISOConfig // ISO options (if OutputBootableISO)

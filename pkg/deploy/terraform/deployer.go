@@ -88,23 +88,12 @@ func (d *Deployer) Deploy(ctx context.Context, opts *deploy.DeployOptions, progr
 		return d.fail(result, err, start), err
 	}
 
-	// Stage 2: Generate config files (15%)
-	progress(deploy.NewProgressEventWithDetail(
-		deploy.StageConfig,
-		"Writing configuration files...",
-		fmt.Sprintf("Writing to %s/config.env", opts.ProjectRoot),
-		15,
-	))
-	if err := d.writeConfigs(opts); err != nil {
-		return d.fail(result, err, start), err
-	}
-
-	// Stage 3: Generate cloud-init.yaml (25%)
+	// Stage 2: Generate cloud-init.yaml (15%)
 	progress(deploy.NewProgressEventWithDetail(
 		deploy.StageCloudInit,
 		"Generating cloud-init.yaml...",
 		"Template: cloud-init/cloud-init.template.yaml",
-		25,
+		15,
 	))
 	cloudInitPath, err := d.generateCloudInit(opts)
 	if err != nil {
@@ -112,7 +101,7 @@ func (d *Deployer) Deploy(ctx context.Context, opts *deploy.DeployOptions, progr
 	}
 	result.Outputs["cloud_init_path"] = cloudInitPath
 
-	// Stage 4: Determine VM name
+	// Stage 3: Determine VM name
 	vmName := tfOpts.VMName
 	if vmName == "" {
 		vmName = d.generateVMName()
@@ -120,34 +109,34 @@ func (d *Deployer) Deploy(ctx context.Context, opts *deploy.DeployOptions, progr
 	}
 	result.Outputs["vm_name"] = vmName
 
-	// Stage 5: Generate terraform.tfvars (35%)
+	// Stage 4: Generate terraform.tfvars (25%)
 	progress(deploy.NewProgressEventWithDetail(
 		deploy.StagePreparing,
 		"Generating terraform.tfvars...",
 		fmt.Sprintf("Writing to %s/terraform.tfvars", workDir),
-		35,
+		25,
 	))
 	if err := d.writeTFVars(opts, cloudInitPath); err != nil {
 		return d.fail(result, err, start), err
 	}
 
-	// Stage 6: Terraform init (45%)
+	// Stage 5: Terraform init (35%)
 	progress(deploy.NewProgressEventWithCommand(
 		deploy.StageValidating,
 		"Initializing Terraform...",
 		"terraform init",
-		45,
+		35,
 	))
 	if err := d.terraformInit(ctx, workDir); err != nil {
 		return d.fail(result, err, start), err
 	}
 
-	// Stage 7: Terraform plan (55%)
+	// Stage 6: Terraform plan (45%)
 	progress(deploy.NewProgressEventWithCommand(
 		deploy.StagePlanning,
 		"Creating execution plan...",
 		"terraform plan",
-		55,
+		45,
 	))
 	planOutput, err := d.terraformPlan(ctx, workDir)
 	if err != nil {
@@ -155,13 +144,13 @@ func (d *Deployer) Deploy(ctx context.Context, opts *deploy.DeployOptions, progr
 	}
 	result.Logs = append(result.Logs, planOutput)
 
-	// Stage 8: Confirm (60%) - unless AutoApprove is set
+	// Stage 7: Confirm (55%) - unless AutoApprove is set
 	if !tfOpts.AutoApprove {
 		progress(deploy.NewProgressEventWithDetail(
 			deploy.StageConfirming,
 			"Waiting for confirmation...",
 			"Review the plan above",
-			60,
+			55,
 		))
 		confirmed, err := d.confirmApply(planOutput)
 		if err != nil {
@@ -173,18 +162,18 @@ func (d *Deployer) Deploy(ctx context.Context, opts *deploy.DeployOptions, progr
 		}
 	}
 
-	// Stage 9: Terraform apply (75%)
+	// Stage 8: Terraform apply (70%)
 	progress(deploy.NewProgressEventWithCommand(
 		deploy.StageApplying,
 		fmt.Sprintf("Creating VM '%s'...", vmName),
 		"terraform apply -auto-approve",
-		75,
+		70,
 	))
 	if err := d.terraformApply(ctx, workDir); err != nil {
 		return d.fail(result, err, start), err
 	}
 
-	// Stage 10: Get VM info (90%)
+	// Stage 9: Get VM info (90%)
 	progress(deploy.NewProgressEventWithCommand(
 		deploy.StageVerifying,
 		"Retrieving VM information...",

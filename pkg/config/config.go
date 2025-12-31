@@ -16,7 +16,8 @@ type FullConfig struct {
 	MachineName   string   // Display name for the machine user
 
 	// Package configuration
-	EnabledPackages []string
+	EnabledPackages  []string
+	DisabledPackages []string // Packages not selected (for DISABLED_PACKAGE_EXPORTS)
 
 	// Git configuration
 	GitDefaultBranch       string
@@ -58,7 +59,8 @@ func NewFullConfigFromFormResult(result *tui.FormResult) *FullConfig {
 		MachineName:   result.User.MachineName,
 
 		// Package configuration
-		EnabledPackages: result.SelectedPackages,
+		EnabledPackages:  result.SelectedPackages,
+		DisabledPackages: calculateDisabledPackages(result.AllPackages, result.SelectedPackages),
 
 		// Git defaults
 		GitDefaultBranch:       "main",
@@ -91,6 +93,22 @@ func NewFullConfigFromFormResult(result *tui.FormResult) *FullConfig {
 	cfg.DockerEnabled = containsPackage(result.SelectedPackages, "docker")
 
 	return cfg
+}
+
+// calculateDisabledPackages returns packages in allPackages that are not in enabledPackages.
+func calculateDisabledPackages(allPackages, enabledPackages []string) []string {
+	enabledSet := make(map[string]bool)
+	for _, pkg := range enabledPackages {
+		enabledSet[pkg] = true
+	}
+
+	var disabled []string
+	for _, pkg := range allPackages {
+		if !enabledSet[pkg] {
+			disabled = append(disabled, pkg)
+		}
+	}
+	return disabled
 }
 
 // containsPackage checks if a package name is in the list.

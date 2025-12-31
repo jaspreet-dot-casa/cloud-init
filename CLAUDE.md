@@ -19,11 +19,11 @@ make build-cli                    # Build ucli binary to bin/ucli
 make run-cli                      # Build and run interactive TUI
 make test-cli                     # Run Go tests
 make install-cli                  # Install to GOPATH/bin
-./bin/ucli create                 # Interactive configuration wizard
+./bin/ucli create                 # Interactive configuration and deployment
+./bin/ucli build                  # Interactive cloud-init.yaml generation (no deploy)
 ./bin/ucli packages               # List available packages
 
-# Cloud-init installation
-./cloud-init/generate.sh          # Generate cloud-init.yaml from template
+# Package updates (on installed systems)
 make update                       # Run idempotent package updates
 make update-dry                   # Preview changes without applying
 make verify-cloud                 # Verify cloud-init installation
@@ -41,11 +41,14 @@ go test ./...                     # Run all Go tests
 ```
 cloud-init/
 ├── cmd/ucli/              # Go CLI entry point
-│   ├── main.go            # Cobra commands (create, packages, validate, build)
-│   └── main_test.go       # CLI tests
+│   ├── main.go            # Cobra root command
+│   ├── commands.go        # Command definitions (create, build, packages)
+│   ├── create.go          # Create command (TUI + deploy)
+│   ├── build.go           # Build command (TUI + cloud-init.yaml only)
+│   └── packages.go        # Packages list command
 │
 ├── pkg/                   # Go packages
-│   ├── config/            # Config file generation (config.go, writer.go)
+│   ├── config/            # FullConfig struct and FormResult conversion
 │   ├── create/            # Interactive create workflow (app.go, target.go, forms)
 │   ├── deploy/            # Deployment abstraction
 │   │   ├── deployer.go    # Deployer interface and options
@@ -56,8 +59,8 @@ cloud-init/
 │   ├── generator/         # Cloud-init YAML generation
 │   ├── iso/               # Bootable ISO generation
 │   ├── packages/          # Package discovery from scripts/packages/
-│   ├── tui/               # Interactive TUI forms (charmbracelet/huh)
-│   └── validation/        # Config file validation
+│   ├── project/           # Project root detection
+│   └── tui/               # Interactive TUI forms (charmbracelet/huh)
 │
 ├── terraform/             # Terraform libvirt configuration
 │   ├── main.tf            # VM provisioning with libvirt provider
@@ -76,16 +79,13 @@ cloud-init/
 │   └── local-remote/      # Post-login auth scripts (Tailscale, Git SSH)
 │
 ├── cloud-init/
-│   ├── cloud-init.template.yaml  # Template with ${VARIABLE} placeholders
-│   ├── secrets.env.template      # Secrets template (copy to secrets.env)
-│   └── generate.sh               # Generates cloud-init.yaml via envsubst
+│   └── cloud-init.template.yaml  # Template with ${VARIABLE} placeholders
 │
 ├── tests/multipass/       # Multipass VM integration tests
 ├── docs/implementation/   # Implementation documentation
 ├── bin/                   # Built binaries (gitignored)
 ├── output/                # Generated ISOs (gitignored)
-├── go.mod                 # Go module definition
-└── config.env             # Main configuration (git, packages, Tailscale)
+└── go.mod                 # Go module definition
 ```
 
 ## Key Patterns
@@ -94,20 +94,21 @@ cloud-init/
 - **Package discovery**: `pkg/packages/` scans `scripts/packages/*.sh` parsing PACKAGE_NAME and comments
 - **TUI forms**: Uses `charmbracelet/huh` for interactive forms, `lipgloss` for styling
 - **Multi-step wizard flow**:
-  1. Target Selection (Terraform/Multipass/USB/SSH)
+  1. Target Selection (Terraform/Multipass/USB/SSH) - for `create` command
   2. Target-specific options (VM specs, ISO source, etc.)
   3. SSH Key Source (GitHub/Local/Manual)
   4. Git Configuration (auto-fill from GitHub profile)
   5. Host Details, Package Selection, Optional Services
-  6. Review and Confirm → Deploy
+  6. Review and Confirm → Deploy (or generate cloud-init.yaml for `build`)
 - **GitHub integration**: Fetches SSH keys from `github.com/<user>.keys`, profile from GitHub API
-- **Config generation**: `pkg/config/writer.go` generates shell-sourceable env files
+- **Direct generation**: All config values embedded directly in cloud-init.yaml (no intermediate files)
+- **Package disables**: Disabled packages exported as `PACKAGE_*_ENABLED=false` in bootstrap.sh
 - **Cobra commands**: CLI structure follows `rootCmd` → subcommands pattern
 
 ### Deployment Abstraction
 - **Deployer interface**: `pkg/deploy/deployer.go` defines `Deployer` interface with Validate/Deploy/Cleanup
 - **Target types**: `TargetTerraform` (primary), `TargetMultipass`, `TargetUSB`, `TargetSSH`
-- **Progress stages**: Validating → Config → CloudInit → Preparing → Planning → Confirming → Applying → Verifying → Complete
+- **Progress stages**: Validating → CloudInit → Preparing → Planning → Confirming → Applying → Verifying → Complete
 - **Terraform deployer** (`pkg/deploy/terraform/`):
   - Generates `terraform.tfvars` from options
   - Runs `terraform init/plan/apply`
@@ -116,27 +117,17 @@ cloud-init/
 - **Options structs**: `TerraformOptions`, `MultipassOptions`, `USBOptions` with sensible defaults
 
 ### Shell Scripts
-- **Template-based config**: `secrets.env.template` → `secrets.env`, variables substituted via `envsubst`
 - **Per-package scripts**: Each tool has `scripts/packages/<tool>.sh` with install/update/verify actions
+- **Package opt-out pattern**: Scripts use `${PACKAGE_*_ENABLED:-true}` (defaults to enabled)
 - **Idempotent operations**: All scripts safe to run multiple times
 - **POSIX shell in cloud-init**: Use `[ ]` not `[[ ]]`, pipe instead of `<<<` (cloud-init uses /bin/sh)
 - **PATH for user binaries**: `~/.local/bin` must be in PATH for starship, zoxide detection
-
-## Configuration
-
-- **config.env** - Package enables, git settings, Tailscale options
-- **cloud-init/secrets.env** - Credentials (SSH keys, auth tokens) - gitignored
-- **GITHUB_USER env var** - Set during generate.sh to import SSH keys from GitHub
 
 ## Testing Cloud-Init Changes
 
 ```bash
 # 1. Edit cloud-init/cloud-init.template.yaml
-# 2. Regenerate and commit
-./cloud-init/generate.sh
-git add -A && git commit -m "description" && git push
-
-# 3. Test in Multipass VM
+# 2. Test in Multipass VM
 make test-multipass              # Full test with cleanup
 make test-multipass-keep         # Keep VM for debugging
 multipass shell <vm-name>        # SSH into kept VM
@@ -148,7 +139,7 @@ multipass shell <vm-name>        # SSH into kept VM
 - `cmd/ucli/main.go` - CLI entry point with cobra commands
 - `pkg/packages/discovery.go` - Discovers packages from scripts/packages/*.sh
 - `pkg/tui/form.go` - Interactive TUI form with charmbracelet/huh
-- `pkg/config/writer.go` - Generates config.env and secrets.env files
+- `pkg/generator/cloudinit.go` - Generates cloud-init.yaml from FullConfig
 
 ### Shell Scripts
 - `scripts/lib/core.sh` - Logging, colors, utility functions used everywhere

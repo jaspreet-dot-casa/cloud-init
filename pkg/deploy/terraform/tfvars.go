@@ -6,16 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/config"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/generator"
 )
-
-// writeConfigs writes the configuration files.
-func (d *Deployer) writeConfigs(opts *deploy.DeployOptions) error {
-	writer := config.NewWriter(opts.ProjectRoot)
-	return writer.WriteAll(opts.Config)
-}
 
 // generateCloudInit generates the cloud-init.yaml file.
 func (d *Deployer) generateCloudInit(opts *deploy.DeployOptions) (string, error) {

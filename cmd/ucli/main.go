@@ -31,19 +31,15 @@ with package selection for Ubuntu server installations.
 
 It supports:
   - Interactive package selection from available installers
-  - Generation of config.env and secrets.env files
-  - Creation of bootable ISOs for bare metal installation
-  - Creation of seed ISOs for libvirt VMs (future)`,
+  - Direct generation of cloud-init.yaml (no config files needed)
+  - Deployment to Multipass VMs, Terraform/libvirt, or bootable ISOs`,
 		Version: version,
 	}
 
 	rootCmd.AddCommand(
 		newCreateCmd(),
-		newGenerateCmd(),
 		newPackagesCmd(),
-		newValidateCmd(),
 		newBuildCmd(),
-		newBuildISOCmd(),
 	)
 
 	return rootCmd
