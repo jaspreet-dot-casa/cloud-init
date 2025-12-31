@@ -75,21 +75,21 @@ configure_git() {
         log_success "Pull rebase: enabled"
     fi
 
-    # Configure pager (delta if available)
-    if [[ "${GIT_PAGER}" == "delta" ]]; then
-        if command_exists delta; then
-            log_info "Configuring delta as git pager..."
-            git_config_or_print --global core.pager delta
-            git_config_or_print --global interactive.diffFilter "delta --color-only"
-            git_config_or_print --global delta.navigate true
-            git_config_or_print --global delta.light false
-            git_config_or_print --global delta.line-numbers true
-            git_config_or_print --global merge.conflictstyle diff3
-            git_config_or_print --global diff.colorMoved default
-            log_success "Delta pager: configured"
-        else
-            log_warning "Delta not installed, using default pager"
-        fi
+    # Configure pager (auto-detect delta, or use GIT_PAGER setting)
+    if command_exists delta; then
+        log_info "Configuring delta as git pager..."
+        git_config_or_print --global core.pager delta
+        git_config_or_print --global interactive.diffFilter "delta --color-only"
+        git_config_or_print --global delta.navigate true
+        git_config_or_print --global delta.light false
+        git_config_or_print --global delta.side-by-side true
+        git_config_or_print --global delta.line-numbers true
+        git_config_or_print --global merge.conflictstyle diff3
+        git_config_or_print --global diff.colorMoved default
+        log_success "Delta pager: configured"
+    elif [[ "${GIT_PAGER}" != "less" ]]; then
+        log_info "Configuring custom pager: ${GIT_PAGER}"
+        git_config_or_print --global core.pager "${GIT_PAGER}"
     fi
 
     # GitHub URL rewrite (SSH instead of HTTPS)
