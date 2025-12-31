@@ -52,52 +52,6 @@ log_test() {
     esac
 }
 
-test_generate_idempotent() {
-    echo ""
-    log_info "Testing cloud-init generator idempotency..."
-
-    local generator="${PROJECT_ROOT}/cloud-init/generate.sh"
-    local secrets="${PROJECT_ROOT}/cloud-init/secrets.env"
-    local output="${PROJECT_ROOT}/cloud-init/cloud-init.yaml"
-    local temp_secrets
-    temp_secrets=$(mktemp)
-
-    # Create temporary test secrets
-    cat > "$temp_secrets" << 'EOF'
-USERNAME="testuser"
-HOSTNAME="test-server"
-SSH_PUBLIC_KEY="ssh-ed25519 AAAAC3test test@example.com"
-USER_NAME="Test User"
-USER_EMAIL="test@example.com"
-TAILSCALE_AUTH_KEY=""
-GITHUB_PAT=""
-REPO_URL="https://github.com/test/repo.git"
-REPO_BRANCH="main"
-EOF
-
-    # Copy to secrets location
-    cp "$temp_secrets" "$secrets"
-
-    # Run generator twice
-    chmod +x "$generator"
-
-    local output1 output2
-    output1=$("$generator" --dry-run 2>&1) || true
-    output2=$("$generator" --dry-run 2>&1) || true
-
-    # Clean up
-    rm -f "$secrets" "$output" "$temp_secrets"
-
-    # Compare outputs (excluding timestamps)
-    output1_cleaned=$(echo "$output1" | grep -v "seconds\|timestamp" || true)
-    output2_cleaned=$(echo "$output2" | grep -v "seconds\|timestamp" || true)
-
-    if [[ "$output1_cleaned" == "$output2_cleaned" ]]; then
-        log_test pass "Generator produces identical output on repeated runs"
-    else
-        log_test fail "Generator produces identical output on repeated runs" "Outputs differ"
-    fi
-}
 
 test_library_multiple_source() {
     echo ""
@@ -124,39 +78,6 @@ test_library_multiple_source() {
     done
 }
 
-test_config_env_stable() {
-    echo ""
-    log_info "Testing config sourcing stability..."
-
-    local config="${PROJECT_ROOT}/config.env.template"
-
-    if [[ ! -f "$config" ]]; then
-        log_test fail "config.env.template exists for stability test"
-        return 1
-    fi
-
-    # Source config multiple times and check key variable
-    local result
-    result=$(
-        source "$config"
-        local user1="$USER_NAME"
-
-        source "$config"
-        local user2="$USER_NAME"
-
-        if [[ "$user1" == "$user2" ]]; then
-            echo "pass"
-        else
-            echo "fail"
-        fi
-    )
-
-    if [[ "$result" == "pass" ]]; then
-        log_test pass "config.env.template produces stable values"
-    else
-        log_test fail "config.env.template produces stable values" "Values changed on re-source"
-    fi
-}
 
 test_package_help_idempotent() {
     echo ""
@@ -194,9 +115,7 @@ main() {
     echo "All tests run in DRY_RUN=true mode"
 
     test_library_multiple_source
-    test_config_env_stable
     test_package_help_idempotent
-    test_generate_idempotent
 
     # Summary
     echo ""

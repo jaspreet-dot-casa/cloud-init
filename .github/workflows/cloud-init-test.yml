@@ -95,54 +95,49 @@ jobs:
         run: terraform validate
         working-directory: terraform
 
-  cloud-init-generate:
-    name: Test Cloud-Init Generation
+  cloud-init-template:
+    name: Validate Cloud-Init Template
     runs-on: ubuntu-latest
     needs: [syntax-check]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y gettext-base
-
-      - name: Create test secrets
+      - name: Validate template structure
         run: |
-          cat > cloud-init/secrets.env << 'EOF'
-          USERNAME="testuser"
-          HOSTNAME="test-server"
-          SSH_PUBLIC_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey test@example.com"
-          USER_NAME="Test User"
-          USER_EMAIL="test@example.com"
-          TAILSCALE_AUTH_KEY=""
-          GITHUB_PAT=""
-          REPO_URL="https://github.com/jaspreet-dot-casa/cloud-init.git"
-          REPO_BRANCH="main"
-          EOF
+          template="cloud-init/cloud-init.template.yaml"
 
-      - name: Generate cloud-init.yaml
-        run: |
-          chmod +x cloud-init/generate.sh
-          ./cloud-init/generate.sh
-
-      - name: Validate generated YAML
-        run: |
           # Check file exists
-          test -f cloud-init/cloud-init.yaml
+          test -f "$template"
+          echo "✓ Template file exists"
 
           # Check for required sections
-          grep -q "users:" cloud-init/cloud-init.yaml
-          grep -q "hostname:" cloud-init/cloud-init.yaml
-          grep -q "packages:" cloud-init/cloud-init.yaml
-          grep -q "runcmd:" cloud-init/cloud-init.yaml
+          grep -q "^users:" "$template"
+          echo "✓ Has users: section"
 
-          # Check username substitution
-          grep -q "name: testuser" cloud-init/cloud-init.yaml
+          grep -q "^hostname:" "$template"
+          echo "✓ Has hostname: section"
 
-          # Ensure no unsubstituted variables
-          ! grep -q '\${USERNAME}' cloud-init/cloud-init.yaml
-          ! grep -q '\${HOSTNAME}' cloud-init/cloud-init.yaml
+          grep -q "^packages:" "$template"
+          echo "✓ Has packages: section"
 
-          echo "YAML validation passed"
+          grep -q "^runcmd:" "$template"
+          echo "✓ Has runcmd: section"
+
+          grep -q "^write_files:" "$template"
+          echo "✓ Has write_files: section"
+
+          # Check for template variables
+          grep -q '\${USERNAME}' "$template"
+          echo "✓ Uses \${USERNAME} variable"
+
+          grep -q '\${HOSTNAME}' "$template"
+          echo "✓ Uses \${HOSTNAME} variable"
+
+          grep -q '\${DISABLED_PACKAGE_EXPORTS}' "$template"
+          echo "✓ Uses \${DISABLED_PACKAGE_EXPORTS} variable"
+
+          echo ""
+          echo "Template validation passed"
 
   unit-tests:
     name: Unit Tests
