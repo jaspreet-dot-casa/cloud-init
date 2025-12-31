@@ -135,6 +135,7 @@ install_binary_packages() {
         "btop"
         "mise"
         "tailscale"
+        "podman"
     )
 
     for pkg in "${packages[@]}"; do
