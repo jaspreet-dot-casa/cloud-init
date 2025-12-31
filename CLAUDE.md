@@ -6,7 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a declarative Ubuntu server configuration system using **cloud-init** for automated setup.
 
-**Approach:** Shell script-based configuration with cloud-init orchestration for bare-metal USB boot and VM provisioning.
+**Primary Use Case:** Create VMs in Ubuntu via **Terraform + libvirt** (first-class citizen).
+**Secondary:** Multipass VMs for local testing, bootable ISOs for bare-metal installs.
 
 The project automates installation of development tools (git, docker, lazygit, neovim), modern CLI utilities (ripgrep, fd, bat, fzf, zoxide), shell configuration (zsh + Oh-My-Zsh + Starship), and Tailscale VPN with SSH support.
 
@@ -45,8 +46,24 @@ cloud-init/
 │
 ├── pkg/                   # Go packages
 │   ├── config/            # Config file generation (config.go, writer.go)
-│   ├── packages/          # Package discovery from scripts/packages/ (discovery.go)
-│   └── tui/               # Interactive TUI with charmbracelet/huh (form.go, styles.go)
+│   ├── create/            # Interactive create workflow (app.go, target.go, forms)
+│   ├── deploy/            # Deployment abstraction
+│   │   ├── deployer.go    # Deployer interface and options
+│   │   ├── progress.go    # Progress events and stages
+│   │   ├── multipass/     # Multipass VM deployer
+│   │   ├── terraform/     # Terraform/libvirt deployer (primary)
+│   │   └── usb/           # USB/ISO deployer
+│   ├── generator/         # Cloud-init YAML generation
+│   ├── iso/               # Bootable ISO generation
+│   ├── packages/          # Package discovery from scripts/packages/
+│   ├── tui/               # Interactive TUI forms (charmbracelet/huh)
+│   └── validation/        # Config file validation
+│
+├── terraform/             # Terraform libvirt configuration
+│   ├── main.tf            # VM provisioning with libvirt provider
+│   ├── variables.tf       # Input variables (vm_name, cpus, memory, etc.)
+│   ├── outputs.tf         # VM outputs (ip, console command)
+│   └── README.md          # Terraform setup guide
 │
 ├── config/                # Configuration files
 │   └── tailscale.conf     # Tailscale configuration
@@ -64,8 +81,9 @@ cloud-init/
 │   └── generate.sh               # Generates cloud-init.yaml via envsubst
 │
 ├── tests/multipass/       # Multipass VM integration tests
-├── docs/implementation/   # 9-phase implementation documentation
+├── docs/implementation/   # Implementation documentation
 ├── bin/                   # Built binaries (gitignored)
+├── output/                # Generated ISOs (gitignored)
 ├── go.mod                 # Go module definition
 └── config.env             # Main configuration (git, packages, Tailscale)
 ```
@@ -76,14 +94,26 @@ cloud-init/
 - **Package discovery**: `pkg/packages/` scans `scripts/packages/*.sh` parsing PACKAGE_NAME and comments
 - **TUI forms**: Uses `charmbracelet/huh` for interactive forms, `lipgloss` for styling
 - **Multi-step wizard flow**:
-  1. SSH Key Source (GitHub/Local/Manual)
-  2. SSH Key Selection (multi-select if GitHub has multiple keys)
-  3. Git Configuration (auto-fill from GitHub profile, always shown)
-  4. Host Details (username, hostname, display name defaults to git name)
-  5. Package Selection, Optional Services, Output Mode
+  1. Target Selection (Terraform/Multipass/USB/SSH)
+  2. Target-specific options (VM specs, ISO source, etc.)
+  3. SSH Key Source (GitHub/Local/Manual)
+  4. Git Configuration (auto-fill from GitHub profile)
+  5. Host Details, Package Selection, Optional Services
+  6. Review and Confirm → Deploy
 - **GitHub integration**: Fetches SSH keys from `github.com/<user>.keys`, profile from GitHub API
 - **Config generation**: `pkg/config/writer.go` generates shell-sourceable env files
 - **Cobra commands**: CLI structure follows `rootCmd` → subcommands pattern
+
+### Deployment Abstraction
+- **Deployer interface**: `pkg/deploy/deployer.go` defines `Deployer` interface with Validate/Deploy/Cleanup
+- **Target types**: `TargetTerraform` (primary), `TargetMultipass`, `TargetUSB`, `TargetSSH`
+- **Progress stages**: Validating → Config → CloudInit → Preparing → Planning → Confirming → Applying → Verifying → Complete
+- **Terraform deployer** (`pkg/deploy/terraform/`):
+  - Generates `terraform.tfvars` from options
+  - Runs `terraform init/plan/apply`
+  - Requires user confirmation before apply (unless AutoApprove)
+  - Parses terraform outputs for VM IP
+- **Options structs**: `TerraformOptions`, `MultipassOptions`, `USBOptions` with sensible defaults
 
 ### Shell Scripts
 - **Template-based config**: `secrets.env.template` → `secrets.env`, variables substituted via `envsubst`
