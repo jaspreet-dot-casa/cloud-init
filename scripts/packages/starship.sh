@@ -92,6 +92,8 @@ main() {
                 log_success "starship already installed: v$(get_installed_version)"
             else
                 do_install
+                # Refresh PATH after install (directory now exists)
+                export PATH="${HOME}/.local/bin:${PATH}"
             fi
             create_shell_config
             verify

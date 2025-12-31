@@ -5,12 +5,16 @@
 # Installs all packages and configurations from scratch.
 # This is the main entry point for cloud-init based installations.
 #
-# Usage: ./install-all.sh [--dry-run] [-y|--yes]
+# Usage: ./install-all.sh [--dry-run] [-y|--yes] [--gh=USERNAME]
+#
+# Options:
+#   --gh=USERNAME         Fetch SSH public keys from GitHub username
 #
 # Environment Variables:
 #   DRY_RUN=true          Preview changes without applying
 #   TAILSCALE_AUTH_KEY    Tailscale authentication key (optional)
 #   GITHUB_PAT            GitHub Personal Access Token (optional)
+#   GITHUB_USER           GitHub username for SSH key import (alternative to --gh)
 #==============================================================================
 
 set -e
@@ -85,6 +89,87 @@ print_error_summary() {
     echo ""
     log_error "${#ERRORS[@]} error(s) occurred during installation"
     return ${#ERRORS[@]}
+}
+
+#==============================================================================
+# SSH Key Setup
+#==============================================================================
+
+setup_github_ssh_keys() {
+    local github_user="${1:-}"
+
+    # If no user provided, prompt for it
+    if [[ -z "${github_user}" ]]; then
+        if [[ "${SKIP_CONFIRMATION:-false}" == "true" ]]; then
+            log_warning "No GitHub username provided, skipping SSH key import"
+            return 0
+        fi
+
+        echo ""
+        read -rp "Enter GitHub username to import SSH keys (or press Enter to skip): " github_user
+
+        if [[ -z "${github_user}" ]]; then
+            log_info "Skipping SSH key import"
+            return 0
+        fi
+    fi
+
+    log_section "Importing SSH Keys from GitHub"
+    log_info "Fetching keys for: ${github_user}"
+
+    if is_dry_run; then
+        echo "[DRY-RUN] Would fetch SSH keys from https://github.com/${github_user}.keys"
+        echo "[DRY-RUN] Would add keys to ~/.ssh/authorized_keys"
+        return 0
+    fi
+
+    # Fetch keys from GitHub
+    local keys_url="https://github.com/${github_user}.keys"
+    local keys
+    keys=$(curl -fsSL "${keys_url}" 2>/dev/null) || {
+        log_error "Failed to fetch keys from ${keys_url}"
+        log_error "Check if the username is correct and has public SSH keys"
+        return 1
+    }
+
+    if [[ -z "${keys}" ]]; then
+        log_warning "No SSH keys found for ${github_user}"
+        return 0
+    fi
+
+    # Count keys
+    local key_count
+    key_count=$(echo "${keys}" | wc -l)
+    log_info "Found ${key_count} SSH key(s)"
+
+    # Setup .ssh directory
+    local ssh_dir="${HOME}/.ssh"
+    local auth_keys="${ssh_dir}/authorized_keys"
+
+    mkdir -p "${ssh_dir}"
+    chmod 700 "${ssh_dir}"
+    touch "${auth_keys}"
+    chmod 600 "${auth_keys}"
+
+    # Add keys if not already present
+    local added=0
+    while IFS= read -r key; do
+        [[ -z "${key}" ]] && continue
+
+        # Check if key already exists
+        if grep -qF "${key}" "${auth_keys}" 2>/dev/null; then
+            log_debug "Key already exists, skipping"
+        else
+            echo "${key}" >> "${auth_keys}"
+            ((added++))
+        fi
+    done <<< "${keys}"
+
+    if [[ ${added} -gt 0 ]]; then
+        log_success "Added ${added} new SSH key(s) to authorized_keys"
+    else
+        log_info "All keys already present in authorized_keys"
+    fi
 }
 
 #==============================================================================
@@ -254,6 +339,9 @@ main() {
     local start_time
     start_time=$(date +%s)
 
+    # GitHub user for SSH key import
+    local github_user="${GITHUB_USER:-}"
+
     # Parse arguments
     parse_dry_run_flag "$@"
 
@@ -262,15 +350,20 @@ main() {
             -y|--yes)
                 export SKIP_CONFIRMATION=true
                 ;;
+            --gh=*)
+                github_user="${arg#--gh=}"
+                ;;
             --help|-h)
-                echo "Usage: $0 [--dry-run] [-y|--yes]"
+                echo "Usage: $0 [--dry-run] [-y|--yes] [--gh=USERNAME]"
                 echo ""
                 echo "Options:"
                 echo "  --dry-run, -n    Preview changes without applying"
                 echo "  -y, --yes        Skip confirmation prompts"
+                echo "  --gh=USERNAME    Import SSH keys from GitHub username"
                 echo ""
                 echo "Environment Variables:"
                 echo "  DRY_RUN=true          Enable dry-run mode"
+                echo "  GITHUB_USER           GitHub username for SSH key import"
                 echo "  TAILSCALE_AUTH_KEY    Tailscale auth key"
                 echo "  GITHUB_PAT            GitHub Personal Access Token"
                 exit 0
@@ -286,6 +379,9 @@ main() {
     else
         setup_logging
     fi
+
+    # Setup SSH keys from GitHub (first step for remote access)
+    setup_github_ssh_keys "${github_user}"
 
     # Create backup before making changes
     if ! is_dry_run; then
