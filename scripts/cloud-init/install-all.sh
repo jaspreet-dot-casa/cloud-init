@@ -133,6 +133,7 @@ install_binary_packages() {
         "zellij"
         "zoxide"
         "btop"
+        "mise"
     )
 
     for pkg in "${packages[@]}"; do
@@ -164,6 +165,41 @@ configure_zsh() {
     else
         log_warning "configure-zsh.sh not found, skipping"
     fi
+}
+
+switch_shell_to_zsh() {
+    log_section "Switching Default Shell to Zsh"
+
+    if ! command_exists zsh; then
+        log_warning "zsh not installed, skipping shell switch"
+        return 0
+    fi
+
+    local current_shell
+    current_shell=$(getent passwd "${USER}" | cut -d: -f7)
+    local zsh_path
+    zsh_path=$(command -v zsh)
+
+    if [[ "${current_shell}" == "${zsh_path}" ]]; then
+        log_success "Shell already set to zsh"
+        return 0
+    fi
+
+    log_info "Changing shell from ${current_shell} to ${zsh_path}..."
+
+    if is_dry_run; then
+        echo "[DRY-RUN] Would run: chsh -s ${zsh_path}"
+        return 0
+    fi
+
+    # Use sudo if available, otherwise try without
+    if command_exists sudo; then
+        sudo chsh -s "${zsh_path}" "${USER}"
+    else
+        chsh -s "${zsh_path}"
+    fi
+
+    log_success "Default shell changed to zsh"
 }
 
 generate_shell_config() {
@@ -261,6 +297,7 @@ main() {
     install_binary_packages
     configure_git
     configure_zsh
+    switch_shell_to_zsh
     generate_shell_config
     setup_tailscale
 

@@ -6,17 +6,32 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy"
 )
+
+// RunCreateMsg signals that the create wizard should run.
+// This is handled by the main app to launch the external create flow.
+type RunCreateMsg struct {
+	Target     deploy.DeploymentTarget
+	ProjectDir string
+}
+
+// CreateDoneMsg signals that the create wizard has completed.
+type CreateDoneMsg struct {
+	Success bool
+	Error   error
+}
 
 // Model is the main application model.
 type Model struct {
-	tabs       []Tab
-	activeTab  int
-	width      int
-	height     int
-	quitting   bool
-	err        error
-	projectDir string
+	tabs          []Tab
+	activeTab     int
+	width         int
+	height        int
+	quitting      bool
+	err           error
+	projectDir    string
+	pendingCreate *RunCreateMsg
 }
 
 // New creates a new application model.
@@ -66,19 +81,53 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 
+	case RunCreateMsg:
+		// Store the create request and signal to main.go
+		m.pendingCreate = &msg
+		return m, tea.Quit
+
+	case CreateDoneMsg:
+		// Create wizard completed, refresh VM list if successful
+		m.pendingCreate = nil
+		if msg.Success {
+			// Switch to VM list tab and trigger refresh
+			m.activeTab = 0
+			if len(m.tabs) > 0 {
+				return m, m.tabs[0].Focus()
+			}
+		}
+		return m, nil
+
 	case error:
 		m.err = msg
 		return m, nil
 	}
 
-	// Forward to active tab
+	// Forward to active tab and check for RunCreateMsg
 	if len(m.tabs) > 0 && m.activeTab < len(m.tabs) {
 		var cmd tea.Cmd
 		m.tabs[m.activeTab], cmd = m.tabs[m.activeTab].Update(msg)
-		return m, cmd
+
+		// If the tab returned a command, wrap it to intercept RunCreateMsg
+		if cmd != nil {
+			return m, m.interceptCreateMsg(cmd)
+		}
+		return m, nil
 	}
 
 	return m, nil
+}
+
+// interceptCreateMsg wraps a command to intercept create-related messages
+func (m Model) interceptCreateMsg(cmd tea.Cmd) tea.Cmd {
+	return func() tea.Msg {
+		msg := cmd()
+		// Check if it's a LaunchCreateMsg from the create view
+		if launchMsg, ok := msg.(interface{ GetTarget() deploy.DeploymentTarget }); ok {
+			_ = launchMsg // Convert to RunCreateMsg
+		}
+		return msg
+	}
 }
 
 // handleKeyMsg processes key events.
@@ -205,4 +254,9 @@ func (m Model) Error() error {
 // ProjectDir returns the project directory.
 func (m Model) ProjectDir() string {
 	return m.projectDir
+}
+
+// PendingCreate returns the pending create request, if any.
+func (m Model) PendingCreate() *RunCreateMsg {
+	return m.pendingCreate
 }
