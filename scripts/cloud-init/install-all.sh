@@ -393,6 +393,10 @@ main() {
     install_docker
     install_github_cli
     install_binary_packages
+
+    # Refresh PATH after binary packages (they install to ~/.local/bin)
+    export PATH="${HOME}/.local/bin:${PATH}"
+
     configure_git
     configure_zsh
     switch_shell_to_zsh
