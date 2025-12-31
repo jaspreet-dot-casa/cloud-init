@@ -53,7 +53,7 @@ do_install() {
 
     local tmp_dir
     tmp_dir=$(mktemp -d)
-    trap 'rm -rf "${tmp_dir}"' EXIT
+    trap "rm -rf '${tmp_dir}'" EXIT
 
     # Download latest binary directly
     local url="https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${arch}"

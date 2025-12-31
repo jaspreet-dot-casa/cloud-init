@@ -134,6 +134,7 @@ install_binary_packages() {
         "zoxide"
         "btop"
         "mise"
+        "tailscale"
     )
 
     for pkg in "${packages[@]}"; do

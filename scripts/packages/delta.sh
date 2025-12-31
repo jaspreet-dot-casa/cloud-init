@@ -57,7 +57,7 @@ do_install() {
     version=$(get_latest_version)
     local tmp_dir
     tmp_dir=$(mktemp -d)
-    trap 'rm -rf "${tmp_dir}"' EXIT
+    trap "rm -rf '${tmp_dir}'" EXIT
 
     local url="https://github.com/dandavison/delta/releases/download/${version}/delta-${version}-${arch}-unknown-linux-gnu.tar.gz"
 

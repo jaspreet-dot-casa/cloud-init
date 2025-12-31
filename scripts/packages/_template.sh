@@ -83,7 +83,7 @@ do_install() {
     # Download and extract
     local tmp_dir
     tmp_dir=$(mktemp -d)
-    trap 'rm -rf "${tmp_dir}"' EXIT
+    trap "rm -rf '${tmp_dir}'" EXIT
 
     download_or_print "${url}" "${tmp_dir}/package.tar.gz"
 
