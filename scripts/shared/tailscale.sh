@@ -369,9 +369,20 @@ authenticate_tailscale() {
 
         echo ""
         echo_info "Starting authentication..."
-        echo_warning "If browser doesn't open, copy the URL that appears below"
         echo ""
 
+        # Use 'tailscale login' first to get the auth URL (works better in SSH sessions)
+        # Then apply the full configuration with 'tailscale up'
+        echo_info "Getting authentication URL..."
+        echo ""
+        sudo "${TAILSCALE_BIN}" login 2>&1 || true
+
+        echo ""
+        echo_warning "Open the URL above in your browser to authenticate"
+        echo_info "Waiting for authentication to complete..."
+        echo ""
+
+        # Now apply the configuration (will wait for auth to complete)
         if ! sudo "${cmd_array[@]}"; then
             echo_error "Authentication failed"
             exit 1
