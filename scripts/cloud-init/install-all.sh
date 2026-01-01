@@ -282,9 +282,15 @@ switch_shell_to_zsh() {
 
     # Use sudo if available, otherwise try without
     if command_exists sudo; then
-        sudo chsh -s "${zsh_path}" "${USER}"
+        if ! sudo chsh -s "${zsh_path}" "${USER}"; then
+            log_error "Failed to change shell to zsh"
+            return 1
+        fi
     else
-        chsh -s "${zsh_path}"
+        if ! chsh -s "${zsh_path}"; then
+            log_error "Failed to change shell to zsh"
+            return 1
+        fi
     fi
 
     log_success "Default shell changed to zsh"

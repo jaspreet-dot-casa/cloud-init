@@ -99,11 +99,10 @@ func (c *VirshClient) Resume(ctx context.Context, name string) error {
 
 // SetAutostart enables or disables autostart for a VM.
 func (c *VirshClient) SetAutostart(ctx context.Context, name string, enable bool) error {
-	action := "autostart"
 	if !enable {
 		return c.runWithArgs(ctx, "autostart", "--disable", name)
 	}
-	return c.run(ctx, action, name)
+	return c.run(ctx, "autostart", name)
 }
 
 // GetDomainInfo returns detailed information about a VM.

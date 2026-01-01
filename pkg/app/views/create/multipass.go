@@ -138,10 +138,18 @@ func (m *Model) handleMultipassPhase(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 		return m, nil
 
 	case key.Matches(msg, key.NewBinding(key.WithKeys("left", "h"))):
+		// Forward to text input if on VM name field
+		if m.wizard.FocusedField == multipassFieldVMName {
+			return m.updateActiveTextInput(msg)
+		}
 		m.cycleMultipassOption(-1)
 		return m, nil
 
 	case key.Matches(msg, key.NewBinding(key.WithKeys("right", "l"))):
+		// Forward to text input if on VM name field
+		if m.wizard.FocusedField == multipassFieldVMName {
+			return m.updateActiveTextInput(msg)
+		}
 		m.cycleMultipassOption(1)
 		return m, nil
 

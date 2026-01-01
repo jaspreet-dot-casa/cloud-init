@@ -375,6 +375,6 @@ func (m *Manager) HasState() bool {
 	if err != nil {
 		return false
 	}
-	// Empty state file doesn't count
-	return info.Size() > 0
+	// Must be a regular file with content (not a directory)
+	return info.Mode().IsRegular() && info.Size() > 0
 }

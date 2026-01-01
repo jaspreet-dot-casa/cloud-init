@@ -123,13 +123,17 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.switchTab(3)
 
 		case key.Matches(msg, keys.NextTab):
-			return m.switchTab((m.activeTab + 1) % len(m.tabs))
-		case key.Matches(msg, keys.PrevTab):
-			idx := m.activeTab - 1
-			if idx < 0 {
-				idx = len(m.tabs) - 1
+			if len(m.tabs) > 0 {
+				return m.switchTab((m.activeTab + 1) % len(m.tabs))
 			}
-			return m.switchTab(idx)
+		case key.Matches(msg, keys.PrevTab):
+			if len(m.tabs) > 0 {
+				idx := m.activeTab - 1
+				if idx < 0 {
+					idx = len(m.tabs) - 1
+				}
+				return m.switchTab(idx)
+			}
 		}
 	}
 
@@ -146,6 +150,10 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // switchTab changes the active tab.
 func (m Model) switchTab(idx int) (tea.Model, tea.Cmd) {
 	if idx >= 0 && idx < len(m.tabs) {
+		// Blur the current tab before switching
+		if m.activeTab >= 0 && m.activeTab < len(m.tabs) {
+			m.tabs[m.activeTab].Blur()
+		}
 		m.activeTab = idx
 		// Focus the new tab
 		if cmd := m.tabs[m.activeTab].Focus(); cmd != nil {

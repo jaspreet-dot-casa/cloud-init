@@ -74,7 +74,11 @@ func (m *Model) createDeployer() deploy.Deployer {
 			generateYAML: m.wizard.Data.GenerateOpts.GenerateCloudInit,
 		}
 	default:
-		return nil
+		// Fallback to config-only deployer for unknown targets
+		return &configOnlyDeployer{
+			projectDir: m.projectDir,
+			outputDir:  ".",
+		}
 	}
 }
 
@@ -108,7 +112,15 @@ func (m *Model) runDeployment() tea.Cmd {
 
 		// Run deployment
 		ctx := context.Background()
-		result, _ := state.deployer.Deploy(ctx, opts, progressCallback)
+		result, err := state.deployer.Deploy(ctx, opts, progressCallback)
+
+		// Handle error if result is nil
+		if err != nil && result == nil {
+			result = &deploy.DeployResult{
+				Success: false,
+				Error:   err,
+			}
+		}
 
 		// Signal completion
 		close(state.progressChan)

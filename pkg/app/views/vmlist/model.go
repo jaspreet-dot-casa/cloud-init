@@ -432,6 +432,7 @@ func (m *Model) showDetails() (app.Tab, tea.Cmd) {
 // Focus sets focus on this tab
 func (m *Model) Focus() tea.Cmd {
 	m.BaseTab.Focus()
+	m.autoRefresh = true
 	return tea.Batch(
 		m.spinner.Tick,
 		m.loadVMs,

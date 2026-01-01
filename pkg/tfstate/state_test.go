@@ -439,9 +439,8 @@ func TestManager_HasState_EdgeCases(t *testing.T) {
 		require.NoError(t, err)
 
 		m := NewManager(tmpDir)
-		// Directories have size > 0, so this returns true
-		// This is an edge case that could be considered a bug
-		assert.True(t, m.HasState())
+		// Directories should not be treated as valid state files
+		assert.False(t, m.HasState())
 	})
 
 	t.Run("state file with only whitespace", func(t *testing.T) {
