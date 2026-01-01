@@ -362,10 +362,14 @@ func (m *Manager) virshCommand(ctx context.Context, action, name string) error {
 }
 
 // IsInitialized returns true if the terraform directory has been initialized.
+// Returns true only when .terraform exists AND is a directory.
 func (m *Manager) IsInitialized() bool {
 	tfDir := filepath.Join(m.workDir, ".terraform")
-	_, err := os.Stat(tfDir)
-	return err == nil
+	info, err := os.Stat(tfDir)
+	if err != nil {
+		return false
+	}
+	return info.IsDir()
 }
 
 // HasState returns true if a terraform state file exists.

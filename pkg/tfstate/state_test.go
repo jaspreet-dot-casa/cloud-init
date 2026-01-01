@@ -462,8 +462,8 @@ func TestManager_IsInitialized_EdgeCases(t *testing.T) {
 		require.NoError(t, err)
 
 		m := NewManager(tmpDir)
-		// os.Stat succeeds for files too
-		assert.True(t, m.IsInitialized())
+		// Should return false because .terraform is a file, not a directory
+		assert.False(t, m.IsInitialized())
 	})
 }
 
