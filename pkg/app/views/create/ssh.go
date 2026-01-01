@@ -140,7 +140,13 @@ func fetchGitHubSSHKeys(username string) ([]string, error) {
 	url := fmt.Sprintf("https://github.com/%s.keys", username)
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "cloud-init-cli")
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to GitHub: %w", err)
 	}
@@ -181,6 +187,7 @@ func fetchGitHubProfile(username string) (*githubProfile, error) {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
+	req.Header.Set("User-Agent", "cloud-init-cli")
 
 	resp, err := client.Do(req)
 	if err != nil {

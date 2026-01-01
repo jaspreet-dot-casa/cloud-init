@@ -326,6 +326,16 @@ func parseKeyValue(output string) map[string]string {
 	return result
 }
 
+// extractIPFromCIDR extracts the IP address from a CIDR notation string (e.g., "192.168.1.10/24" -> "192.168.1.10").
+// Returns empty string if the input doesn't look like a valid CIDR.
+func extractIPFromCIDR(cidr string) string {
+	if !strings.Contains(cidr, ".") || !strings.Contains(cidr, "/") {
+		return ""
+	}
+	parts := strings.Split(cidr, "/")
+	return parts[0]
+}
+
 // parseIPFromDomifaddr parses IP from virsh domifaddr output.
 func parseIPFromDomifaddr(output string) string {
 	// Format:
@@ -337,10 +347,8 @@ func parseIPFromDomifaddr(output string) string {
 		if strings.Contains(line, "ipv4") {
 			fields := strings.Fields(line)
 			for _, field := range fields {
-				if strings.Contains(field, ".") && strings.Contains(field, "/") {
-					// Extract IP from CIDR notation
-					parts := strings.Split(field, "/")
-					return parts[0]
+				if ip := extractIPFromCIDR(field); ip != "" {
+					return ip
 				}
 			}
 		}
@@ -371,10 +379,8 @@ func parseIPFromLeases(output, mac string) string {
 		if strings.Contains(strings.ToLower(line), mac) {
 			fields := strings.Fields(line)
 			for _, field := range fields {
-				if strings.Contains(field, ".") && strings.Contains(field, "/") {
-					// Extract IP from CIDR notation
-					parts := strings.Split(field, "/")
-					return parts[0]
+				if ip := extractIPFromCIDR(field); ip != "" {
+					return ip
 				}
 			}
 		}

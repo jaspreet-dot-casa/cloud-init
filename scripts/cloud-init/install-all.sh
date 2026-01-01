@@ -152,20 +152,26 @@ setup_github_ssh_keys() {
     chmod 600 "${auth_keys}"
 
     # Add keys if not already present
-    local added=0
-    while IFS= read -r key; do
-        [[ -z "${key}" ]] && continue
+    # Count keys before to track additions (avoids bash-specific here-string)
+    local before_count after_count added
+    before_count=$(wc -l < "${auth_keys}" 2>/dev/null | tr -d ' ')
+    [ -z "${before_count}" ] && before_count=0
+
+    printf '%s\n' "${keys}" | while IFS= read -r key; do
+        [ -z "${key}" ] && continue
 
         # Check if key already exists
         if grep -qF "${key}" "${auth_keys}" 2>/dev/null; then
             log_debug "Key already exists, skipping"
         else
             echo "${key}" >> "${auth_keys}"
-            added=$((added + 1))
         fi
-    done <<< "${keys}"
+    done
 
-    if [[ ${added} -gt 0 ]]; then
+    after_count=$(wc -l < "${auth_keys}" | tr -d ' ')
+    added=$((after_count - before_count))
+
+    if [ ${added} -gt 0 ]; then
         log_success "Added ${added} new SSH key(s) to authorized_keys"
     else
         log_info "All keys already present in authorized_keys"
