@@ -1,7 +1,6 @@
 package create
 
 import (
-	"fmt"
 	"runtime"
 	"strings"
 	"time"
@@ -228,25 +227,4 @@ func (m *Model) renderTerraformTextField(label, name string, fieldIdx int) strin
 	b.WriteString("\n\n")
 
 	return b.String()
-}
-
-// getTerraformInputName returns the input name for the current field
-func (m *Model) getTerraformInputName() string {
-	switch m.wizard.FocusedField {
-	case terraformFieldVMName:
-		return "vm_name"
-	case terraformFieldImagePath:
-		return "image_path"
-	case terraformFieldLibvirtURI:
-		return "libvirt_uri"
-	}
-	return ""
-}
-
-// Platform check message
-func terraformPlatformCheck() string {
-	if runtime.GOOS != "linux" {
-		return fmt.Sprintf("libvirt requires Linux. Running on %s - configure for remote server.", runtime.GOOS)
-	}
-	return ""
 }

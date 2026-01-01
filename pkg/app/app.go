@@ -214,10 +214,16 @@ func (m Model) ActiveTab() int {
 	return m.activeTab
 }
 
-// SetActiveTab sets the active tab by index.
+// SetActiveTab sets the active tab by index with proper blur/focus lifecycle.
 func (m *Model) SetActiveTab(idx int) {
 	if idx >= 0 && idx < len(m.tabs) {
+		// Blur the current tab before switching
+		if m.activeTab >= 0 && m.activeTab < len(m.tabs) {
+			m.tabs[m.activeTab].Blur()
+		}
 		m.activeTab = idx
+		// Focus the new tab (ignore cmd as this is a direct setter)
+		m.tabs[m.activeTab].Focus()
 	}
 }
 

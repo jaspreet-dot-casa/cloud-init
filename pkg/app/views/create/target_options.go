@@ -22,6 +22,8 @@ func (m *Model) initTargetOptionsPhase() {
 		m.initUSBPhase()
 	case TargetConfigOnly:
 		m.initGeneratePhase()
+	default:
+		// Unknown target - skip initialization
 	}
 }
 
@@ -36,8 +38,9 @@ func (m *Model) handleTargetOptionsPhase(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 		return m.handleUSBPhase(msg)
 	case TargetConfigOnly:
 		return m.handleGeneratePhase(msg)
+	default:
+		return m, nil
 	}
-	return m, nil
 }
 
 // viewTargetOptionsPhase renders the target options phase

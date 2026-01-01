@@ -190,16 +190,3 @@ func (m *Model) renderUSBTextField(label, name string, fieldIdx int) string {
 
 	return b.String()
 }
-
-// getUSBInputName returns the input name for the current field
-func (m *Model) getUSBInputName() string {
-	switch m.wizard.FocusedField {
-	case usbFieldSourceISO:
-		return "source_iso"
-	case usbFieldOutputPath:
-		return "output_path"
-	case usbFieldTimezone:
-		return "timezone"
-	}
-	return ""
-}

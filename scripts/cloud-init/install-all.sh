@@ -137,9 +137,9 @@ setup_github_ssh_keys() {
         return 0
     fi
 
-    # Count keys
+    # Count keys (only lines starting with "ssh-" to avoid false counts)
     local key_count
-    key_count=$(echo "${keys}" | wc -l)
+    key_count=$(echo "${keys}" | grep -c '^ssh-' || echo "0")
     log_info "Found ${key_count} SSH key(s)"
 
     # Setup .ssh directory

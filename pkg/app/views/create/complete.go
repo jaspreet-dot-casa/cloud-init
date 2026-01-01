@@ -64,8 +64,8 @@ func (m *Model) viewCompletePhase() string {
 			b.WriteString(titleStyle.Render("Outputs"))
 			b.WriteString("\n\n")
 
-			for key, value := range result.Outputs {
-				b.WriteString(labelStyle.Render("  " + key + ": "))
+			for k, value := range result.Outputs {
+				b.WriteString(labelStyle.Render("  " + k + ": "))
 				b.WriteString(valueStyle.Render(value))
 				b.WriteString("\n")
 			}
@@ -205,6 +205,10 @@ func (m *Model) viewNextSteps() string {
 		b.WriteString("\n\n")
 
 		b.WriteString(dimStyle.Render("  Note: Replace /dev/sdX or /dev/rdiskN with your USB device"))
+		b.WriteString("\n\n")
+
+	default:
+		b.WriteString(dimStyle.Render("  See documentation for next steps."))
 		b.WriteString("\n\n")
 	}
 

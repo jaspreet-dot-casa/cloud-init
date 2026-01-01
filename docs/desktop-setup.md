@@ -10,7 +10,7 @@ Use this option when installing Ubuntu on a new machine or completely reinstalli
 
 ```bash
 # Clone the repository on any machine with Go installed
-git clone https://github.com/your-username/cloud-init.git
+git clone https://github.com/jaspreet-dot-casa/cloud-init.git
 cd cloud-init
 
 # Build the CLI
@@ -75,7 +75,7 @@ Use this option when you already have Ubuntu installed and want to add the devel
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/cloud-init.git ~/cloud-init
+git clone https://github.com/jaspreet-dot-casa/cloud-init.git ~/cloud-init
 cd ~/cloud-init
 
 # Run the installer

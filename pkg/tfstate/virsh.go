@@ -277,7 +277,11 @@ func parseVirshList(output string) []VirshVM {
 		if fields[0] == "-" {
 			vm.ID = -1
 		} else {
-			vm.ID, _ = strconv.Atoi(fields[0])
+			if id, err := strconv.Atoi(fields[0]); err == nil {
+				vm.ID = id
+			} else {
+				vm.ID = -1 // Treat unparseable as "no ID"
+			}
 		}
 
 		// Parse status (may be multiple words like "shut off")

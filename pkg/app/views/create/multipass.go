@@ -224,12 +224,32 @@ func (m *Model) saveMultipassOptions() {
 		vmName = "cloud-init-" + time.Now().Format("0102-1504")
 	}
 
+	// Get indices with bounds checking
+	imageIdx := m.wizard.SelectIdxs["image"]
+	cpuIdx := m.wizard.SelectIdxs["cpu"]
+	memIdx := m.wizard.SelectIdxs["memory"]
+	diskIdx := m.wizard.SelectIdxs["disk"]
+
+	// Clamp indices to valid ranges
+	if imageIdx < 0 || imageIdx >= len(multipassImages) {
+		imageIdx = 0
+	}
+	if cpuIdx < 0 || cpuIdx >= len(cpuOptions) {
+		cpuIdx = 1 // Default to recommended (2 CPUs)
+	}
+	if memIdx < 0 || memIdx >= len(memoryOptions) {
+		memIdx = 1 // Default to recommended (4 GB)
+	}
+	if diskIdx < 0 || diskIdx >= len(diskOptions) {
+		diskIdx = 1 // Default to recommended (20 GB)
+	}
+
 	m.wizard.Data.MultipassOpts = deploy.MultipassOptions{
 		VMName:        vmName,
-		UbuntuVersion: multipassImages[m.wizard.SelectIdxs["image"]].value,
-		CPUs:          cpuOptions[m.wizard.SelectIdxs["cpu"]].value,
-		MemoryMB:      memoryOptions[m.wizard.SelectIdxs["memory"]].value,
-		DiskGB:        diskOptions[m.wizard.SelectIdxs["disk"]].value,
+		UbuntuVersion: multipassImages[imageIdx].value,
+		CPUs:          cpuOptions[cpuIdx].value,
+		MemoryMB:      memoryOptions[memIdx].value,
+		DiskGB:        diskOptions[diskIdx].value,
 		KeepOnFailure: m.wizard.CheckStates["keep_on_failure"],
 	}
 }

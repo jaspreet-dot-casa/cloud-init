@@ -41,19 +41,17 @@ get_installed_version() {
 do_install() {
     log_info "Installing bat via apt..."
 
-    if is_dry_run; then
-        echo "[DRY-RUN] Would run: sudo apt-get install -y bat"
-        echo "[DRY-RUN] Would create symlink: ln -s batcat ~/.local/bin/bat"
-        return 0
-    fi
-
-    sudo apt-get update -qq
-    sudo apt-get install -y bat
+    apt_or_print update -qq
+    apt_or_print install -y bat
 
     # Create symlink for 'bat' command (Ubuntu installs as 'batcat')
     if command_exists batcat && ! command_exists bat; then
         mkdir -p "${HOME}/.local/bin"
-        ln -sf "$(command -v batcat)" "${HOME}/.local/bin/bat"
+        if is_dry_run; then
+            echo "[DRY-RUN] Would create symlink: ln -sf batcat ~/.local/bin/bat"
+        else
+            ln -sf "$(command -v batcat)" "${HOME}/.local/bin/bat"
+        fi
         log_info "Created symlink: bat -> batcat"
     fi
 

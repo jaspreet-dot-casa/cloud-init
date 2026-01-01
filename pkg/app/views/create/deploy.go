@@ -378,14 +378,21 @@ func (d *configOnlyDeployer) Deploy(ctx context.Context, opts *deploy.DeployOpti
 		outputDir = "."
 	}
 
-	progress(deploy.ProgressEvent{
+	// Helper to safely call progress callback
+	reportProgress := func(event deploy.ProgressEvent) {
+		if progress != nil {
+			progress(event)
+		}
+	}
+
+	reportProgress(deploy.ProgressEvent{
 		Stage:   deploy.StageConfig,
 		Message: "Generating configuration files...",
 		Percent: 10,
 	})
 
 	// Generate config.env
-	progress(deploy.ProgressEvent{
+	reportProgress(deploy.ProgressEvent{
 		Stage:   deploy.StageConfig,
 		Message: "Writing config.env...",
 		Percent: 30,
@@ -400,7 +407,7 @@ func (d *configOnlyDeployer) Deploy(ctx context.Context, opts *deploy.DeployOpti
 	}
 
 	// Generate secrets.env
-	progress(deploy.ProgressEvent{
+	reportProgress(deploy.ProgressEvent{
 		Stage:   deploy.StageConfig,
 		Message: "Writing cloud-init/secrets.env...",
 		Percent: 50,
@@ -424,7 +431,7 @@ func (d *configOnlyDeployer) Deploy(ctx context.Context, opts *deploy.DeployOpti
 
 	// Generate cloud-init.yaml if requested
 	if d.generateYAML {
-		progress(deploy.ProgressEvent{
+		reportProgress(deploy.ProgressEvent{
 			Stage:   deploy.StageConfig,
 			Message: "Writing cloud-init/cloud-init.yaml...",
 			Percent: 80,
@@ -442,7 +449,7 @@ func (d *configOnlyDeployer) Deploy(ctx context.Context, opts *deploy.DeployOpti
 		}
 	}
 
-	progress(deploy.ProgressEvent{
+	reportProgress(deploy.ProgressEvent{
 		Stage:   deploy.StageComplete,
 		Message: "Configuration files generated successfully",
 		Percent: 100,

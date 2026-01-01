@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
@@ -208,23 +209,22 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 	}
 
 	switch {
-	case msg.String() == "s":
+	case key.Matches(msg, keys.Start):
 		return m.startSelectedVM()
-	case msg.String() == "S":
+	case key.Matches(msg, keys.Stop):
 		return m.stopSelectedVM()
-	case msg.String() == "d":
+	case key.Matches(msg, keys.Delete):
 		return m.promptDeleteVM()
-	case msg.String() == "c":
+	case key.Matches(msg, keys.Console):
 		return m.openConsole()
-	case msg.String() == "x":
+	case key.Matches(msg, keys.SSH):
 		return m.sshToVM()
-	case msg.String() == "r":
+	case key.Matches(msg, keys.Refresh):
 		m.loading = true
 		return m, m.loadVMs
-	case msg.String() == "enter":
+	case key.Matches(msg, keys.Details):
 		return m.showDetails()
 	default:
-		_ = keys // silence unused warning for now
 		var cmd tea.Cmd
 		m.table, cmd = m.table.Update(msg)
 		return m, cmd
