@@ -534,7 +534,7 @@ func (m *Model) KeyBindings() []string {
 	}
 }
 
-// HasFocusedInput returns false as this tab has no text inputs
+// HasFocusedInput returns true during delete confirmation to block global shortcuts
 func (m *Model) HasFocusedInput() bool {
-	return false
+	return m.confirmingDelete
 }
