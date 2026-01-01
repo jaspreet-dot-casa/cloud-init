@@ -50,6 +50,7 @@ do_install() {
 
     local tmp_dir
     tmp_dir=$(mktemp -d)
+    # shellcheck disable=SC2064  # Intentional: expand tmp_dir now to capture current value
     trap "rm -rf '${tmp_dir}'" EXIT
 
     # Get latest release URL
