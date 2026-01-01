@@ -58,6 +58,10 @@ type Model struct {
 
 	// Auto-refresh
 	autoRefresh bool
+
+	// Delete confirmation
+	confirmingDelete bool
+	vmToDelete       *tfstate.VMInfo
 }
 
 // New creates a new VM list model
@@ -177,13 +181,39 @@ func (m *Model) Update(msg tea.Msg) (app.Tab, tea.Cmd) {
 func (m *Model) handleKeyMsg(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 	keys := app.DefaultVMListKeyMap()
 
+	// Handle delete confirmation mode
+	if m.confirmingDelete {
+		switch msg.String() {
+		case "y", "Y", "enter":
+			// Confirm delete
+			m.confirmingDelete = false
+			vm := m.vmToDelete
+			m.vmToDelete = nil
+			if vm != nil {
+				m.actionInProgress = true
+				m.actionMessage = ""
+				return m, m.performAction("delete", vm.Name, m.manager.DeleteVM)
+			}
+			return m, nil
+		case "n", "N", "esc":
+			// Cancel delete
+			m.confirmingDelete = false
+			m.vmToDelete = nil
+			m.actionMessage = "Delete cancelled"
+			return m, nil
+		default:
+			// Ignore other keys during confirmation
+			return m, nil
+		}
+	}
+
 	switch {
 	case msg.String() == "s":
 		return m.startSelectedVM()
 	case msg.String() == "S":
 		return m.stopSelectedVM()
 	case msg.String() == "d":
-		return m.deleteSelectedVM()
+		return m.promptDeleteVM()
 	case msg.String() == "c":
 		return m.openConsole()
 	case msg.String() == "x":
@@ -223,8 +253,13 @@ func (m *Model) View() string {
 		content = m.table.View()
 	}
 
-	// Status bar
-	statusBar := m.renderStatusBar()
+	// Status bar (or confirmation dialog)
+	var statusBar string
+	if m.confirmingDelete && m.vmToDelete != nil {
+		statusBar = m.renderDeleteConfirmation()
+	} else {
+		statusBar = m.renderStatusBar()
+	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, header, content, statusBar)
 }
@@ -272,6 +307,27 @@ func (m *Model) renderStatusBar() string {
 	}
 
 	return ""
+}
+
+// renderDeleteConfirmation renders the delete confirmation prompt
+func (m *Model) renderDeleteConfirmation() string {
+	warningStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("196")).
+		Bold(true)
+
+	promptStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("229"))
+
+	keyStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("42")).
+		Bold(true)
+
+	return fmt.Sprintf("%s Delete VM '%s'? This will run terraform destroy. %s/%s",
+		warningStyle.Render("⚠"),
+		m.vmToDelete.Name,
+		keyStyle.Render("[y]es"),
+		keyStyle.Render("[n]o"),
+	) + promptStyle.Render("")
 }
 
 // updateTableRows updates the table with current VM data
@@ -367,15 +423,16 @@ func (m *Model) stopSelectedVM() (app.Tab, tea.Cmd) {
 	return m, m.performAction("stop", vm.Name, m.manager.StopVM)
 }
 
-// deleteSelectedVM deletes the selected VM
-func (m *Model) deleteSelectedVM() (app.Tab, tea.Cmd) {
+// promptDeleteVM shows delete confirmation for the selected VM
+func (m *Model) promptDeleteVM() (app.Tab, tea.Cmd) {
 	vm := m.selectedVM()
 	if vm == nil {
 		return m, nil
 	}
-	m.actionInProgress = true
+	m.confirmingDelete = true
+	m.vmToDelete = vm
 	m.actionMessage = ""
-	return m, m.performAction("delete", vm.Name, m.manager.DeleteVM)
+	return m, nil
 }
 
 // performAction performs a VM action asynchronously
@@ -460,6 +517,12 @@ func (m *Model) SetSize(width, height int) {
 
 // KeyBindings returns the key bindings for this tab
 func (m *Model) KeyBindings() []string {
+	if m.confirmingDelete {
+		return []string{
+			"[y] confirm delete",
+			"[n/Esc] cancel",
+		}
+	}
 	return []string{
 		"[s] start",
 		"[S] stop",

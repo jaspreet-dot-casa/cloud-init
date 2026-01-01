@@ -512,14 +512,15 @@ func TestModel_stopSelectedVM_NoSelection(t *testing.T) {
 	assert.Nil(t, cmd)
 }
 
-func TestModel_deleteSelectedVM_NoSelection(t *testing.T) {
+func TestModel_promptDeleteVM_NoSelection(t *testing.T) {
 	m := New("/test/project")
 	m.vms = []tfstate.VMInfo{}
 
-	updated, cmd := m.deleteSelectedVM()
+	updated, cmd := m.promptDeleteVM()
 
 	assert.Equal(t, m, updated)
 	assert.Nil(t, cmd)
+	assert.False(t, m.confirmingDelete)
 }
 
 func TestModel_renderHeader(t *testing.T) {
@@ -611,12 +612,49 @@ func TestModel_handleKeyMsg_Delete(t *testing.T) {
 	m := New("/test/project")
 	m.vms = []tfstate.VMInfo{{Name: "test-vm"}}
 
+	// Press 'd' should show confirmation
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("d")}
 	updated, cmd := m.handleKeyMsg(msg)
 	model := updated.(*Model)
 
+	assert.True(t, model.confirmingDelete)
+	assert.NotNil(t, model.vmToDelete)
+	assert.Nil(t, cmd) // No action yet, waiting for confirmation
+}
+
+func TestModel_handleKeyMsg_DeleteConfirm(t *testing.T) {
+	m := New("/test/project")
+	m.vms = []tfstate.VMInfo{{Name: "test-vm"}}
+	m.confirmingDelete = true
+	m.vmToDelete = &m.vms[0]
+
+	// Press 'y' to confirm delete
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")}
+	updated, cmd := m.handleKeyMsg(msg)
+	model := updated.(*Model)
+
+	assert.False(t, model.confirmingDelete)
+	assert.Nil(t, model.vmToDelete)
 	assert.True(t, model.actionInProgress)
 	assert.NotNil(t, cmd)
+}
+
+func TestModel_handleKeyMsg_DeleteCancel(t *testing.T) {
+	m := New("/test/project")
+	m.vms = []tfstate.VMInfo{{Name: "test-vm"}}
+	m.confirmingDelete = true
+	m.vmToDelete = &m.vms[0]
+
+	// Press 'n' to cancel delete
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")}
+	updated, cmd := m.handleKeyMsg(msg)
+	model := updated.(*Model)
+
+	assert.False(t, model.confirmingDelete)
+	assert.Nil(t, model.vmToDelete)
+	assert.False(t, model.actionInProgress)
+	assert.Equal(t, "Delete cancelled", model.actionMessage)
+	assert.Nil(t, cmd)
 }
 
 func TestModel_handleKeyMsg_Console(t *testing.T) {
@@ -707,16 +745,18 @@ func TestModel_stopSelectedVM_WithSelection(t *testing.T) {
 	assert.NotNil(t, cmd)
 }
 
-func TestModel_deleteSelectedVM_WithSelection(t *testing.T) {
+func TestModel_promptDeleteVM_WithSelection(t *testing.T) {
 	m := New("/test/project")
 	m.vms = []tfstate.VMInfo{{Name: "test-vm"}}
 
-	updated, cmd := m.deleteSelectedVM()
+	updated, cmd := m.promptDeleteVM()
 	model := updated.(*Model)
 
-	assert.True(t, model.actionInProgress)
-	assert.Empty(t, model.actionMessage)
-	assert.NotNil(t, cmd)
+	// Should show confirmation, not immediately delete
+	assert.True(t, model.confirmingDelete)
+	assert.NotNil(t, model.vmToDelete)
+	assert.Equal(t, "test-vm", model.vmToDelete.Name)
+	assert.Nil(t, cmd) // No async action yet
 }
 
 func TestModel_SetSize_SmallHeight(t *testing.T) {
