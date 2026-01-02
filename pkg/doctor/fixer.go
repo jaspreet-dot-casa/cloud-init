@@ -88,9 +88,9 @@ var fixCommands = map[string]map[string]*FixCommand{
 			Platform:    PlatformDarwin,
 		},
 		PlatformLinux: {
-			Description: "Install via apt (mkasberg PPA)",
-			Command:     "sudo add-apt-repository -y ppa:mkasberg/ghostty-ubuntu && sudo apt update && sudo apt install -y ghostty",
-			Sudo:        true,
+			Description: "Install via official script (ghostty-ubuntu)",
+			Command:     `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)"`,
+			Sudo:        false,
 			Platform:    PlatformLinux,
 		},
 	},
