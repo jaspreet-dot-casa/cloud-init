@@ -8,7 +8,7 @@
 # Output: JSON results written to /tmp/test-results.json
 #
 # Usage: This script is embedded in cloud-init and runs automatically.
-#        For manual testing: sudo -u testuser /opt/local-remote/test-in-vm.sh
+#        For manual testing: sudo -u testuser /opt/ucli/test-in-vm.sh
 #==============================================================================
 
 set -u
@@ -244,7 +244,7 @@ test_directories() {
     )
 
     local optional_dirs=(
-        "$HOME/.local-remote"
+        "$HOME/.config/ucli"
         "$HOME/.local/bin"
         "$HOME/.config/shell"
     )

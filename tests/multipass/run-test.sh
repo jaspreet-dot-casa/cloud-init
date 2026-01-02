@@ -191,8 +191,8 @@ retrieve_results() {
         log_warning "Test results file not found. Running tests manually..."
 
         # Try to run the test script manually
-        if multipass exec "$VM_NAME" -- test -f /opt/local-remote/test-in-vm.sh 2>/dev/null; then
-            multipass exec "$VM_NAME" -- sudo -u testuser /opt/local-remote/test-in-vm.sh || true
+        if multipass exec "$VM_NAME" -- test -f /opt/ucli/test-in-vm.sh 2>/dev/null; then
+            multipass exec "$VM_NAME" -- sudo -u testuser /opt/ucli/test-in-vm.sh || true
         else
             log_error "Test script not found in VM"
             return 1

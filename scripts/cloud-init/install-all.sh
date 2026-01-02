@@ -42,7 +42,7 @@ source "${SCRIPT_DIR}/../lib/lock.sh"
 
 PACKAGES_DIR="${SCRIPT_DIR}/../packages"
 SHARED_DIR="${SCRIPT_DIR}/../shared"
-LOG_DIR="${HOME}/.local-remote/logs"
+LOG_DIR="${HOME}/.config/ucli/logs"
 LOG_FILE=""
 
 # Ensure ~/.local/bin is in PATH (for user-installed binaries like starship, zoxide)
@@ -315,11 +315,11 @@ generate_shell_config() {
 setup_tailscale() {
     log_section "Setting Up Tailscale"
 
-    # Skip tailscale setup during cloud-init - authentication is handled by local-remote-login
+    # Skip tailscale setup during cloud-init - authentication requires interactive login
     # Cloud-init already installs and starts tailscaled daemon
     if [[ "${CLOUD_INIT:-false}" == "true" ]]; then
         log_info "Skipping Tailscale setup during cloud-init"
-        log_info "Run 'local-remote-login' after first login to authenticate"
+        log_info "Run 'sudo tailscale up --ssh' after first login to authenticate"
         return 0
     fi
 

@@ -5,7 +5,7 @@
 # Usage: source "${SCRIPT_DIR}/lib/backup.sh"
 #
 # Backup structure:
-#   ~/.local-remote/backups/
+#   ~/.config/ucli/backups/
 #     2024-12-22T10:30:00/
 #       shell/
 #         35-lazygit.sh
@@ -31,7 +31,7 @@ source "${SCRIPT_DIR_BACKUP}/core.sh"
 # Backup Configuration
 #==============================================================================
 
-BACKUP_ROOT="${HOME}/.local-remote/backups"
+BACKUP_ROOT="${HOME}/.config/ucli/backups"
 MAX_BACKUPS=5  # Keep last N backups
 
 # Files/directories to backup before config changes

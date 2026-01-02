@@ -227,7 +227,7 @@ file_readable() {
 # Backup a file before modifying
 backup_file() {
     local file="$1"
-    local backup_dir="${2:-${HOME}/.local-remote/backups}"
+    local backup_dir="${2:-${HOME}/.config/ucli/backups}"
     local timestamp
     timestamp=$(date +%Y%m%d_%H%M%S)
 
