@@ -84,13 +84,13 @@ func TestDownloader_Download_WithProgress(t *testing.T) {
 		DestPath: destPath,
 		OnProgress: func(downloaded, total int64) {
 			atomic.AddInt32(&progressCalls, 1)
-			lastDownloaded = downloaded
+			atomic.StoreInt64(&lastDownloaded, downloaded)
 		},
 	})
 
 	require.NoError(t, err)
-	assert.Greater(t, progressCalls, int32(0))
-	assert.Equal(t, int64(len(content)), lastDownloaded)
+	assert.Greater(t, atomic.LoadInt32(&progressCalls), int32(0))
+	assert.Equal(t, int64(len(content)), atomic.LoadInt64(&lastDownloaded))
 }
 
 func TestDownloader_Download_WithChecksum(t *testing.T) {
@@ -219,10 +219,13 @@ func TestDownloader_StartBackgroundDownload(t *testing.T) {
 	err := downloader.StartBackgroundDownload("test-download", server.URL, destPath)
 	require.NoError(t, err)
 
-	// Wait for download to complete
-	time.Sleep(500 * time.Millisecond)
+	// Poll for file existence with timeout
+	require.Eventually(t, func() bool {
+		_, err := os.Stat(destPath)
+		return err == nil
+	}, 5*time.Second, 10*time.Millisecond, "download did not complete within timeout")
 
-	// Verify file exists
+	// Verify file content
 	data, err := os.ReadFile(destPath)
 	require.NoError(t, err)
 	assert.Equal(t, content, data)
@@ -233,11 +236,11 @@ func TestDownloader_StartBackgroundDownload_Duplicate(t *testing.T) {
 	store := settings.NewStoreWithDir(tmpDir)
 	downloader := NewDownloader(store)
 
-	// Server that delays response
+	// Server that waits for context cancellation
+	requestReceived := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(2 * time.Second)
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("content"))
+		close(requestReceived)
+		<-r.Context().Done()
 	}))
 	defer server.Close()
 
@@ -247,14 +250,26 @@ func TestDownloader_StartBackgroundDownload_Duplicate(t *testing.T) {
 	err := downloader.StartBackgroundDownload("test-id", server.URL, destPath)
 	require.NoError(t, err)
 
+	// Wait for request to reach server to ensure download is active
+	select {
+	case <-requestReceived:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for download to start")
+	}
+
 	// Try to start duplicate
 	err = downloader.StartBackgroundDownload("test-id", server.URL, destPath)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "already in progress")
 
 	// Cancel to clean up before test exits
-	_ = downloader.CancelDownload("test-id")
-	time.Sleep(100 * time.Millisecond)
+	err = downloader.CancelDownload("test-id")
+	require.NoError(t, err)
+
+	// Wait until download is no longer active
+	require.Eventually(t, func() bool {
+		return !downloader.IsDownloadActive("test-id")
+	}, 2*time.Second, 10*time.Millisecond, "download was not cleaned up after cancel")
 }
 
 func TestDownloader_CancelDownload(t *testing.T) {
@@ -289,8 +304,10 @@ func TestDownloader_CancelDownload(t *testing.T) {
 	err = downloader.CancelDownload("cancel-test")
 	require.NoError(t, err)
 
-	// Give time for cleanup
-	time.Sleep(100 * time.Millisecond)
+	// Wait until download is no longer active
+	require.Eventually(t, func() bool {
+		return !downloader.IsDownloadActive("cancel-test")
+	}, 2*time.Second, 10*time.Millisecond, "download was not cleaned up after cancel")
 }
 
 func TestDownloader_CancelDownload_NotFound(t *testing.T) {

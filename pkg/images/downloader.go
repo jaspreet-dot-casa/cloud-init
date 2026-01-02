@@ -263,6 +263,33 @@ func (d *Downloader) CancelDownload(id string) error {
 	return nil
 }
 
+// IsDownloadActive checks if a download with the given ID is currently active.
+func (d *Downloader) IsDownloadActive(id string) bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	_, exists := d.active[id]
+	return exists
+}
+
+// WaitForDownload waits for a download to complete with a timeout.
+// Returns true if the download completed, false if timeout elapsed or download not found.
+func (d *Downloader) WaitForDownload(id string, timeout time.Duration) bool {
+	d.mu.Lock()
+	task, exists := d.active[id]
+	d.mu.Unlock()
+
+	if !exists {
+		return false
+	}
+
+	select {
+	case <-task.done:
+		return true
+	case <-time.After(timeout):
+		return false
+	}
+}
+
 // GetActiveDownloads returns currently active downloads.
 func (d *Downloader) GetActiveDownloads() ([]settings.Download, error) {
 	state, err := d.store.LoadDownloadState()
