@@ -583,10 +583,10 @@ func TestGhosttyFixCommand_DarwinUsesBrewCask(t *testing.T) {
 	assert.False(t, fix.Sudo)
 }
 
-func TestGhosttyFixCommand_LinuxUsesSnap(t *testing.T) {
+func TestGhosttyFixCommand_LinuxUsesPPA(t *testing.T) {
 	fix := GetFixCommand(IDGhostty, PlatformLinux)
 
 	require.NotNil(t, fix)
-	assert.Contains(t, fix.Command, "snap install ghostty")
+	assert.Contains(t, fix.Command, "ppa:mkasberg/ghostty-ubuntu")
 	assert.True(t, fix.Sudo)
 }
