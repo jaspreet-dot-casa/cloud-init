@@ -151,16 +151,16 @@ func (m *Manager) DeleteVM(ctx context.Context, name string) error {
 	return nil
 }
 
-// RefreshState runs terraform refresh to update the state.
+// RefreshState runs terraform apply -refresh-only to update the state.
 func (m *Manager) RefreshState(ctx context.Context) error {
-	cmd := exec.CommandContext(ctx, "terraform", "refresh")
+	cmd := exec.CommandContext(ctx, "terraform", "apply", "-refresh-only", "-auto-approve")
 	cmd.Dir = m.workDir
 
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("terraform refresh failed: %w\n%s", err, stderr.String())
+		return fmt.Errorf("terraform apply -refresh-only failed: %w\n%s", err, stderr.String())
 	}
 
 	return nil
@@ -176,6 +176,7 @@ func (m *Manager) ConsoleCommand(name string) string {
 
 // SSHCommand returns the SSH command for a VM.
 func (m *Manager) SSHCommand(ip string) string {
+	ip = strings.TrimSpace(ip)
 	if ip == "" || ip == "pending" {
 		return ""
 	}

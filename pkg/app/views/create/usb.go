@@ -136,10 +136,16 @@ func (m *Model) saveUSBOptions() {
 		timezone = "UTC"
 	}
 
+	// Get storage index with bounds checking
+	storageIdx, ok := m.wizard.SelectIdxs["storage"]
+	if !ok || storageIdx < 0 || storageIdx >= len(storageOptions) {
+		storageIdx = 0 // Default to first option (lvm)
+	}
+
 	m.wizard.Data.USBOpts = USBOptions{
 		SourceISO:     sourceISO,
 		OutputPath:    outputPath,
-		StorageLayout: storageOptions[m.wizard.SelectIdxs["storage"]].value,
+		StorageLayout: storageOptions[storageIdx].value,
 		Timezone:      timezone,
 	}
 }

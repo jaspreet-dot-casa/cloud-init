@@ -376,7 +376,7 @@ func TestManager_SSHCommand_EdgeCases(t *testing.T) {
 		{
 			name:     "IP with whitespace",
 			ip:       "  192.168.1.1  ",
-			expected: "ssh ubuntu@  192.168.1.1  ",
+			expected: "ssh ubuntu@192.168.1.1",
 		},
 		{
 			name:     "PENDING uppercase",

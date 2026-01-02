@@ -159,7 +159,7 @@ func TestParseVMStatus(t *testing.T) {
 		{"shutoff", "shutoff", StatusShutoff},
 		{"paused", "paused", StatusPaused},
 		{"crashed", "crashed", StatusCrashed},
-		{"idle", "idle", StatusStopped},
+		{"idle", "idle", StatusRunning},
 		{"unknown state", "something-else", StatusUnknown},
 		{"empty", "", StatusUnknown},
 	}

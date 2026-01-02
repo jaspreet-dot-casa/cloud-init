@@ -297,7 +297,8 @@ func parseVirshList(output string) []VirshVM {
 // parseVMStatus converts a virsh state string to VMStatus.
 func parseVMStatus(state string) VMStatus {
 	switch strings.ToLower(state) {
-	case "running":
+	case "running", "idle":
+		// "idle" means the VM is running but has no work to do
 		return StatusRunning
 	case "shut off", "shutoff":
 		return StatusShutoff
@@ -305,8 +306,6 @@ func parseVMStatus(state string) VMStatus {
 		return StatusPaused
 	case "crashed":
 		return StatusCrashed
-	case "idle":
-		return StatusStopped
 	default:
 		return StatusUnknown
 	}

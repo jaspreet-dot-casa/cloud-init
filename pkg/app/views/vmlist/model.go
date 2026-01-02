@@ -61,8 +61,8 @@ type Model struct {
 	autoRefresh bool
 
 	// Delete confirmation
-	confirmingDelete bool
-	vmToDelete       *tfstate.VMInfo
+	confirmingDelete  bool
+	vmNameToDelete    string
 }
 
 // New creates a new VM list model
@@ -188,18 +188,18 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 		case "y", "Y", "enter":
 			// Confirm delete
 			m.confirmingDelete = false
-			vm := m.vmToDelete
-			m.vmToDelete = nil
-			if vm != nil {
+			vmName := m.vmNameToDelete
+			m.vmNameToDelete = ""
+			if vmName != "" {
 				m.actionInProgress = true
 				m.actionMessage = ""
-				return m, m.performAction("delete", vm.Name, m.manager.DeleteVM)
+				return m, m.performAction("delete", vmName, m.manager.DeleteVM)
 			}
 			return m, nil
 		case "n", "N", "esc":
 			// Cancel delete
 			m.confirmingDelete = false
-			m.vmToDelete = nil
+			m.vmNameToDelete = ""
 			m.actionMessage = "Delete cancelled"
 			return m, nil
 		default:
@@ -255,7 +255,7 @@ func (m *Model) View() string {
 
 	// Status bar (or confirmation dialog)
 	var statusBar string
-	if m.confirmingDelete && m.vmToDelete != nil {
+	if m.confirmingDelete && m.vmNameToDelete != "" {
 		statusBar = m.renderDeleteConfirmation()
 	} else {
 		statusBar = m.renderStatusBar()
@@ -324,7 +324,7 @@ func (m *Model) renderDeleteConfirmation() string {
 
 	return fmt.Sprintf("%s Delete VM '%s'? This will run terraform destroy. %s/%s",
 		warningStyle.Render("⚠"),
-		m.vmToDelete.Name,
+		m.vmNameToDelete,
 		keyStyle.Render("[y]es"),
 		keyStyle.Render("[n]o"),
 	) + promptStyle.Render("")
@@ -430,7 +430,7 @@ func (m *Model) promptDeleteVM() (app.Tab, tea.Cmd) {
 		return m, nil
 	}
 	m.confirmingDelete = true
-	m.vmToDelete = vm
+	m.vmNameToDelete = vm.Name
 	m.actionMessage = ""
 	return m, nil
 }

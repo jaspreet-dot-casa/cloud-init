@@ -618,7 +618,7 @@ func TestModel_handleKeyMsg_Delete(t *testing.T) {
 	model := updated.(*Model)
 
 	assert.True(t, model.confirmingDelete)
-	assert.NotNil(t, model.vmToDelete)
+	assert.NotEmpty(t, model.vmNameToDelete)
 	assert.Nil(t, cmd) // No action yet, waiting for confirmation
 }
 
@@ -626,7 +626,7 @@ func TestModel_handleKeyMsg_DeleteConfirm(t *testing.T) {
 	m := New("/test/project")
 	m.vms = []tfstate.VMInfo{{Name: "test-vm"}}
 	m.confirmingDelete = true
-	m.vmToDelete = &m.vms[0]
+	m.vmNameToDelete = "test-vm"
 
 	// Press 'y' to confirm delete
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")}
@@ -634,7 +634,7 @@ func TestModel_handleKeyMsg_DeleteConfirm(t *testing.T) {
 	model := updated.(*Model)
 
 	assert.False(t, model.confirmingDelete)
-	assert.Nil(t, model.vmToDelete)
+	assert.Empty(t, model.vmNameToDelete)
 	assert.True(t, model.actionInProgress)
 	assert.NotNil(t, cmd)
 }
@@ -643,7 +643,7 @@ func TestModel_handleKeyMsg_DeleteCancel(t *testing.T) {
 	m := New("/test/project")
 	m.vms = []tfstate.VMInfo{{Name: "test-vm"}}
 	m.confirmingDelete = true
-	m.vmToDelete = &m.vms[0]
+	m.vmNameToDelete = "test-vm"
 
 	// Press 'n' to cancel delete
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")}
@@ -651,7 +651,7 @@ func TestModel_handleKeyMsg_DeleteCancel(t *testing.T) {
 	model := updated.(*Model)
 
 	assert.False(t, model.confirmingDelete)
-	assert.Nil(t, model.vmToDelete)
+	assert.Empty(t, model.vmNameToDelete)
 	assert.False(t, model.actionInProgress)
 	assert.Equal(t, "Delete cancelled", model.actionMessage)
 	assert.Nil(t, cmd)
@@ -754,8 +754,8 @@ func TestModel_promptDeleteVM_WithSelection(t *testing.T) {
 
 	// Should show confirmation, not immediately delete
 	assert.True(t, model.confirmingDelete)
-	assert.NotNil(t, model.vmToDelete)
-	assert.Equal(t, "test-vm", model.vmToDelete.Name)
+	assert.NotEmpty(t, model.vmNameToDelete)
+	assert.Equal(t, "test-vm", model.vmNameToDelete)
 	assert.Nil(t, cmd) // No async action yet
 }
 

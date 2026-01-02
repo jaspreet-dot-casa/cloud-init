@@ -42,9 +42,17 @@ do_install() {
         return 0
     fi
 
+    # Detect Ubuntu/Debian codename dynamically
+    local distro_codename
+    if [[ -f /etc/os-release ]]; then
+        distro_codename=$(. /etc/os-release && echo "${VERSION_CODENAME}")
+    else
+        distro_codename=$(lsb_release -cs 2>/dev/null || echo "noble")
+    fi
+
     # Add Tailscale's GPG key and repository
-    curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
-    curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list
+    curl -fsSL "https://pkgs.tailscale.com/stable/ubuntu/${distro_codename}.noarmor.gpg" | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
+    curl -fsSL "https://pkgs.tailscale.com/stable/ubuntu/${distro_codename}.tailscale-keyring.list" | sudo tee /etc/apt/sources.list.d/tailscale.list
 
     # Install Tailscale
     sudo apt-get update -qq
