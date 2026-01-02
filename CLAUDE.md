@@ -56,6 +56,9 @@ cloud-init/
 │   │   ├── multipass/     # Multipass VM deployer
 │   │   ├── terraform/     # Terraform/libvirt deployer (primary)
 │   │   └── usb/           # USB/ISO deployer
+│   ├── tfstate/           # Terraform state and VM lifecycle management
+│   │   ├── state.go       # Manager for reading terraform state
+│   │   └── virsh.go       # VirshClient for fast VM operations
 │   ├── generator/         # Cloud-init YAML generation
 │   ├── iso/               # Bootable ISO generation
 │   ├── packages/          # Package discovery from scripts/packages/
@@ -115,6 +118,14 @@ cloud-init/
   - Requires user confirmation before apply (unless AutoApprove)
   - Parses terraform outputs for VM IP
 - **Options structs**: `TerraformOptions`, `MultipassOptions`, `USBOptions` with sensible defaults
+
+### Terraform State Management (`pkg/tfstate/`)
+- **Manager**: Reads terraform state and outputs to get VM information
+- **VirshClient**: Direct virsh commands for fast start/stop operations (no terraform needed)
+- **VMInfo struct**: Name, Status, IP, CPUs, MemoryMB, DiskGB, Autostart
+- **VMStatus types**: `StatusRunning`, `StatusStopped`, `StatusPaused`, `StatusShutoff`, `StatusCrashed`, `StatusUnknown`
+- **Lifecycle ops**: StartVM, StopVM, ForceStopVM, DeleteVM (via terraform destroy)
+- **State checks**: IsInitialized(), HasState() to verify terraform setup
 
 ### Shell Scripts
 - **Per-package scripts**: Each tool has `scripts/packages/<tool>.sh` with install/update/verify actions

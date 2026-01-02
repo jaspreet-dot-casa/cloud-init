@@ -57,7 +57,8 @@ do_install() {
     version=$(get_latest_version)
     local tmp_dir
     tmp_dir=$(mktemp -d)
-    trap 'rm -rf ${tmp_dir}' EXIT
+    # shellcheck disable=SC2064  # Intentional: expand tmp_dir now to capture current value
+    trap "rm -rf '${tmp_dir}'" EXIT
 
     local url="https://github.com/jesseduffield/lazygit/releases/download/v${version}/lazygit_${version}_Linux_${arch}.tar.gz"
 

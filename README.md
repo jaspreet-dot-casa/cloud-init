@@ -342,7 +342,7 @@ make shellcheck       # Lint scripts
 
 ## CLI Tool (ucli)
 
-The `ucli` CLI provides an interactive way to configure and generate cloud-init configurations.
+The `ucli` CLI provides an interactive way to configure and manage cloud-init configurations and VMs.
 
 ### Installation
 
@@ -356,6 +356,61 @@ make install-cli
 # Verify installation
 ./bin/ucli --version
 ```
+
+### Full-Screen TUI (VM Manager)
+
+Run `ucli` without arguments to launch the full-screen TUI for VM management:
+
+```bash
+./bin/ucli
+```
+
+The TUI provides a dashboard-style interface with tabs:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  ucli - Cloud-Init VM Manager                          [q]uit  │
+├─────────┬───────────┬───────────┬───────────────────────────────┤
+│ [1] VMs │ [2] Create│ [3] ISO   │ [4] Config                    │
+├─────────┴───────────┴───────────┴───────────────────────────────┤
+│                                                                 │
+│  VMs (Terraform/libvirt)                    Auto-refresh: 5s   │
+│  ─────────────────────────────────────────────────────────────  │
+│                                                                 │
+│  NAME              STATUS     IP              CPU  MEM   DISK   │
+│  ────────────────  ─────────  ──────────────  ───  ────  ────   │
+│▸ dev-server       running    192.168.122.10   2   4GB   20GB   │
+│  test-vm          stopped    -                2   2GB   10GB   │
+│                                                                 │
+├─────────────────────────────────────────────────────────────────┤
+│ [s]tart  [S]top  [d]elete  [c]onsole  [Enter] details  [?] help │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Navigation:**
+- `1/2/3/4` - Switch between tabs
+- `Tab` / `Shift+Tab` - Next/previous tab
+- `q` - Quit
+
+**Tab 1: VMs** - View and manage Terraform/libvirt VMs
+- `↑/↓` or `j/k` - Navigate
+- `s` - Start VM
+- `S` - Stop VM
+- `d` - Delete VM
+- `c` - Open console
+- `r` - Refresh list
+
+**Tab 2: Create** - Launch new VMs
+- Select target: Terraform/libvirt, Multipass, or Bootable USB
+- Configure VM settings (CPU, memory, disk)
+- Select packages to install
+
+**Tab 3: ISO** - Build bootable ISOs
+- Configure source ISO and output path
+- Select Ubuntu version and storage layout
+- Build autoinstall ISO
+
+See [docs/terraform-vms.md](docs/terraform-vms.md) for detailed VM management documentation.
 
 ### Commands
 
@@ -588,18 +643,42 @@ cloud-init/
 │       ├── main.go                 # Main CLI with cobra commands
 │       └── main_test.go            # CLI tests
 ├── pkg/
+│   ├── app/                        # Full-screen TUI application
+│   │   ├── app.go                  # Main app model (tabs, navigation)
+│   │   ├── header.go               # Header bar with tabs
+│   │   ├── footer.go               # Footer with keybindings
+│   │   ├── keymap.go               # Global keybindings
+│   │   ├── tab.go                  # Tab interface
+│   │   └── views/                  # Tab implementations
+│   │       ├── vmlist/             # VM list view
+│   │       ├── create/             # Create VM view
+│   │       └── iso/                # ISO builder view
 │   ├── config/                     # Configuration generation
 │   │   ├── config.go               # FullConfig type
 │   │   ├── writer.go               # Write config.env/secrets.env
 │   │   └── writer_test.go
+│   ├── deploy/                     # Deployment implementations
+│   │   ├── terraform/              # Terraform/libvirt deployer
+│   │   └── multipass/              # Multipass deployer
+│   ├── tfstate/                    # Terraform state management
+│   │   ├── state.go                # VM info from terraform state
+│   │   └── virsh.go                # virsh commands for start/stop
 │   ├── packages/                   # Package discovery
 │   │   ├── package.go              # Package/Registry types
 │   │   ├── discovery.go            # Scan scripts/packages/
 │   │   └── discovery_test.go
-│   └── tui/                        # Interactive TUI
+│   └── tui/                        # Interactive TUI forms
 │       ├── form.go                 # huh form implementation
 │       ├── styles.go               # Lipgloss theming
 │       └── form_test.go
+├── terraform/                      # Terraform configuration
+│   ├── main.tf                     # VM resources
+│   ├── variables.tf                # Input variables
+│   ├── outputs.tf                  # VM info outputs
+│   └── README.md                   # Terraform usage guide
+├── docs/                           # Documentation
+│   ├── desktop-setup.md            # Ubuntu desktop setup guide
+│   └── terraform-vms.md            # Terraform VM management guide
 ├── config/
 │   └── tailscale.conf              # Tailscale settings
 ├── cloud-init/
