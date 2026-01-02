@@ -121,6 +121,8 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.switchTab(2)
 		case key.Matches(msg, keys.Tab4):
 			return m.switchTab(3)
+		case key.Matches(msg, keys.Tab5):
+			return m.switchTab(4)
 
 		case key.Matches(msg, keys.NextTab):
 			if len(m.tabs) > 0 {

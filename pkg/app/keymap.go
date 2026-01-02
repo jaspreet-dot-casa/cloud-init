@@ -15,6 +15,7 @@ type KeyMap struct {
 	Tab2 key.Binding
 	Tab3 key.Binding
 	Tab4 key.Binding
+	Tab5 key.Binding
 
 	// Common actions
 	Up     key.Binding
@@ -57,7 +58,11 @@ func DefaultKeyMap() KeyMap {
 		),
 		Tab4: key.NewBinding(
 			key.WithKeys("4"),
-			key.WithHelp("4", "Config"),
+			key.WithHelp("4", "Doctor"),
+		),
+		Tab5: key.NewBinding(
+			key.WithKeys("5"),
+			key.WithHelp("5", "Config"),
 		),
 		Up: key.NewBinding(
 			key.WithKeys("up", "k"),
