@@ -7,24 +7,36 @@ import (
 
 // Checker provides dependency checking functionality.
 type Checker struct {
-	executor   CommandExecutor
-	platform   string
-	imagePath  string // Path to cloud image for Terraform
+	executor  CommandExecutor
+	envGetter EnvGetter
+	platform  string
+	imagePath string // Path to cloud image for Terraform
 }
 
 // NewChecker creates a new Checker with the real command executor.
 func NewChecker() *Checker {
 	return &Checker{
-		executor: &RealExecutor{},
-		platform: runtime.GOOS,
+		executor:  &RealExecutor{},
+		envGetter: &RealEnvGetter{},
+		platform:  runtime.GOOS,
 	}
 }
 
 // NewCheckerWithExecutor creates a new Checker with a custom executor (for testing).
 func NewCheckerWithExecutor(exec CommandExecutor) *Checker {
 	return &Checker{
-		executor: exec,
-		platform: runtime.GOOS,
+		executor:  exec,
+		envGetter: &RealEnvGetter{},
+		platform:  runtime.GOOS,
+	}
+}
+
+// NewCheckerWithEnv creates a new Checker with custom executor and env getter (for testing).
+func NewCheckerWithEnv(exec CommandExecutor, env EnvGetter) *Checker {
+	return &Checker{
+		executor:  exec,
+		envGetter: env,
+		platform:  runtime.GOOS,
 	}
 }
 
@@ -106,6 +118,8 @@ func (c *Checker) runCheck(checkID string) Check {
 		return CheckQemuKVM(c.executor)
 	case IDCloudImage:
 		return CheckCloudImage(c.executor, c.imagePath)
+	case IDGhostty:
+		return CheckGhostty(c.executor, c.envGetter)
 	default:
 		return Check{
 			ID:      checkID,

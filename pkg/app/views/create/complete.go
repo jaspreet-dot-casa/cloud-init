@@ -133,20 +133,47 @@ func (m *Model) viewNextSteps() string {
 	case TargetConfigOnly:
 		// Config-only: show cloud-init and manual install commands
 		if m.wizard.Data.GenerateOpts.GenerateCloudInit {
-			b.WriteString(labelStyle.Render("  Apply cloud-init on Ubuntu/Debian:"))
+			b.WriteString(labelStyle.Render("  Apply cloud-init on existing Ubuntu desktop/server:"))
+			b.WriteString("\n\n")
+
+			b.WriteString(dimStyle.Render("  # Step 1: Copy cloud-init.yaml to nocloud seed directory"))
 			b.WriteString("\n")
 			b.WriteString("  ")
-			b.WriteString(cmdStyle.Render("sudo cloud-init clean && sudo cloud-init init"))
+			b.WriteString(cmdStyle.Render("sudo mkdir -p /var/lib/cloud/seed/nocloud"))
+			b.WriteString("\n")
+			b.WriteString("  ")
+			b.WriteString(cmdStyle.Render("sudo cp cloud-init.yaml /var/lib/cloud/seed/nocloud/user-data"))
+			b.WriteString("\n")
+			b.WriteString("  ")
+			b.WriteString(cmdStyle.Render("echo 'instance-id: manual-$(date +%s)' | sudo tee /var/lib/cloud/seed/nocloud/meta-data"))
+			b.WriteString("\n\n")
+
+			b.WriteString(dimStyle.Render("  # Step 2: Run cloud-init"))
+			b.WriteString("\n")
+			b.WriteString("  ")
+			b.WriteString(cmdStyle.Render("sudo cloud-init clean --logs"))
+			b.WriteString("\n")
+			b.WriteString("  ")
+			b.WriteString(cmdStyle.Render("sudo cloud-init init --local && sudo cloud-init init"))
+			b.WriteString("\n")
+			b.WriteString("  ")
+			b.WriteString(cmdStyle.Render("sudo cloud-init modules --mode=config"))
+			b.WriteString("\n")
+			b.WriteString("  ")
+			b.WriteString(cmdStyle.Render("sudo cloud-init modules --mode=final"))
+			b.WriteString("\n\n")
+
+			b.WriteString(dimStyle.Render("  Note: Reboot after completion for all changes to take effect"))
 			b.WriteString("\n\n")
 		}
 
-		b.WriteString(labelStyle.Render("  Run install scripts manually:"))
+		b.WriteString(labelStyle.Render("  Or run install scripts directly (simpler):"))
 		b.WriteString("\n")
 		b.WriteString("  ")
-		b.WriteString(cmdStyle.Render("source config.env && ./scripts/cloud-init/install-all.sh"))
+		b.WriteString(cmdStyle.Render("bash scripts/cloud-init/install-all.sh"))
 		b.WriteString("\n\n")
 
-		b.WriteString(labelStyle.Render("  Or run individual package installers:"))
+		b.WriteString(labelStyle.Render("  Run individual package installers:"))
 		b.WriteString("\n")
 		b.WriteString("  ")
 		b.WriteString(cmdStyle.Render("./scripts/packages/<package>.sh install"))

@@ -1,0 +1,125 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.goos }}-${{ matrix.goarch }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          BINARY_NAME="ucli-${{ matrix.goos }}-${{ matrix.goarch }}"
+          go build -ldflags "-s -w -X main.version=${{ steps.version.outputs.VERSION }}" -o "${BINARY_NAME}" ./cmd/ucli
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ucli-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ucli-${{ matrix.goos }}-${{ matrix.goarch }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          for dir in artifacts/*/; do
+            binary=$(basename "$dir")
+            cp "${dir}${binary}" "release/${binary}"
+            chmod +x "release/${binary}"
+          done
+          ls -la release/
+
+      - name: Generate checksums
+        run: |
+          cd release
+          sha256sum * > checksums.txt
+          cat checksums.txt
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ucli ${{ steps.version.outputs.VERSION }}
+          body: |
+            ## Installation
+
+            ### Quick Install (Linux/macOS)
+
+            ```bash
+            # Auto-detect OS and architecture
+            curl -fsSL https://github.com/${{ github.repository }}/releases/latest/download/ucli-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') -o ucli
+            chmod +x ucli
+            ./ucli
+            ```
+
+            ### Manual Download
+
+            | Platform | Architecture | Download |
+            |----------|--------------|----------|
+            | Linux | x86_64 | [ucli-linux-amd64](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/ucli-linux-amd64) |
+            | Linux | ARM64 | [ucli-linux-arm64](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/ucli-linux-arm64) |
+            | macOS | Intel | [ucli-darwin-amd64](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/ucli-darwin-amd64) |
+            | macOS | Apple Silicon | [ucli-darwin-arm64](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/ucli-darwin-arm64) |
+
+            ### Verify Download
+
+            ```bash
+            sha256sum -c checksums.txt
+            ```
+          files: |
+            release/*
+          draft: false
+          prerelease: false

@@ -288,3 +288,305 @@ func TestExtractVersion(t *testing.T) {
 		})
 	}
 }
+
+// MockEnvGetter is a mock environment variable getter for testing.
+type MockEnvGetter struct {
+	Vars map[string]string
+}
+
+func (m *MockEnvGetter) Getenv(key string) string {
+	if m.Vars == nil {
+		return ""
+	}
+	return m.Vars[key]
+}
+
+func TestCheckGhostty_RunningInGhostty_TermProgram(t *testing.T) {
+	exec := &MockExecutor{}
+	env := &MockEnvGetter{
+		Vars: map[string]string{
+			"TERM_PROGRAM": "ghostty",
+			"TERM":         "xterm-256color",
+		},
+	}
+
+	check := CheckGhostty(exec, env)
+
+	assert.Equal(t, IDGhostty, check.ID)
+	assert.Equal(t, "Ghostty", check.Name)
+	assert.Equal(t, StatusOK, check.Status)
+	assert.Equal(t, "running in Ghostty", check.Message)
+}
+
+func TestCheckGhostty_RunningInGhostty_TermVar(t *testing.T) {
+	exec := &MockExecutor{}
+	env := &MockEnvGetter{
+		Vars: map[string]string{
+			"TERM_PROGRAM": "",
+			"TERM":         "ghostty",
+		},
+	}
+
+	check := CheckGhostty(exec, env)
+
+	assert.Equal(t, StatusOK, check.Status)
+	assert.Equal(t, "running in Ghostty", check.Message)
+}
+
+func TestCheckGhostty_RunningInGhostty_TermVarXterm(t *testing.T) {
+	exec := &MockExecutor{}
+	env := &MockEnvGetter{
+		Vars: map[string]string{
+			"TERM_PROGRAM": "",
+			"TERM":         "xterm-ghostty",
+		},
+	}
+
+	check := CheckGhostty(exec, env)
+
+	assert.Equal(t, StatusOK, check.Status)
+	assert.Equal(t, "running in Ghostty", check.Message)
+}
+
+func TestCheckGhostty_InstalledButNotCurrentTerminal(t *testing.T) {
+	exec := &MockExecutor{
+		LookPathFunc: func(file string) (string, error) {
+			if file == "ghostty" {
+				return "/usr/local/bin/ghostty", nil
+			}
+			return "", errors.New("not found")
+		},
+	}
+	env := &MockEnvGetter{
+		Vars: map[string]string{
+			"TERM_PROGRAM": "iTerm.app",
+			"TERM":         "xterm-256color",
+		},
+	}
+
+	check := CheckGhostty(exec, env)
+
+	assert.Equal(t, StatusWarning, check.Status)
+	assert.Equal(t, "installed (not current terminal)", check.Message)
+}
+
+func TestCheckGhostty_NotInstalled(t *testing.T) {
+	exec := &MockExecutor{
+		LookPathFunc: func(file string) (string, error) {
+			return "", errors.New("not found")
+		},
+	}
+	env := &MockEnvGetter{
+		Vars: map[string]string{
+			"TERM_PROGRAM": "Terminal.app",
+			"TERM":         "xterm-256color",
+		},
+	}
+
+	check := CheckGhostty(exec, env)
+
+	assert.Equal(t, StatusMissing, check.Status)
+	assert.Equal(t, "not installed", check.Message)
+	assert.NotNil(t, check.FixCommand)
+}
+
+func TestCheckGhostty_EmptyEnvVars(t *testing.T) {
+	exec := &MockExecutor{
+		LookPathFunc: func(file string) (string, error) {
+			return "", errors.New("not found")
+		},
+	}
+	env := &MockEnvGetter{
+		Vars: map[string]string{},
+	}
+
+	check := CheckGhostty(exec, env)
+
+	assert.Equal(t, StatusMissing, check.Status)
+	assert.Equal(t, "not installed", check.Message)
+}
+
+func TestCheckGhostty_CaseInsensitive(t *testing.T) {
+	exec := &MockExecutor{}
+	env := &MockEnvGetter{
+		Vars: map[string]string{
+			"TERM_PROGRAM": "",
+			"TERM":         "GHOSTTY",
+		},
+	}
+
+	check := CheckGhostty(exec, env)
+
+	assert.Equal(t, StatusOK, check.Status)
+	assert.Equal(t, "running in Ghostty", check.Message)
+}
+
+func TestGetFixCommand_Ghostty(t *testing.T) {
+	tests := []struct {
+		platform string
+		wantNil  bool
+	}{
+		{PlatformDarwin, false},
+		{PlatformLinux, false},
+	}
+
+	for _, tt := range tests {
+		t.Run("ghostty_"+tt.platform, func(t *testing.T) {
+			fix := GetFixCommand(IDGhostty, tt.platform)
+			if tt.wantNil {
+				assert.Nil(t, fix)
+			} else {
+				require.NotNil(t, fix)
+				assert.NotEmpty(t, fix.Command)
+				assert.NotEmpty(t, fix.Description)
+				assert.Equal(t, tt.platform, fix.Platform)
+			}
+		})
+	}
+}
+
+func TestChecker_CheckGroup_Terminal(t *testing.T) {
+	exec := &MockExecutor{
+		LookPathFunc: func(file string) (string, error) {
+			return "", errors.New("not found")
+		},
+	}
+
+	checker := NewCheckerWithExecutor(exec)
+	group := checker.CheckGroup(GroupTerminal)
+
+	assert.Equal(t, GroupTerminal, group.ID)
+	assert.Equal(t, "Terminal", group.Name)
+	require.Len(t, group.Checks, 1)
+	assert.Equal(t, IDGhostty, group.Checks[0].ID)
+}
+
+func TestNewCheckerWithEnv(t *testing.T) {
+	exec := &MockExecutor{}
+	env := &MockEnvGetter{
+		Vars: map[string]string{
+			"TERM_PROGRAM": "ghostty",
+		},
+	}
+
+	checker := NewCheckerWithEnv(exec, env)
+	check := checker.GetCheck(IDGhostty)
+
+	assert.Equal(t, StatusOK, check.Status)
+	assert.Equal(t, "running in Ghostty", check.Message)
+}
+
+func TestGetAllGroupIDs_IncludesTerminal(t *testing.T) {
+	groupIDs := GetAllGroupIDs()
+
+	assert.Contains(t, groupIDs, GroupTerminal)
+	assert.Contains(t, groupIDs, GroupTerraform)
+	assert.Contains(t, groupIDs, GroupMultipass)
+	assert.Contains(t, groupIDs, GroupISO)
+}
+
+func TestGetGroupDefinition_Terminal(t *testing.T) {
+	def, ok := GetGroupDefinition(GroupTerminal)
+
+	require.True(t, ok)
+	assert.Equal(t, "Terminal", def.Name)
+	assert.Contains(t, def.CheckIDs, IDGhostty)
+	assert.Equal(t, "", def.Platform) // Works on both platforms
+}
+
+func TestCheckGhostty_TermProgramPriority(t *testing.T) {
+	// When TERM_PROGRAM is set to ghostty, it should be OK
+	// even if TERM is something else
+	exec := &MockExecutor{
+		LookPathFunc: func(file string) (string, error) {
+			return "", errors.New("not found")
+		},
+	}
+	env := &MockEnvGetter{
+		Vars: map[string]string{
+			"TERM_PROGRAM": "ghostty",
+			"TERM":         "xterm-256color",
+		},
+	}
+
+	check := CheckGhostty(exec, env)
+
+	assert.Equal(t, StatusOK, check.Status)
+	assert.Equal(t, "running in Ghostty", check.Message)
+}
+
+func TestCheckGhostty_NilEnvGetter(t *testing.T) {
+	exec := &MockExecutor{
+		LookPathFunc: func(file string) (string, error) {
+			return "", errors.New("not found")
+		},
+	}
+	// nil env should use empty strings and result in "not installed"
+	env := &MockEnvGetter{Vars: nil}
+
+	check := CheckGhostty(exec, env)
+
+	assert.Equal(t, StatusMissing, check.Status)
+}
+
+func TestRealEnvGetter(t *testing.T) {
+	getter := &RealEnvGetter{}
+
+	// This should return empty string for a non-existent env var
+	result := getter.Getenv("SOME_DEFINITELY_NOT_SET_VAR_12345")
+	assert.Equal(t, "", result)
+}
+
+func TestChecker_CheckAllAsync_IncludesTerminal(t *testing.T) {
+	exec := &MockExecutor{
+		LookPathFunc: func(file string) (string, error) {
+			return "", errors.New("not found")
+		},
+	}
+
+	checker := NewCheckerWithExecutor(exec)
+	groups := checker.CheckAllAsync()
+
+	// Find the Terminal group
+	var terminalGroup *CheckGroup
+	for i := range groups {
+		if groups[i].ID == GroupTerminal {
+			terminalGroup = &groups[i]
+			break
+		}
+	}
+
+	require.NotNil(t, terminalGroup, "Terminal group should be included")
+	assert.Equal(t, "Terminal", terminalGroup.Name)
+	require.Len(t, terminalGroup.Checks, 1)
+	assert.Equal(t, IDGhostty, terminalGroup.Checks[0].ID)
+}
+
+func TestCheckGhostty_Description(t *testing.T) {
+	exec := &MockExecutor{}
+	env := &MockEnvGetter{
+		Vars: map[string]string{
+			"TERM_PROGRAM": "ghostty",
+		},
+	}
+
+	check := CheckGhostty(exec, env)
+
+	assert.Equal(t, "Modern GPU-accelerated terminal", check.Description)
+}
+
+func TestGhosttyFixCommand_DarwinUsesBrewCask(t *testing.T) {
+	fix := GetFixCommand(IDGhostty, PlatformDarwin)
+
+	require.NotNil(t, fix)
+	assert.Contains(t, fix.Command, "brew install --cask ghostty")
+	assert.False(t, fix.Sudo)
+}
+
+func TestGhosttyFixCommand_LinuxUsesPPA(t *testing.T) {
+	fix := GetFixCommand(IDGhostty, PlatformLinux)
+
+	require.NotNil(t, fix)
+	assert.Contains(t, fix.Command, "ppa:ghostty/main")
+	assert.True(t, fix.Sudo)
+}

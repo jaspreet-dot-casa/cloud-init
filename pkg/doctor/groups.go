@@ -27,6 +27,12 @@ var groupDefinitions = map[string]struct {
 		Platform:    "", // Works on both platforms
 		CheckIDs:    []string{IDXorriso},
 	},
+	GroupTerminal: {
+		Name:        "Terminal",
+		Description: "Recommended terminal emulators",
+		Platform:    "", // Works on both platforms
+		CheckIDs:    []string{IDGhostty},
+	},
 }
 
 // GetGroups returns all check groups applicable to the current platform.
@@ -65,5 +71,5 @@ func GetGroupDefinition(groupID string) (struct {
 
 // GetAllGroupIDs returns all group IDs.
 func GetAllGroupIDs() []string {
-	return []string{GroupTerraform, GroupMultipass, GroupISO}
+	return []string{GroupTerraform, GroupMultipass, GroupISO, GroupTerminal}
 }
