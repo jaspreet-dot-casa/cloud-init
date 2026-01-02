@@ -98,6 +98,10 @@ func (s *Store) Load() (*Settings, error) {
 			// Return default settings if file doesn't exist
 			settings := NewSettings()
 			settings.ImagesDir = s.defaultImagesDir()
+			// Ensure the images directory exists
+			if err := os.MkdirAll(settings.ImagesDir, 0755); err != nil {
+				// Log but don't fail - the directory will be created on first download
+			}
 			return settings, nil
 		}
 		return nil, fmt.Errorf("failed to read settings file: %w", err)
@@ -108,9 +112,14 @@ func (s *Store) Load() (*Settings, error) {
 		return nil, fmt.Errorf("failed to parse settings file: %w", err)
 	}
 
-	// Set default images dir if not set
+	// Set default images dir if not set or empty
 	if settings.ImagesDir == "" {
 		settings.ImagesDir = s.defaultImagesDir()
+	}
+
+	// Ensure the images directory exists
+	if err := os.MkdirAll(settings.ImagesDir, 0755); err != nil {
+		// Log but don't fail - the directory will be created on first download
 	}
 
 	s.settings = &settings
@@ -179,14 +188,25 @@ func (s *Store) SaveDownloadState(state *DownloadState) error {
 }
 
 // defaultImagesDir returns the default images directory.
-// Falls back to config directory if home directory cannot be determined.
+// Falls back through multiple options to ensure a valid absolute path is always returned.
 func (s *Store) defaultImagesDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		// Fall back to config directory for images
+	// Try user's Downloads folder first
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		return filepath.Join(home, "Downloads")
+	}
+
+	// Fall back to XDG config directory
+	if configDir, err := os.UserConfigDir(); err == nil && configDir != "" {
+		return filepath.Join(configDir, ConfigDirName, "images")
+	}
+
+	// Fall back to store's config directory if set
+	if s.configDir != "" {
 		return filepath.Join(s.configDir, "images")
 	}
-	return filepath.Join(home, "Downloads")
+
+	// Last resort: use /tmp with our app name
+	return filepath.Join(os.TempDir(), ConfigDirName, "images")
 }
 
 // Settings returns the currently loaded settings.

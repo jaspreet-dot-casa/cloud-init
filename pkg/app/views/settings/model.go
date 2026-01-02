@@ -4,6 +4,7 @@ package settings
 import (
 	"context"
 	"fmt"
+	"log"
 	"path/filepath"
 	"strings"
 
@@ -81,10 +82,22 @@ func New() *Model {
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
+	var storeErr error
+	var message string
+
 	store, err := settings.NewStore()
 	if err != nil {
+		storeErr = err
+		log.Printf("Failed to create settings store: %v. Using temporary fallback at /tmp/ucli", err)
+
 		// Use a fallback store with temp directory if config dir fails
 		store = settings.NewStoreWithDir("/tmp/ucli")
+		if store == nil {
+			log.Printf("Failed to create fallback store")
+			storeErr = fmt.Errorf("failed to create settings store: %w", err)
+		} else {
+			message = fmt.Sprintf("⚠ Using temporary storage at /tmp/ucli (settings may be lost on reboot). Original error: %v", err)
+		}
 	}
 
 	return &Model{
@@ -94,6 +107,8 @@ func New() *Model {
 		downloader:  images.NewDownloader(store),
 		spinner:     s,
 		loading:     true,
+		err:         storeErr,
+		message:     message,
 		itemCursors: make(map[Section]int),
 	}
 }
