@@ -39,6 +39,7 @@ Run `./ucli` to launch the interactive TUI:
 - **Create** - Launch new VMs or generate cloud-init config
 - **ISO** - Build bootable autoinstall ISOs
 - **Doctor** - Check and install dependencies
+- **Settings** - Configure CLI preferences
 
 ### Commands
 
@@ -85,7 +86,6 @@ make build-cli
 
 - [Terraform VM Guide](docs/terraform-vms.md) - Managing VMs with libvirt
 - [Desktop Setup](docs/desktop-setup.md) - Ubuntu desktop configuration
-- [Tailscale SSH](docs/tailscale-ssh.md) - Secure remote access
 
 ## License
 

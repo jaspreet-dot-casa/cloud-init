@@ -515,13 +515,13 @@ func TestCheckGhostty_TermProgramPriority(t *testing.T) {
 	assert.Equal(t, "running in Ghostty", check.Message)
 }
 
-func TestCheckGhostty_NilEnvGetter(t *testing.T) {
+func TestCheckGhostty_NilEnvVarsMap(t *testing.T) {
 	exec := &MockExecutor{
 		LookPathFunc: func(file string) (string, error) {
 			return "", errors.New("not found")
 		},
 	}
-	// nil env should use empty strings and result in "not installed"
+	// nil Vars map should use empty strings and result in "not installed"
 	env := &MockEnvGetter{Vars: nil}
 
 	check := CheckGhostty(exec, env)
@@ -583,10 +583,10 @@ func TestGhosttyFixCommand_DarwinUsesBrewCask(t *testing.T) {
 	assert.False(t, fix.Sudo)
 }
 
-func TestGhosttyFixCommand_LinuxUsesPPA(t *testing.T) {
+func TestGhosttyFixCommand_LinuxUsesSnap(t *testing.T) {
 	fix := GetFixCommand(IDGhostty, PlatformLinux)
 
 	require.NotNil(t, fix)
-	assert.Contains(t, fix.Command, "ppa:ghostty/main")
+	assert.Contains(t, fix.Command, "snap install ghostty")
 	assert.True(t, fix.Sudo)
 }

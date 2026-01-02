@@ -88,8 +88,8 @@ var fixCommands = map[string]map[string]*FixCommand{
 			Platform:    PlatformDarwin,
 		},
 		PlatformLinux: {
-			Description: "Install via apt (Ubuntu 22.04+)",
-			Command:     "sudo apt-get install -y software-properties-common && sudo add-apt-repository -y ppa:ghostty/main && sudo apt update && sudo apt install -y ghostty",
+			Description: "Install via snap (recommended)",
+			Command:     "sudo snap install ghostty --classic",
 			Sudo:        true,
 			Platform:    PlatformLinux,
 		},

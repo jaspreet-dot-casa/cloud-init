@@ -295,7 +295,7 @@ func CheckGhostty(exec CommandExecutor, env EnvGetter) Check {
 	termProgram := env.Getenv("TERM_PROGRAM")
 	term := env.Getenv("TERM")
 
-	if termProgram == "ghostty" || strings.Contains(strings.ToLower(term), "ghostty") {
+	if strings.EqualFold(termProgram, "ghostty") || strings.Contains(strings.ToLower(term), "ghostty") {
 		check.Status = StatusOK
 		check.Message = "running in Ghostty"
 		return check
