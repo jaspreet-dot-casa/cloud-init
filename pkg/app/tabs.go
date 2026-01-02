@@ -11,6 +11,7 @@ const (
 	TabVMs TabID = iota
 	TabCreate
 	TabISO
+	TabDoctor
 	TabConfig
 )
 

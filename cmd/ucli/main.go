@@ -10,7 +10,9 @@ import (
 
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/doctor"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/iso"
+	settingsview "github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/settings"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/vmlist"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/project"
 )
@@ -67,7 +69,8 @@ func runTUI(_ *cobra.Command, _ []string) error {
 		vmlist.New(projectDir),
 		create.New(projectDir),
 		iso.New(projectDir),
-		app.NewPlaceholderTab(app.TabConfig, "Config", "4", "  Configuration coming soon...\n\n  Press [1] for VMs, [2] for Create, or [q] to quit."),
+		doctor.New(),
+		settingsview.New(),
 	)
 
 	// Run the TUI
