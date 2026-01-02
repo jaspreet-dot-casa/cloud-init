@@ -172,9 +172,9 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 		m.moveCursor(-1)
 	case "down", "j":
 		m.moveCursor(1)
-	case "tab":
+	case "]", "l":
 		m.nextSection()
-	case "shift+tab":
+	case "[", "h":
 		m.prevSection()
 	case "d":
 		return m.openDownloadDialog()
@@ -630,7 +630,7 @@ func (m *Model) KeyBindings() []string {
 	}
 	return []string{
 		"[↑/↓] navigate",
-		"[Tab] section",
+		"[h/l] section",
 		"[d] download",
 		"[x] remove",
 		"[r] refresh",
