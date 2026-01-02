@@ -61,7 +61,7 @@ packages:
 
 write_files:
   # Clone script - downloads and runs the setup
-  - path: /opt/local-remote/bootstrap.sh
+  - path: /opt/ucli/bootstrap.sh
     permissions: "755"
     content: |
       #!/bin/bash
@@ -71,7 +71,7 @@ write_files:
       CLONE_URL="${REPO_URL}"
       CLONE_BRANCH="${REPO_BRANCH}"
       CLONE_USER="${USERNAME}"
-      CLONE_DIR="/home/$CLONE_USER/local-remote"
+      CLONE_DIR="/home/$CLONE_USER/cloud-init"
 
       echo "=== Cloud-Init Bootstrap ==="
       echo "Repository: $CLONE_URL"
@@ -102,20 +102,20 @@ write_files:
       echo "=== Bootstrap Complete ==="
 
   # Tailscale auth key (if provided, created in final stage after user exists)
-  - path: /home/${USERNAME}/.local-remote/tailscale-auth-key
+  - path: /home/${USERNAME}/.config/ucli/tailscale-auth-key
     permissions: "600"
     defer: true
     content: |
       ${TAILSCALE_AUTH_KEY}
 
   # Tailscale authentication script
-  - path: /opt/local-remote/setup-tailscale.sh
+  - path: /opt/ucli/setup-tailscale.sh
     permissions: "755"
     content: |
       #!/bin/bash
       # Authenticate Tailscale if auth key is provided
       set -e
-      AUTH_KEY_FILE="/home/${USERNAME}/.local-remote/tailscale-auth-key"
+      AUTH_KEY_FILE="/home/${USERNAME}/.config/ucli/tailscale-auth-key"
       AUTH_KEY=$(cat "$AUTH_KEY_FILE" 2>/dev/null | tr -d '[:space:]')
       if [[ -n "$AUTH_KEY" && "$AUTH_KEY" != '${TAILSCALE_AUTH_KEY}' ]]; then
         echo "Authenticating Tailscale with provided auth key..."
@@ -128,7 +128,7 @@ write_files:
 
   # In-VM verification test script
   # This script runs after cloud-init completes to verify the installation
-  - path: /opt/local-remote/test-in-vm.sh
+  - path: /opt/ucli/test-in-vm.sh
     permissions: "755"
     content: |
       #!/bin/bash
@@ -196,7 +196,7 @@ write_files:
 
       test_dirs() {
           echo "=== Testing directories ==="
-          for dir in "$HOME/.config" "$HOME/.local-remote" "$HOME/.local/bin"; do
+          for dir in "$HOME/.config" "$HOME/.config/ucli" "$HOME/.local/bin"; do
               [[ -d "$dir" ]] && record_test "dir:$dir" "pass" "exists" || record_test "dir:$dir" "skip" "missing"
           done
       }
@@ -263,17 +263,17 @@ runcmd:
     systemctl start tailscaled
 
   # Authenticate Tailscale (if auth key provided)
-  - bash /opt/local-remote/setup-tailscale.sh
+  - bash /opt/ucli/setup-tailscale.sh
 
   # Fix ownership of user directories created by cloud-init
-  - mkdir -p /home/${USERNAME}/.local-remote/logs /home/${USERNAME}/.config
-  - chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/.local-remote /home/${USERNAME}/.config
+  - mkdir -p /home/${USERNAME}/.config/ucli/logs /home/${USERNAME}/.config
+  - chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/.config
 
-  # Ensure /opt/local-remote scripts are world-executable
-  - chmod -R a+rX /opt/local-remote
+  # Ensure /opt/ucli scripts are world-executable
+  - chmod -R a+rX /opt/ucli
 
   # Run bootstrap script
-  - /opt/local-remote/bootstrap.sh
+  - /opt/ucli/bootstrap.sh
 
   # Configure Git for user (directly, no config.env needed)
   - |
@@ -284,9 +284,6 @@ runcmd:
     sudo -u ${USERNAME} git config --global pull.rebase true
     sudo -u ${USERNAME} git config --global core.pager "delta"
     sudo -u ${USERNAME} git config --global url."git@github.com:".insteadOf "https://github.com/"
-
-  # Create symlinks for user-accessible scripts
-  - ln -sf /home/${USERNAME}/local-remote/scripts/local-remote-login /usr/local/bin/local-remote-login
 
   # Import SSH authorized keys from GitHub (if GITHUB_USER is provided)
   - |
@@ -314,10 +311,10 @@ runcmd:
     fi
 
   # Cleanup
-  - rm -f /home/${USERNAME}/.local-remote/tailscale-auth-key
+  - rm -f /home/${USERNAME}/.config/ucli/tailscale-auth-key
 
   # Run verification tests (for automated testing)
-  - bash -c 'if [ -f /opt/local-remote/test-in-vm.sh ]; then echo "=== Running verification tests ==="; sudo -u ${USERNAME} /opt/local-remote/test-in-vm.sh || true; fi'
+  - bash -c 'if [ -f /opt/ucli/test-in-vm.sh ]; then echo "=== Running verification tests ==="; sudo -u ${USERNAME} /opt/ucli/test-in-vm.sh || true; fi'
 
 # =============================================================================
 # Final Message
@@ -333,7 +330,7 @@ final_message: |
 
   Next steps:
   1. SSH: ssh ${USERNAME}@<ip-address>
-  2. Run 'local-remote-login' to set up Tailscale and GitHub SSH
+  2. Run 'sudo tailscale up --ssh' to authenticate Tailscale
   3. Run 'make verify-cloud' to verify installation
 
   Logs: /var/log/cloud-init-output.log

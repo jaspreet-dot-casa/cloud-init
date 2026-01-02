@@ -36,7 +36,7 @@ source "${SCRIPT_DIR}/../lib/lock.sh"
 
 PACKAGES_DIR="${SCRIPT_DIR}/../packages"
 SHARED_DIR="${SCRIPT_DIR}/../shared"
-LOG_DIR="${HOME}/.local-remote/logs"
+LOG_DIR="${HOME}/.config/ucli/logs"
 LOG_FILE=""
 VERIFY_ONLY=false
 

@@ -78,8 +78,7 @@ cloud-init/
 │   ├── lib/               # Shared libraries (core.sh, health.sh, backup.sh)
 │   ├── packages/          # Per-package installers (lazygit.sh, starship.sh, etc.)
 │   ├── shared/            # Shared scripts (configure-git.sh, configure-zsh.sh)
-│   ├── cloud-init/        # Cloud-init orchestrators (install-all.sh)
-│   └── local-remote/      # Post-login auth scripts (Tailscale, Git SSH)
+│   └── cloud-init/        # Cloud-init orchestrators (install-all.sh)
 │
 ├── cloud-init/
 │   └── cloud-init.template.yaml  # Template with ${VARIABLE} placeholders
@@ -155,7 +154,6 @@ multipass shell <vm-name>        # SSH into kept VM
 ### Shell Scripts
 - `scripts/lib/core.sh` - Logging, colors, utility functions used everywhere
 - `scripts/cloud-init/install-all.sh` - Main cloud-init installation orchestrator
-- `scripts/local-remote-login` - Post-login auth script (Tailscale + Git SSH)
 - `cloud-init/cloud-init.template.yaml` - Cloud-init configuration template
 - `config/tailscale.conf` - Tailscale configuration
 

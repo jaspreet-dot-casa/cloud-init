@@ -150,7 +150,7 @@ needs_update() {
 #==============================================================================
 
 # Cache directory for API responses
-GITHUB_API_CACHE_DIR="${HOME}/.cache/local-remote/github-api"
+GITHUB_API_CACHE_DIR="${HOME}/.cache/ucli/github-api"
 
 # Get latest version from GitHub releases
 # Usage: get_github_latest_version "jesseduffield/lazygit"
