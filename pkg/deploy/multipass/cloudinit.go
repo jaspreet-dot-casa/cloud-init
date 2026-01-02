@@ -12,13 +12,11 @@ import (
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/generator"
 )
 
-// generateCloudInit generates the cloud-init.yaml file.
+// generateCloudInit generates the cloud-init.yaml file using embedded template.
 func (d *Deployer) generateCloudInit(opts *deploy.DeployOptions) (string, error) {
-	templatePath := filepath.Join(opts.ProjectRoot, "cloud-init", "cloud-init.template.yaml")
 	outputPath := filepath.Join(opts.ProjectRoot, "cloud-init", "cloud-init.yaml")
 
-	gen := generator.NewGenerator(opts.ProjectRoot)
-	if err := gen.Generate(opts.Config, templatePath, outputPath); err != nil {
+	if err := generator.Generate(opts.Config, outputPath); err != nil {
 		return "", fmt.Errorf("failed to generate cloud-init.yaml: %w", err)
 	}
 

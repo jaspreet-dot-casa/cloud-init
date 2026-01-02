@@ -51,12 +51,11 @@ func (m *Model) Init() tea.Cmd {
 	return nil
 }
 
-// loadPackages loads the package registry
+// loadPackages loads the package registry from embedded scripts
 func (m *Model) loadPackages() tea.Cmd {
 	m.loadingPackages = true
-	projectDir := m.projectDir
 	return func() tea.Msg {
-		registry, err := packages.DiscoverFromProjectRoot(projectDir)
+		registry, err := packages.DiscoverEmbedded()
 		return packagesLoadedMsg{registry: registry, err: err}
 	}
 }

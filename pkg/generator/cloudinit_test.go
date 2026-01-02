@@ -5,16 +5,43 @@ import (
 	"path/filepath"
 	"testing"
 
+	cloudinit "github.com/jaspreet-dot-casa/cloud-init/cloud-init"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGenerate(t *testing.T) {
+	t.Run("uses embedded template", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		outputPath := filepath.Join(tmpDir, "cloud-init", "cloud-init.yaml")
+
+		cfg := &config.FullConfig{
+			Username:      "testuser",
+			Hostname:      "test-host",
+			SSHPublicKeys: []string{"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITest test@example.com"},
+			FullName:      "Test User",
+			Email:         "test@example.com",
+		}
+
+		err := Generate(cfg, outputPath)
+		require.NoError(t, err)
+
+		// Verify file was created
+		output, err := os.ReadFile(outputPath)
+		require.NoError(t, err)
+
+		content := string(output)
+		assert.Contains(t, content, "#cloud-config")
+		assert.Contains(t, content, "name: testuser")
+		assert.Contains(t, content, "hostname: test-host")
+	})
+}
+
+func TestGenerateFromTemplate(t *testing.T) {
 	t.Run("substitutes variables correctly", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
-		// Create template
 		templateContent := `#cloud-config
 users:
   - name: ${USERNAME}
@@ -27,10 +54,6 @@ write_files:
       USER_NAME="${USER_NAME}"
       USER_EMAIL="${USER_EMAIL}"
 `
-		templatePath := filepath.Join(tmpDir, "template.yaml")
-		err := os.WriteFile(templatePath, []byte(templateContent), 0644)
-		require.NoError(t, err)
-
 		outputPath := filepath.Join(tmpDir, "output.yaml")
 
 		cfg := &config.FullConfig{
@@ -41,8 +64,7 @@ write_files:
 			Email:         "test@example.com",
 		}
 
-		gen := NewGenerator(tmpDir)
-		err = gen.Generate(cfg, templatePath, outputPath)
+		err := GenerateFromTemplate(templateContent, cfg, outputPath)
 		require.NoError(t, err)
 
 		// Read output
@@ -66,10 +88,6 @@ write_files:
 TAILSCALE_AUTH_KEY="${TAILSCALE_AUTH_KEY}"
 GITHUB_USER="${GITHUB_USER}"
 `
-		templatePath := filepath.Join(tmpDir, "template.yaml")
-		err := os.WriteFile(templatePath, []byte(templateContent), 0644)
-		require.NoError(t, err)
-
 		outputPath := filepath.Join(tmpDir, "output.yaml")
 
 		cfg := &config.FullConfig{
@@ -78,8 +96,7 @@ GITHUB_USER="${GITHUB_USER}"
 			SSHPublicKeys: []string{"ssh-ed25519 test"},
 		}
 
-		gen := NewGenerator(tmpDir)
-		err = gen.Generate(cfg, templatePath, outputPath)
+		err := GenerateFromTemplate(templateContent, cfg, outputPath)
 		require.NoError(t, err)
 
 		output, err := os.ReadFile(outputPath)
@@ -96,10 +113,6 @@ GITHUB_USER="${GITHUB_USER}"
 
 		templateContent := `REPO_URL="${REPO_URL}"
 REPO_BRANCH="${REPO_BRANCH}"`
-		templatePath := filepath.Join(tmpDir, "template.yaml")
-		err := os.WriteFile(templatePath, []byte(templateContent), 0644)
-		require.NoError(t, err)
-
 		outputPath := filepath.Join(tmpDir, "output.yaml")
 
 		cfg := &config.FullConfig{
@@ -109,8 +122,7 @@ REPO_BRANCH="${REPO_BRANCH}"`
 			// No REPO_URL or REPO_BRANCH set
 		}
 
-		gen := NewGenerator(tmpDir)
-		err = gen.Generate(cfg, templatePath, outputPath)
+		err := GenerateFromTemplate(templateContent, cfg, outputPath)
 		require.NoError(t, err)
 
 		output, err := os.ReadFile(outputPath)
@@ -119,6 +131,23 @@ REPO_BRANCH="${REPO_BRANCH}"`
 		content := string(output)
 		assert.Contains(t, content, "REPO_BRANCH=\"main\"")
 		assert.Contains(t, content, "https://github.com/jaspreet-dot-casa/cloud-init.git")
+	})
+
+	t.Run("creates output directory if missing", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		outputPath := filepath.Join(tmpDir, "nested", "dir", "output.yaml")
+
+		cfg := &config.FullConfig{
+			Username:      "user",
+			Hostname:      "host",
+			SSHPublicKeys: []string{"ssh-ed25519 test"},
+		}
+
+		err := GenerateFromTemplate("test", cfg, outputPath)
+		require.NoError(t, err)
+
+		_, err = os.Stat(outputPath)
+		assert.NoError(t, err)
 	})
 }
 
@@ -204,10 +233,10 @@ func TestConfigToVars(t *testing.T) {
 
 	t.Run("uses FullName as fallback for MachineName", func(t *testing.T) {
 		cfg := &config.FullConfig{
-			Username:  "user",
-			Hostname:  "host",
-			FullName:  "Test User",
-			Email:     "test@example.com",
+			Username: "user",
+			Hostname: "host",
+			FullName: "Test User",
+			Email:    "test@example.com",
 			// MachineName not set
 		}
 
@@ -228,27 +257,10 @@ func TestConfigToVars(t *testing.T) {
 	})
 }
 
-func TestValidateTemplate(t *testing.T) {
-	t.Run("valid template", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		path := filepath.Join(tmpDir, "template.yaml")
-		err := os.WriteFile(path, []byte("content"), 0644)
-		require.NoError(t, err)
-
-		err = ValidateTemplate(path)
-		assert.NoError(t, err)
-	})
-
-	t.Run("missing template", func(t *testing.T) {
-		err := ValidateTemplate("/nonexistent/path")
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "not found")
-	})
-
-	t.Run("directory instead of file", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		err := ValidateTemplate(tmpDir)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "directory")
-	})
+func TestEmbeddedTemplateIsValid(t *testing.T) {
+	// Verify the embedded template is not empty and contains expected content
+	assert.NotEmpty(t, cloudinit.Template)
+	assert.Contains(t, cloudinit.Template, "#cloud-config")
+	assert.Contains(t, cloudinit.Template, "${USERNAME}")
+	assert.Contains(t, cloudinit.Template, "${HOSTNAME}")
 }

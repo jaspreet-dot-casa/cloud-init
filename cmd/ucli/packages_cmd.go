@@ -6,17 +6,11 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/packages"
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/project"
 )
 
-// runPackages lists all available packages from scripts/packages/.
+// runPackages lists all available packages from embedded scripts.
 func runPackages(_ *cobra.Command, _ []string) error {
-	projectRoot, err := project.FindRoot()
-	if err != nil {
-		return fmt.Errorf("could not find project root: %w", err)
-	}
-
-	registry, err := packages.DiscoverFromProjectRoot(projectRoot)
+	registry, err := packages.DiscoverEmbedded()
 	if err != nil {
 		return fmt.Errorf("failed to discover packages: %w", err)
 	}
