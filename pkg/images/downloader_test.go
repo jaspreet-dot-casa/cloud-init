@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -390,7 +391,7 @@ type mockReader struct {
 
 func (m *mockReader) Read(p []byte) (int, error) {
 	if m.pos >= len(m.data) {
-		return 0, nil
+		return 0, io.EOF
 	}
 	n := copy(p, m.data[m.pos:])
 	m.pos += n
