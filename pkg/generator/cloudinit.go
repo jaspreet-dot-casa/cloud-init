@@ -4,9 +4,11 @@ package generator
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
+	cloudinit "github.com/jaspreet-dot-casa/cloud-init/cloud-init"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/config"
 )
 
@@ -29,29 +31,25 @@ type TemplateVars struct {
 	DISABLED_PACKAGE_EXPORTS string // Shell export statements for disabled packages
 }
 
-// Generator generates cloud-init.yaml files.
-type Generator struct {
-	ProjectRoot string
+// Generate generates cloud-init.yaml from the embedded template and writes to outputPath.
+// It uses the embedded template from the cloud-init package.
+func Generate(cfg *config.FullConfig, outputPath string) error {
+	return GenerateFromTemplate(cloudinit.Template, cfg, outputPath)
 }
 
-// NewGenerator creates a new Generator.
-func NewGenerator(projectRoot string) *Generator {
-	return &Generator{ProjectRoot: projectRoot}
-}
-
-// Generate reads the template and generates cloud-init.yaml.
-func (g *Generator) Generate(cfg *config.FullConfig, templatePath, outputPath string) error {
-	// Read template
-	templateContent, err := os.ReadFile(templatePath)
-	if err != nil {
-		return fmt.Errorf("failed to read template: %w", err)
-	}
-
+// GenerateFromTemplate generates cloud-init.yaml from a template string and writes to outputPath.
+// This is useful for testing or when using a custom template.
+func GenerateFromTemplate(templateContent string, cfg *config.FullConfig, outputPath string) error {
 	// Create template vars from config
 	vars := configToVars(cfg)
 
 	// Substitute variables
-	output := substituteVars(string(templateContent), vars)
+	output := substituteVars(templateContent, vars)
+
+	// Ensure output directory exists
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+		return fmt.Errorf("failed to create output directory: %w", err)
+	}
 
 	// Write output
 	if err := os.WriteFile(outputPath, []byte(output), 0644); err != nil {
@@ -165,17 +163,3 @@ func substituteVars(template string, vars *TemplateVars) string {
 	return result
 }
 
-// ValidateTemplate checks if a template file exists and is readable.
-func ValidateTemplate(path string) error {
-	info, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		return fmt.Errorf("template file not found: %s", path)
-	}
-	if err != nil {
-		return fmt.Errorf("failed to stat template: %w", err)
-	}
-	if info.IsDir() {
-		return fmt.Errorf("template path is a directory: %s", path)
-	}
-	return nil
-}

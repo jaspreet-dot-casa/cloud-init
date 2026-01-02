@@ -3,10 +3,14 @@ package packages
 import (
 	"bufio"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	scriptspackages "github.com/jaspreet-dot-casa/cloud-init/scripts/packages"
 )
 
 // Pre-compiled regex patterns for parsing shell scripts
@@ -192,4 +196,130 @@ func categorize(pkg *Package) Category {
 func DiscoverFromProjectRoot(projectRoot string) (*Registry, error) {
 	scriptsDir := filepath.Join(projectRoot, "scripts")
 	return Discover(scriptsDir)
+}
+
+// DiscoverEmbedded discovers packages from embedded scripts.
+// This uses the scripts embedded at compile time, making the binary portable.
+func DiscoverEmbedded() (*Registry, error) {
+	return DiscoverFromFS(scriptspackages.Scripts)
+}
+
+// DiscoverFromFS discovers packages from any fs.FS implementation.
+// This is useful for both embedded filesystems and testing.
+func DiscoverFromFS(fsys fs.FS) (*Registry, error) {
+	registry := NewRegistry()
+
+	entries, err := fs.ReadDir(fsys, ".")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read embedded scripts: %w", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		name := entry.Name()
+		// Skip non-shell files and template
+		if !strings.HasSuffix(name, ".sh") || name == "_template.sh" {
+			continue
+		}
+
+		file, err := fsys.Open(name)
+		if err != nil {
+			continue
+		}
+
+		pkg, err := ParseScriptFromReader(name, file)
+		file.Close()
+		if err != nil {
+			continue
+		}
+
+		if pkg != nil {
+			registry.Add(*pkg)
+		}
+	}
+
+	return registry, nil
+}
+
+// ParseScriptFromReader parses a package installer script from an io.Reader.
+// This is used for embedded scripts where we don't have a filesystem path.
+func ParseScriptFromReader(name string, r io.Reader) (*Package, error) {
+	pkg := &Package{
+		ScriptPath: name, // Use filename as path for embedded scripts
+		Default:    true,
+	}
+
+	scanner := bufio.NewScanner(r)
+	lineNum := 0
+	lookingForDesc := false
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		lineNum++
+
+		// Look for PACKAGE_NAME
+		if matches := packageNameRe.FindStringSubmatch(line); len(matches) > 1 {
+			pkg.Name = strings.TrimSpace(matches[1])
+		}
+
+		// Look for GITHUB_REPO
+		if matches := githubRepoRe.FindStringSubmatch(line); len(matches) > 1 {
+			pkg.GithubRepo = strings.TrimSpace(matches[1])
+		}
+
+		// Look for header comment (e.g., "# lazygit Installer")
+		if matches := headerRe.FindStringSubmatch(line); len(matches) > 1 {
+			pkg.DisplayName = matches[1]
+			lookingForDesc = true
+			continue
+		}
+
+		// After finding header, look for description
+		if lookingForDesc {
+			// Skip separator and empty comment lines
+			if separatorRe.MatchString(line) {
+				continue
+			}
+
+			// Found description line
+			if matches := descRe.FindStringSubmatch(line); len(matches) > 1 {
+				desc := strings.TrimSpace(matches[1])
+				// Skip URL lines
+				if !strings.HasPrefix(desc, "http") {
+					pkg.Description = desc
+					lookingForDesc = false
+				}
+			} else {
+				// Not a description line, stop looking
+				lookingForDesc = false
+			}
+		}
+
+		// Stop after finding all we need (first 50 lines should be enough)
+		if lineNum > 50 {
+			break
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading script: %w", err)
+	}
+
+	// Skip if no package name found
+	if pkg.Name == "" {
+		return nil, nil
+	}
+
+	// Use name as display name if not found
+	if pkg.DisplayName == "" {
+		pkg.DisplayName = pkg.Name
+	}
+
+	// Determine category based on package name or other hints
+	pkg.Category = categorize(pkg)
+
+	return pkg, nil
 }

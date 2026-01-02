@@ -437,11 +437,9 @@ func (d *configOnlyDeployer) Deploy(ctx context.Context, opts *deploy.DeployOpti
 			Percent: 80,
 		})
 
-		templatePath := filepath.Join(d.projectDir, "cloud-init", "cloud-init.template.yaml")
 		outputPath := filepath.Join(secretsDir, "cloud-init.yaml")
 
-		gen := generator.NewGenerator(d.projectDir)
-		if err := gen.Generate(cfg, templatePath, outputPath); err != nil {
+		if err := generator.Generate(cfg, outputPath); err != nil {
 			return &deploy.DeployResult{
 				Success: false,
 				Error:   fmt.Errorf("failed to generate cloud-init.yaml: %w", err),

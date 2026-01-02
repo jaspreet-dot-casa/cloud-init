@@ -14,7 +14,6 @@ import (
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/iso"
 	settingsview "github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/settings"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/vmlist"
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/project"
 )
 
 // version is set via -ldflags during build
@@ -58,17 +57,18 @@ Run without arguments to launch the full-screen TUI for VM management.`,
 
 // runTUI launches the full-screen TUI application.
 func runTUI(_ *cobra.Command, _ []string) error {
-	// Find project root
-	projectDir, err := project.FindRoot()
+	// Use current working directory for output files.
+	// The binary is portable - packages and templates are embedded.
+	workDir, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("failed to find project root: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	// Create the application with tabs
-	model := app.New(projectDir).WithTabs(
-		vmlist.New(projectDir),
-		create.New(projectDir),
-		iso.New(projectDir),
+	model := app.New(workDir).WithTabs(
+		vmlist.New(workDir),
+		create.New(workDir),
+		iso.New(workDir),
 		doctor.New(),
 		settingsview.New(),
 	)

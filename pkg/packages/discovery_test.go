@@ -278,3 +278,60 @@ func TestDiscoverFromProjectRoot(t *testing.T) {
 		}
 	}
 }
+
+func TestDiscoverEmbedded(t *testing.T) {
+	registry, err := DiscoverEmbedded()
+	require.NoError(t, err)
+	require.NotNil(t, registry)
+
+	// Should find packages from embedded scripts
+	assert.Greater(t, len(registry.Packages), 0, "Should discover at least one package")
+
+	// Check for expected packages
+	expectedPackages := []string{"lazygit", "starship", "docker", "btop", "zoxide"}
+	for _, name := range expectedPackages {
+		pkg := registry.Get(name)
+		if assert.NotNil(t, pkg, "Expected package %s to be discovered", name) {
+			assert.Equal(t, name, pkg.Name)
+			assert.NotEmpty(t, pkg.DisplayName)
+			assert.True(t, pkg.Default)
+		}
+	}
+
+	// Verify template is not included
+	assert.Nil(t, registry.Get("template"), "_template.sh should be skipped")
+}
+
+func TestDiscoverEmbedded_MatchesFilesystemDiscovery(t *testing.T) {
+	// Get the actual project root
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	projectRoot := filepath.Join(cwd, "..", "..")
+
+	// Check if scripts/packages exists
+	packagesDir := filepath.Join(projectRoot, "scripts", "packages")
+	if _, err := os.Stat(packagesDir); os.IsNotExist(err) {
+		t.Skip("scripts/packages not found, skipping integration test")
+	}
+
+	// Discover from filesystem
+	fsRegistry, err := DiscoverFromProjectRoot(projectRoot)
+	require.NoError(t, err)
+
+	// Discover from embedded
+	embeddedRegistry, err := DiscoverEmbedded()
+	require.NoError(t, err)
+
+	// Both should have the same packages
+	assert.Equal(t, len(fsRegistry.Packages), len(embeddedRegistry.Packages),
+		"Embedded and filesystem discovery should find the same number of packages")
+
+	// All embedded packages should exist in filesystem discovery
+	for _, pkg := range embeddedRegistry.Packages {
+		fsPkg := fsRegistry.Get(pkg.Name)
+		if assert.NotNil(t, fsPkg, "Package %s should exist in both", pkg.Name) {
+			assert.Equal(t, pkg.DisplayName, fsPkg.DisplayName)
+			assert.Equal(t, pkg.Category, fsPkg.Category)
+		}
+	}
+}
