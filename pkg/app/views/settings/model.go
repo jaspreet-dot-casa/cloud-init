@@ -630,7 +630,7 @@ func (m *Model) KeyBindings() []string {
 	}
 	return []string{
 		"[↑/↓] navigate",
-		"[h/l] section",
+		"[h/l/[/]] section",
 		"[d] download",
 		"[x] remove",
 		"[r] refresh",
