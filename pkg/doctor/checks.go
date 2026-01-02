@@ -9,6 +9,19 @@ import (
 	"strings"
 )
 
+// EnvGetter is an interface for getting environment variables (allows testing).
+type EnvGetter interface {
+	Getenv(key string) string
+}
+
+// RealEnvGetter gets environment variables from the real environment.
+type RealEnvGetter struct{}
+
+// Getenv gets an environment variable.
+func (e *RealEnvGetter) Getenv(key string) string {
+	return os.Getenv(key)
+}
+
 // CommandExecutor is an interface for executing commands, allowing for testing.
 type CommandExecutor interface {
 	LookPath(file string) (string, error)
@@ -266,5 +279,37 @@ func CheckCloudImage(exec CommandExecutor, imagePath string) Check {
 		check.Message = "no image at " + imagePath
 	}
 
+	return check
+}
+
+// CheckGhostty checks if Ghostty terminal is installed and/or running.
+func CheckGhostty(exec CommandExecutor, env EnvGetter) Check {
+	check := Check{
+		ID:          IDGhostty,
+		Name:        "Ghostty",
+		Description: "Modern GPU-accelerated terminal",
+		FixCommand:  GetFixCommand(IDGhostty, runtime.GOOS),
+	}
+
+	// Check if currently running in Ghostty via environment variables
+	termProgram := env.Getenv("TERM_PROGRAM")
+	term := env.Getenv("TERM")
+
+	if strings.EqualFold(termProgram, "ghostty") || strings.Contains(strings.ToLower(term), "ghostty") {
+		check.Status = StatusOK
+		check.Message = "running in Ghostty"
+		return check
+	}
+
+	// Check if Ghostty is installed (even if not current terminal)
+	_, err := exec.LookPath("ghostty")
+	if err == nil {
+		check.Status = StatusWarning
+		check.Message = "installed (not current terminal)"
+		return check
+	}
+
+	check.Status = StatusMissing
+	check.Message = "not installed"
 	return check
 }

@@ -80,6 +80,20 @@ var fixCommands = map[string]map[string]*FixCommand{
 			Platform:    PlatformLinux,
 		},
 	},
+	IDGhostty: {
+		PlatformDarwin: {
+			Description: "Install via Homebrew",
+			Command:     "brew install --cask ghostty",
+			Sudo:        false,
+			Platform:    PlatformDarwin,
+		},
+		PlatformLinux: {
+			Description: "Install via official script (ghostty-ubuntu)",
+			Command:     `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)"`,
+			Sudo:        false,
+			Platform:    PlatformLinux,
+		},
+	},
 }
 
 // GetFixCommand returns the fix command for a tool on the given platform.

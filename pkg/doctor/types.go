@@ -63,15 +63,17 @@ const (
 	GroupTerraform = "terraform"
 	GroupMultipass = "multipass"
 	GroupISO       = "iso"
+	GroupTerminal  = "terminal"
 )
 
 // CheckID constants for individual checks.
 const (
-	IDTerraform   = "terraform"
-	IDLibvirt     = "libvirt"
-	IDVirsh       = "virsh"
-	IDQemuKVM     = "qemu-kvm"
-	IDCloudImage  = "cloud-image"
-	IDMultipass   = "multipass"
-	IDXorriso     = "xorriso"
+	IDTerraform  = "terraform"
+	IDLibvirt    = "libvirt"
+	IDVirsh      = "virsh"
+	IDQemuKVM    = "qemu-kvm"
+	IDCloudImage = "cloud-image"
+	IDMultipass  = "multipass"
+	IDXorriso    = "xorriso"
+	IDGhostty    = "ghostty"
 )
