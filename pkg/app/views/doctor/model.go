@@ -88,7 +88,7 @@ func New() *Model {
 func (m *Model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
-		m.loadChecks,
+		m.loadChecks(),
 	)
 }
 
@@ -123,7 +123,7 @@ func (m *Model) Update(msg tea.Msg) (app.Tab, tea.Cmd) {
 		if msg.success {
 			m.dialogMessage = "Fix completed successfully!"
 			// Refresh checks
-			cmds = append(cmds, m.loadChecks)
+			cmds = append(cmds, m.loadChecks())
 		} else {
 			m.dialogMessage = fmt.Sprintf("Fix failed: %v", msg.err)
 		}
@@ -152,7 +152,7 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 	case "r":
 		m.loading = true
 		m.message = ""
-		return m, tea.Batch(m.spinner.Tick, m.loadChecks)
+		return m, tea.Batch(m.spinner.Tick, m.loadChecks())
 	}
 	return m, nil
 }
@@ -247,9 +247,11 @@ func (m *Model) executeDialogAction() (app.Tab, tea.Cmd) {
 }
 
 // loadChecks returns a command to load dependency checks.
-func (m *Model) loadChecks() tea.Msg {
-	groups := m.checker.CheckAllAsync()
-	return checksLoadedMsg{groups: groups}
+func (m *Model) loadChecks() tea.Cmd {
+	return func() tea.Msg {
+		groups := m.checker.CheckAllAsync()
+		return checksLoadedMsg{groups: groups}
+	}
 }
 
 // runFix runs the fix command.
@@ -559,7 +561,7 @@ func (m *Model) Focus() tea.Cmd {
 	m.BaseTab.Focus()
 	return tea.Batch(
 		m.spinner.Tick,
-		m.loadChecks,
+		m.loadChecks(),
 	)
 }
 

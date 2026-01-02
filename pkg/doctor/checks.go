@@ -13,6 +13,7 @@ import (
 type CommandExecutor interface {
 	LookPath(file string) (string, error)
 	Run(name string, args ...string) (string, error)
+	CombinedOutput(name string, args ...string) ([]byte, error)
 	FileExists(path string) bool
 }
 
@@ -44,6 +45,12 @@ func (e *RealExecutor) Run(name string, args ...string) (string, error) {
 		output = stderr.String()
 	}
 	return output, nil
+}
+
+// CombinedOutput runs a command and returns combined stdout and stderr.
+func (e *RealExecutor) CombinedOutput(name string, args ...string) ([]byte, error) {
+	cmd := exec.Command(name, args...)
+	return cmd.CombinedOutput()
 }
 
 // FileExists checks if a file exists.

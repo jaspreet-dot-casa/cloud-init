@@ -10,9 +10,10 @@ import (
 
 // MockExecutor is a mock command executor for testing.
 type MockExecutor struct {
-	LookPathFunc   func(file string) (string, error)
-	RunFunc        func(name string, args ...string) (string, error)
-	FileExistsFunc func(path string) bool
+	LookPathFunc       func(file string) (string, error)
+	RunFunc            func(name string, args ...string) (string, error)
+	CombinedOutputFunc func(name string, args ...string) ([]byte, error)
+	FileExistsFunc     func(path string) bool
 }
 
 func (m *MockExecutor) LookPath(file string) (string, error) {
@@ -27,6 +28,13 @@ func (m *MockExecutor) Run(name string, args ...string) (string, error) {
 		return m.RunFunc(name, args...)
 	}
 	return "1.0.0", nil
+}
+
+func (m *MockExecutor) CombinedOutput(name string, args ...string) ([]byte, error) {
+	if m.CombinedOutputFunc != nil {
+		return m.CombinedOutputFunc(name, args...)
+	}
+	return []byte("success"), nil
 }
 
 func (m *MockExecutor) FileExists(path string) bool {

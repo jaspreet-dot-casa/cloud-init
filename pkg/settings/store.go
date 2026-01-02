@@ -179,10 +179,12 @@ func (s *Store) SaveDownloadState(state *DownloadState) error {
 }
 
 // defaultImagesDir returns the default images directory.
+// Falls back to config directory if home directory cannot be determined.
 func (s *Store) defaultImagesDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return ""
+		// Fall back to config directory for images
+		return filepath.Join(s.configDir, "images")
 	}
 	return filepath.Join(home, "Downloads")
 }

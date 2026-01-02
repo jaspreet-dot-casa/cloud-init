@@ -62,9 +62,15 @@ func (d *Downloader) Download(ctx context.Context, opts DownloadOptions) error {
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
+
+	// Track if we successfully renamed the file
+	renamed := false
 	defer func() {
 		out.Close()
-		os.Remove(tmpPath) // Clean up on error
+		// Only remove temp file if we didn't successfully rename it
+		if !renamed {
+			os.Remove(tmpPath)
+		}
 	}()
 
 	// Create request
@@ -118,6 +124,7 @@ func (d *Downloader) Download(ctx context.Context, opts DownloadOptions) error {
 	if err := os.Rename(tmpPath, opts.DestPath); err != nil {
 		return fmt.Errorf("failed to move file: %w", err)
 	}
+	renamed = true
 
 	return nil
 }
@@ -158,9 +165,14 @@ func (d *Downloader) DownloadCloudImage(ctx context.Context, version, arch strin
 
 	// Update with URL
 	img.URL = info.URL
-	s, _ = d.store.Load()
+	s, err = d.store.Load()
+	if err != nil {
+		return img, fmt.Errorf("failed to reload settings: %w", err)
+	}
 	s.AddCloudImage(*img)
-	d.store.Save(s)
+	if err := d.store.Save(s); err != nil {
+		return img, fmt.Errorf("failed to save image metadata: %w", err)
+	}
 
 	return img, nil
 }
@@ -299,7 +311,10 @@ func (d *Downloader) updateDownloadState(id string, download settings.Download) 
 	}
 	state.ActiveDownloads = filtered
 
-	d.store.SaveDownloadState(state)
+	if err := d.store.SaveDownloadState(state); err != nil {
+		// Log but don't fail - download state is not critical
+		fmt.Printf("warning: failed to save download state for %s: %v\n", id, err)
+	}
 }
 
 // progressReader wraps a reader and reports progress.

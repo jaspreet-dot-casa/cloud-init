@@ -2,10 +2,10 @@
 package settings
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -81,7 +81,11 @@ func New() *Model {
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
-	store, _ := settings.NewStore()
+	store, err := settings.NewStore()
+	if err != nil {
+		// Use a fallback store with temp directory if config dir fails
+		store = settings.NewStoreWithDir("/tmp/ucli")
+	}
 
 	return &Model{
 		BaseTab:     app.NewBaseTab(app.TabConfig, "Config", "5"),
@@ -171,13 +175,22 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 
 // handleDialogKey handles dialog keyboard input.
 func (m *Model) handleDialogKey(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
+	registry := images.NewRegistry()
+	releases := registry.GetLTSReleases()
+	maxCursor := len(releases) - 1
+	if maxCursor < 0 {
+		maxCursor = 0
+	}
+
 	switch msg.String() {
 	case "up", "k":
 		if m.dialogCursor > 0 {
 			m.dialogCursor--
 		}
 	case "down", "j":
-		m.dialogCursor++
+		if m.dialogCursor < maxCursor {
+			m.dialogCursor++
+		}
 	case "enter":
 		return m.confirmDownload()
 	case "esc", "q":
@@ -259,11 +272,11 @@ func (m *Model) confirmDownload() (app.Tab, tea.Cmd) {
 
 	rel := releases[m.dialogCursor]
 	arch := images.GetDefaultArch()
+	dl := m.downloader
 
 	return m, func() tea.Msg {
-		ctx := m.downloader
-		_, err := ctx.DownloadCloudImage(
-			nil, // TODO: proper context
+		_, err := dl.DownloadCloudImage(
+			context.Background(),
 			rel.Version,
 			arch,
 			nil, // Progress callback
@@ -612,9 +625,4 @@ func (m *Model) KeyBindings() []string {
 // HasFocusedInput returns true when dialog is open.
 func (m *Model) HasFocusedInput() bool {
 	return m.showDownloadDialog
-}
-
-// Helper to get the formatted time.
-func formatTime(t time.Time) string {
-	return t.Format("2006-01-02 15:04")
 }

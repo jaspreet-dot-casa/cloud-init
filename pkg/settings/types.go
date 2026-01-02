@@ -116,47 +116,67 @@ func (s *Settings) FindISO(id string) *ISO {
 }
 
 // AddCloudImage adds a cloud image to the settings.
+// If an image with the same ID exists, it is replaced.
 func (s *Settings) AddCloudImage(img CloudImage) {
-	// Remove existing with same ID
+	// Find and remove existing with same ID (only first match)
+	idx := -1
 	for i := range s.CloudImages {
 		if s.CloudImages[i].ID == img.ID {
-			s.CloudImages = append(s.CloudImages[:i], s.CloudImages[i+1:]...)
+			idx = i
 			break
 		}
+	}
+	if idx != -1 {
+		s.CloudImages = append(s.CloudImages[:idx], s.CloudImages[idx+1:]...)
 	}
 	s.CloudImages = append(s.CloudImages, img)
 }
 
 // RemoveCloudImage removes a cloud image by ID.
 func (s *Settings) RemoveCloudImage(id string) bool {
+	idx := -1
 	for i := range s.CloudImages {
 		if s.CloudImages[i].ID == id {
-			s.CloudImages = append(s.CloudImages[:i], s.CloudImages[i+1:]...)
-			return true
+			idx = i
+			break
 		}
 	}
-	return false
+	if idx == -1 {
+		return false
+	}
+	s.CloudImages = append(s.CloudImages[:idx], s.CloudImages[idx+1:]...)
+	return true
 }
 
 // AddISO adds an ISO to the settings.
+// If an ISO with the same ID exists, it is replaced.
 func (s *Settings) AddISO(iso ISO) {
-	// Remove existing with same ID
+	// Find and remove existing with same ID (only first match)
+	idx := -1
 	for i := range s.ISOs {
 		if s.ISOs[i].ID == iso.ID {
-			s.ISOs = append(s.ISOs[:i], s.ISOs[i+1:]...)
+			idx = i
 			break
 		}
+	}
+	if idx != -1 {
+		s.ISOs = append(s.ISOs[:idx], s.ISOs[idx+1:]...)
 	}
 	s.ISOs = append(s.ISOs, iso)
 }
 
 // RemoveISO removes an ISO by ID.
 func (s *Settings) RemoveISO(id string) bool {
+	idx := -1
 	for i := range s.ISOs {
 		if s.ISOs[i].ID == id {
-			s.ISOs = append(s.ISOs[:i], s.ISOs[i+1:]...)
-			return true
+			idx = i
+			break
 		}
 	}
-	return false
+	if idx == -1 {
+		return false
+	}
+	s.ISOs = append(s.ISOs[:idx], s.ISOs[idx+1:]...)
+	return true
 }

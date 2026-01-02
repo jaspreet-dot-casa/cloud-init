@@ -122,10 +122,8 @@ func (f *Fixer) RunFix(fix *FixCommand) error {
 		return fmt.Errorf("no fix command available")
 	}
 
-	// Run the command through shell
-	cmd := exec.Command("sh", "-c", fix.Command)
-	cmd.Stdin = nil
-	output, err := cmd.CombinedOutput()
+	// Run the command through shell using the executor
+	output, err := f.executor.CombinedOutput("sh", "-c", fix.Command)
 	if err != nil {
 		return fmt.Errorf("fix failed: %w\nOutput: %s", err, string(output))
 	}
@@ -162,7 +160,6 @@ func copyToClipboard(text string) error {
 		return fmt.Errorf("clipboard not supported on %s", runtime.GOOS)
 	}
 
-	cmd.Stdin = nil
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return fmt.Errorf("failed to get stdin pipe: %w", err)
