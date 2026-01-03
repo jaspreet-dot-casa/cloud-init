@@ -8,7 +8,9 @@ Download the latest release and run:
 
 ```bash
 # Auto-detect OS and architecture
-curl -fsSL https://github.com/jaspreet-dot-casa/cloud-init/releases/latest/download/ucli-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') -o ucli
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+curl -fsSL "https://github.com/jaspreet-dot-casa/cloud-init/releases/latest/download/ucli-${OS}-${ARCH}" -o ucli
 chmod +x ucli
 ./ucli
 ```
