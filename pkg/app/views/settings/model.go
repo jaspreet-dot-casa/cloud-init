@@ -170,7 +170,10 @@ func (m *Model) Update(msg tea.Msg) (app.Tab, tea.Cmd) {
 
 	case downloadTickMsg:
 		// Check if downloads are still active
-		active, _ := m.downloader.GetActiveDownloads()
+		active, err := m.downloader.GetActiveDownloads()
+		if err != nil {
+			log.Printf("Failed to get active downloads: %v", err)
+		}
 		if len(active) > 0 {
 			m.hasActiveDownloads = true
 			// Continue polling
@@ -178,8 +181,12 @@ func (m *Model) Update(msg tea.Msg) (app.Tab, tea.Cmd) {
 		} else {
 			m.hasActiveDownloads = false
 			// Check for completed downloads that need registration
-			state, _ := m.store.LoadDownloadState()
+			state, err := m.store.LoadDownloadState()
+			if err != nil {
+				log.Printf("Failed to load download state: %v", err)
+			}
 			if state != nil {
+				registeredAny := false
 				for _, dl := range state.ActiveDownloads {
 					if dl.Status == settings.StatusComplete {
 						// Check if we have pending registration for this download
@@ -191,10 +198,12 @@ func (m *Model) Update(msg tea.Msg) (app.Tab, tea.Cmd) {
 								m.message = fmt.Sprintf("Download complete: Ubuntu %s %s", info.version, info.arch)
 							}
 							delete(m.pendingRegistrations, dl.ID)
+							registeredAny = true
 						}
-						cmds = append(cmds, m.loadSettings)
-						break
 					}
+				}
+				if registeredAny {
+					cmds = append(cmds, m.loadSettings)
 				}
 			}
 		}
@@ -203,13 +212,15 @@ func (m *Model) Update(msg tea.Msg) (app.Tab, tea.Cmd) {
 		// Progress updates handled by polling
 
 	case downloadCompleteMsg:
+		// Check if other downloads are still active
+		active, _ := m.downloader.GetActiveDownloads()
 		if msg.success {
 			m.message = fmt.Sprintf("Download complete: %s", msg.id)
-			m.hasActiveDownloads = false
+			m.hasActiveDownloads = len(active) > 0
 			cmds = append(cmds, m.loadSettings)
 		} else {
 			m.message = fmt.Sprintf("Download failed: %v", msg.err)
-			m.hasActiveDownloads = false
+			m.hasActiveDownloads = len(active) > 0
 			delete(m.pendingRegistrations, msg.id)
 		}
 	}
