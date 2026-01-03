@@ -159,6 +159,7 @@ type TerraformOptions struct {
 	CPUs          int
 	MemoryMB      int
 	DiskGB        int
+	Autostart     bool   // Start VM automatically on host boot
 	LibvirtURI    string // Libvirt connection URI (e.g., "qemu:///system")
 	StoragePool   string // Libvirt storage pool name
 	NetworkName   string // Libvirt network name

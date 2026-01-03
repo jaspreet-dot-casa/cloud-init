@@ -1,0 +1,12 @@
+# Terraform state and providers
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# Generated files
+cloud-init.yaml
+terraform.tfvars
+
+# Keep the .gitignore itself
+!.gitignore

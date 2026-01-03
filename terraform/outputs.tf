@@ -33,3 +33,28 @@ output "vnc_port" {
   description = "VNC port for graphical console"
   value       = "Run: virsh vncdisplay ${var.vm_name}"
 }
+
+output "vm_running" {
+  description = "Whether the VM is running"
+  value       = var.running
+}
+
+output "vm_memory_mb" {
+  description = "Memory allocated to the VM in MB"
+  value       = var.memory_mb
+}
+
+output "vm_vcpu_count" {
+  description = "Number of vCPUs allocated to the VM"
+  value       = var.vcpu_count
+}
+
+output "vm_disk_size_gb" {
+  description = "Disk size in GB"
+  value       = var.disk_size_gb
+}
+
+output "vm_autostart" {
+  description = "Whether the VM autostarts on host boot"
+  value       = var.autostart
+}

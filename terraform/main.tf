@@ -93,6 +93,7 @@ resource "libvirt_domain" "vm" {
   memory_unit = "MiB"
   vcpu        = var.vcpu_count
   autostart   = var.autostart
+  running     = var.running
 
   os = {
     type         = "hvm"

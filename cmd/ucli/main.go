@@ -2,6 +2,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/iso"
 	settingsview "github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/settings"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/vmlist"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/globalconfig"
 )
 
 // version is set via -ldflags during build
@@ -49,6 +51,7 @@ Run without arguments to launch the full-screen TUI for VM management.`,
 	}
 
 	rootCmd.AddCommand(
+		newInitCmd(),
 		newPackagesCmd(),
 	)
 
@@ -57,18 +60,26 @@ Run without arguments to launch the full-screen TUI for VM management.`,
 
 // runTUI launches the full-screen TUI application.
 func runTUI(_ *cobra.Command, _ []string) error {
-	// Use current working directory for output files.
-	// The binary is portable - packages and templates are embedded.
-	workDir, err := os.Getwd()
+	// Load global config to get project path
+	cfg, err := globalconfig.Load()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		if errors.Is(err, globalconfig.ErrNotInitialized) {
+			return fmt.Errorf("ucli not initialized. Run 'ucli init <path>' to set up your project path")
+		}
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Get and validate project directory
+	projectDir, err := cfg.ProjectDir()
+	if err != nil {
+		return fmt.Errorf("invalid project path: %w", err)
 	}
 
 	// Create the application with tabs
-	model := app.New(workDir).WithTabs(
-		vmlist.New(workDir),
-		create.New(workDir),
-		iso.New(workDir),
+	model := app.New(projectDir).WithTabs(
+		vmlist.New(projectDir),
+		create.New(projectDir),
+		iso.New(projectDir),
 		doctor.New(),
 		settingsview.New(),
 	)
