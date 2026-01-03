@@ -2,11 +2,11 @@
 package settings
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -41,6 +41,9 @@ type (
 		success bool
 		err     error
 	}
+
+	// downloadTickMsg is sent periodically to poll download progress
+	downloadTickMsg struct{}
 )
 
 // Section represents a section of the config view.
@@ -74,6 +77,17 @@ type Model struct {
 	downloadVersion    string
 	downloadArch       string
 	dialogCursor       int
+
+	// Download progress tracking
+	hasActiveDownloads   bool
+	pendingRegistrations map[string]downloadInfo // id -> download info for registration
+}
+
+// downloadInfo stores information needed to register a download after completion.
+type downloadInfo struct {
+	version  string
+	arch     string
+	destPath string
 }
 
 // New creates a new settings model.
@@ -101,15 +115,16 @@ func New() *Model {
 	}
 
 	return &Model{
-		BaseTab:     app.NewBaseTab(app.TabConfig, "Config", "5"),
-		store:       store,
-		manager:     images.NewManager(store),
-		downloader:  images.NewDownloader(store),
-		spinner:     s,
-		loading:     true,
-		err:         storeErr,
-		message:     message,
-		itemCursors: make(map[Section]int),
+		BaseTab:              app.NewBaseTab(app.TabConfig, "Config", "5"),
+		store:                store,
+		manager:              images.NewManager(store),
+		downloader:           images.NewDownloader(store),
+		spinner:              s,
+		loading:              true,
+		err:                  storeErr,
+		message:              message,
+		itemCursors:          make(map[Section]int),
+		pendingRegistrations: make(map[string]downloadInfo),
 	}
 }
 
@@ -149,6 +164,40 @@ func (m *Model) Update(msg tea.Msg) (app.Tab, tea.Cmd) {
 	case downloadStartedMsg:
 		m.message = fmt.Sprintf("Download started: %s", msg.id)
 		m.showDownloadDialog = false
+		m.hasActiveDownloads = true
+		// Start polling for progress
+		cmds = append(cmds, m.tickDownloadProgress())
+
+	case downloadTickMsg:
+		// Check if downloads are still active
+		active, _ := m.downloader.GetActiveDownloads()
+		if len(active) > 0 {
+			m.hasActiveDownloads = true
+			// Continue polling
+			cmds = append(cmds, m.tickDownloadProgress())
+		} else {
+			m.hasActiveDownloads = false
+			// Check for completed downloads that need registration
+			state, _ := m.store.LoadDownloadState()
+			if state != nil {
+				for _, dl := range state.ActiveDownloads {
+					if dl.Status == settings.StatusComplete {
+						// Check if we have pending registration for this download
+						if info, ok := m.pendingRegistrations[dl.ID]; ok {
+							// Register the downloaded image
+							if _, err := m.manager.AddExistingImage(info.destPath, info.version, info.arch); err != nil {
+								m.message = fmt.Sprintf("Failed to register image: %v", err)
+							} else {
+								m.message = fmt.Sprintf("Download complete: Ubuntu %s %s", info.version, info.arch)
+							}
+							delete(m.pendingRegistrations, dl.ID)
+						}
+						cmds = append(cmds, m.loadSettings)
+						break
+					}
+				}
+			}
+		}
 
 	case downloadProgressMsg:
 		// Progress updates handled by polling
@@ -156,9 +205,11 @@ func (m *Model) Update(msg tea.Msg) (app.Tab, tea.Cmd) {
 	case downloadCompleteMsg:
 		if msg.success {
 			m.message = fmt.Sprintf("Download complete: %s", msg.id)
+			m.hasActiveDownloads = false
 			cmds = append(cmds, m.loadSettings)
 		} else {
 			m.message = fmt.Sprintf("Download failed: %v", msg.err)
+			m.hasActiveDownloads = false
 		}
 	}
 
@@ -287,19 +338,40 @@ func (m *Model) confirmDownload() (app.Tab, tea.Cmd) {
 
 	rel := releases[m.dialogCursor]
 	arch := images.GetDefaultArch()
-	dl := m.downloader
+
+	// Get image info to get URL and destination path
+	info := registry.GetCloudImageInfo(rel.Version, arch)
+	if info == nil {
+		m.message = fmt.Sprintf("Unknown image: %s %s", rel.Version, arch)
+		return m, nil
+	}
+
+	// Load settings to get images directory
+	s, err := m.store.Load()
+	if err != nil {
+		m.message = fmt.Sprintf("Failed to load settings: %v", err)
+		return m, nil
+	}
+
+	destPath := filepath.Join(s.ImagesDir, info.Filename)
+	downloadID := images.GenerateImageID(rel.Version, arch)
+
+	// Store registration info for when download completes
+	m.pendingRegistrations[downloadID] = downloadInfo{
+		version:  rel.Version,
+		arch:     arch,
+		destPath: destPath,
+	}
+
+	// Start background download
+	if err := m.downloader.StartBackgroundDownload(downloadID, info.URL, destPath); err != nil {
+		delete(m.pendingRegistrations, downloadID)
+		m.message = fmt.Sprintf("Failed to start download: %v", err)
+		return m, nil
+	}
 
 	return m, func() tea.Msg {
-		_, err := dl.DownloadCloudImage(
-			context.Background(),
-			rel.Version,
-			arch,
-			nil, // Progress callback
-		)
-		if err != nil {
-			return downloadCompleteMsg{id: rel.Version, success: false, err: err}
-		}
-		return downloadCompleteMsg{id: rel.Version, success: true}
+		return downloadStartedMsg{id: downloadID}
 	}
 }
 
@@ -344,6 +416,13 @@ func (m *Model) loadSettings() tea.Msg {
 		return settingsErrorMsg{err: err}
 	}
 	return settingsLoadedMsg{settings: s}
+}
+
+// tickDownloadProgress creates a command that sends a tick message after a delay.
+func (m *Model) tickDownloadProgress() tea.Cmd {
+	return tea.Tick(500*time.Millisecond, func(t time.Time) tea.Msg {
+		return downloadTickMsg{}
+	})
 }
 
 // View renders the settings view.

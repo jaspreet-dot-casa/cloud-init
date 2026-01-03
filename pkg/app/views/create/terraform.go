@@ -43,10 +43,16 @@ func (m *Model) initTerraformPhase() {
 	vmName.Focus()
 	m.wizard.TextInputs["vm_name"] = vmName
 
-	// Image path input
+	// Image path input - use first available cloud image or default
 	imagePath := textinput.New()
-	imagePath.Placeholder = "/var/lib/libvirt/images/noble-server-cloudimg-amd64.img"
 	imagePath.CharLimit = 256
+	if len(m.cloudImages) > 0 {
+		// Use the first cloud image from settings
+		imagePath.Placeholder = m.cloudImages[0].Path
+		imagePath.SetValue(m.cloudImages[0].Path)
+	} else {
+		imagePath.Placeholder = "/var/lib/libvirt/images/noble-server-cloudimg-amd64.img"
+	}
 	m.wizard.TextInputs["image_path"] = imagePath
 
 	// Libvirt URI input
@@ -60,6 +66,9 @@ func (m *Model) initTerraformPhase() {
 	m.wizard.SelectIdxs["cpu"] = 1    // 2 CPUs
 	m.wizard.SelectIdxs["memory"] = 1 // 4 GB
 	m.wizard.SelectIdxs["disk"] = 1   // 20 GB
+
+	// Initialize image selection index (for cycling through available images)
+	m.wizard.SelectIdxs["image"] = 0
 }
 
 // handleTerraformPhase handles input for the Terraform options phase
@@ -147,7 +156,12 @@ func (m *Model) saveTerraformOptions() {
 
 	imagePath := m.wizard.GetTextInput("image_path")
 	if imagePath == "" {
-		imagePath = "/var/lib/libvirt/images/noble-server-cloudimg-amd64.img"
+		// Try to use cloud image from settings
+		if len(m.cloudImages) > 0 {
+			imagePath = m.cloudImages[0].Path
+		} else {
+			imagePath = "/var/lib/libvirt/images/noble-server-cloudimg-amd64.img"
+		}
 	}
 
 	libvirtURI := m.wizard.GetTextInput("libvirt_uri")

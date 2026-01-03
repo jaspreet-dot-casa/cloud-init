@@ -10,7 +10,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	m := New("/test/project")
+	m := New("/test/project", nil)
 
 	assert.Equal(t, app.TabCreate, m.ID())
 	assert.Equal(t, "Create", m.Name())
@@ -20,7 +20,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestModel_Init(t *testing.T) {
-	m := New("/test/project")
+	m := New("/test/project", nil)
 
 	cmd := m.Init()
 
@@ -29,7 +29,7 @@ func TestModel_Init(t *testing.T) {
 }
 
 func TestModel_KeyBindings(t *testing.T) {
-	m := New("/test/project")
+	m := New("/test/project", nil)
 
 	bindings := m.KeyBindings()
 
@@ -38,7 +38,7 @@ func TestModel_KeyBindings(t *testing.T) {
 }
 
 func TestModel_SetSize(t *testing.T) {
-	m := New("/test/project")
+	m := New("/test/project", nil)
 
 	m.SetSize(100, 40)
 
@@ -47,7 +47,7 @@ func TestModel_SetSize(t *testing.T) {
 }
 
 func TestModel_Focus(t *testing.T) {
-	m := New("/test/project")
+	m := New("/test/project", nil)
 	m.message = "old message"
 
 	cmd := m.Focus()
@@ -66,7 +66,7 @@ func TestModel_Focus(t *testing.T) {
 }
 
 func TestModel_Blur(t *testing.T) {
-	m := New("/test/project")
+	m := New("/test/project", nil)
 	m.Focus()
 
 	m.Blur()
@@ -75,7 +75,7 @@ func TestModel_Blur(t *testing.T) {
 }
 
 func TestModel_Update_NavigateDown_TargetPhase(t *testing.T) {
-	m := New("/test/project")
+	m := New("/test/project", nil)
 	m.wizard.Phase = PhaseTarget
 	m.wizard.TargetSelected = 0
 
@@ -87,7 +87,7 @@ func TestModel_Update_NavigateDown_TargetPhase(t *testing.T) {
 }
 
 func TestModel_Update_NavigateUp_TargetPhase(t *testing.T) {
-	m := New("/test/project")
+	m := New("/test/project", nil)
 	m.wizard.Phase = PhaseTarget
 	m.wizard.TargetSelected = 1
 
@@ -99,7 +99,7 @@ func TestModel_Update_NavigateUp_TargetPhase(t *testing.T) {
 }
 
 func TestModel_Update_NavigateDown_AtEnd(t *testing.T) {
-	m := New("/test/project")
+	m := New("/test/project", nil)
 	m.wizard.Phase = PhaseTarget
 	m.wizard.TargetSelected = len(targets) - 1
 
@@ -112,7 +112,7 @@ func TestModel_Update_NavigateDown_AtEnd(t *testing.T) {
 }
 
 func TestModel_Update_NavigateUp_AtStart(t *testing.T) {
-	m := New("/test/project")
+	m := New("/test/project", nil)
 	m.wizard.Phase = PhaseTarget
 	m.wizard.TargetSelected = 0
 
@@ -125,7 +125,7 @@ func TestModel_Update_NavigateUp_AtStart(t *testing.T) {
 }
 
 func TestModel_Update_VimKeys(t *testing.T) {
-	m := New("/test/project")
+	m := New("/test/project", nil)
 	m.wizard.Phase = PhaseTarget
 	m.wizard.TargetSelected = 0
 
@@ -143,7 +143,7 @@ func TestModel_Update_VimKeys(t *testing.T) {
 }
 
 func TestModel_Update_Enter_AdvancesPhase(t *testing.T) {
-	m := New("/test/project")
+	m := New("/test/project", nil)
 	m.wizard.Phase = PhaseTarget
 	m.wizard.TargetSelected = 0 // Terraform
 
@@ -157,7 +157,7 @@ func TestModel_Update_Enter_AdvancesPhase(t *testing.T) {
 }
 
 func TestModel_View_ZeroWidth(t *testing.T) {
-	m := New("/test/project")
+	m := New("/test/project", nil)
 
 	view := m.View()
 
@@ -165,7 +165,7 @@ func TestModel_View_ZeroWidth(t *testing.T) {
 }
 
 func TestModel_View_TargetPhase(t *testing.T) {
-	m := New("/test/project")
+	m := New("/test/project", nil)
 	m.SetSize(100, 40)
 	m.wizard.Phase = PhaseTarget
 
@@ -179,7 +179,7 @@ func TestModel_View_TargetPhase(t *testing.T) {
 }
 
 func TestModel_View_WithMessage(t *testing.T) {
-	m := New("/test/project")
+	m := New("/test/project", nil)
 	m.SetSize(100, 40)
 	m.message = "Test message"
 

@@ -16,6 +16,7 @@ import (
 	settingsview "github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/settings"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/vmlist"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/globalconfig"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/settings"
 )
 
 // version is set via -ldflags during build
@@ -75,10 +76,17 @@ func runTUI(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("invalid project path: %w", err)
 	}
 
+	// Create settings store for cloud images
+	store, err := settings.NewStore()
+	if err != nil {
+		// Non-fatal - create will work without cloud images
+		store = nil
+	}
+
 	// Create the application with tabs
 	model := app.New(projectDir).WithTabs(
 		vmlist.New(projectDir),
-		create.New(projectDir),
+		create.New(projectDir, store),
 		iso.New(projectDir),
 		doctor.New(),
 		settingsview.New(),

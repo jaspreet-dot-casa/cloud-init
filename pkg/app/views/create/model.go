@@ -12,6 +12,7 @@ import (
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/packages"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/settings"
 )
 
 // CreateCompleteMsg signals that the create wizard completed
@@ -25,6 +26,7 @@ type Model struct {
 	app.BaseTab
 
 	projectDir string
+	store      *settings.Store
 	wizard     *WizardState
 	message    string
 
@@ -34,15 +36,28 @@ type Model struct {
 
 	// For fetching GitHub data
 	fetchingGitHub bool
+
+	// Available cloud images from settings
+	cloudImages []settings.CloudImage
 }
 
 // New creates a new Create VM model
-func New(projectDir string) *Model {
-	return &Model{
+func New(projectDir string, store *settings.Store) *Model {
+	m := &Model{
 		BaseTab:    app.NewBaseTab(app.TabCreate, "Create", "2"),
 		projectDir: projectDir,
+		store:      store,
 		wizard:     NewWizardState(),
 	}
+
+	// Load cloud images from settings
+	if store != nil {
+		if s, err := store.Load(); err == nil {
+			m.cloudImages = s.CloudImages
+		}
+	}
+
+	return m
 }
 
 // Init initializes the create view
