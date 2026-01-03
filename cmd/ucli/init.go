@@ -63,7 +63,10 @@ func runInit(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	configPath, _ := globalconfig.GetConfigPath()
+	configPath, err := globalconfig.GetConfigPath()
+	if err != nil {
+		configPath = "~/.config/ucli/config.yaml" // fallback for display
+	}
 	fmt.Printf("Initialized ucli with project path: %s\n", cfg.ProjectPath)
 	fmt.Printf("Config saved to: %s\n", configPath)
 

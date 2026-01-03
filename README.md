@@ -117,7 +117,7 @@ All operations use Terraform for consistent state management.
 
 ### Directory Structure
 
-```
+```plaintext
 tf/
 ├── .gitignore              # Ignores state files
 ├── web-server/             # Each VM has its own directory

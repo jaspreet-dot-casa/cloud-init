@@ -210,6 +210,7 @@ func (m *Model) Update(msg tea.Msg) (app.Tab, tea.Cmd) {
 		} else {
 			m.message = fmt.Sprintf("Download failed: %v", msg.err)
 			m.hasActiveDownloads = false
+			delete(m.pendingRegistrations, msg.id)
 		}
 	}
 

@@ -66,9 +66,6 @@ func (m *Model) initTerraformPhase() {
 	m.wizard.SelectIdxs["cpu"] = 1    // 2 CPUs
 	m.wizard.SelectIdxs["memory"] = 1 // 4 GB
 	m.wizard.SelectIdxs["disk"] = 1   // 20 GB
-
-	// Initialize image selection index (for cycling through available images)
-	m.wizard.SelectIdxs["image"] = 0
 }
 
 // handleTerraformPhase handles input for the Terraform options phase
