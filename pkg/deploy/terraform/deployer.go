@@ -110,6 +110,14 @@ func (d *Deployer) Deploy(ctx context.Context, opts *deploy.DeployOptions, progr
 		10,
 	))
 
+	// Check if the machine directory already exists with Terraform files
+	if exists, err := d.machineDirectoryExists(machineDir); err != nil {
+		return d.fail(result, err, start), err
+	} else if exists {
+		err := fmt.Errorf("VM '%s' already exists at %s. Use a different name or delete the existing VM first", vmName, machineDir)
+		return d.fail(result, err, start), err
+	}
+
 	if err := d.createMachineDir(machineDir, templateDir); err != nil {
 		return d.fail(result, err, start), err
 	}
@@ -230,6 +238,32 @@ func (d *Deployer) Deploy(ctx context.Context, opts *deploy.DeployOptions, progr
 	result.Duration = time.Since(start)
 
 	return result, nil
+}
+
+// machineDirectoryExists checks if a machine directory already exists with Terraform files.
+func (d *Deployer) machineDirectoryExists(machineDir string) (bool, error) {
+	// Check if directory exists
+	info, err := os.Stat(machineDir)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to check machine directory: %w", err)
+	}
+	if !info.IsDir() {
+		return false, fmt.Errorf("path exists but is not a directory: %s", machineDir)
+	}
+
+	// Check if it contains main.tf (indicates an existing VM configuration)
+	mainTF := filepath.Join(machineDir, "main.tf")
+	if _, err := os.Stat(mainTF); err == nil {
+		return true, nil
+	} else if !os.IsNotExist(err) {
+		return false, fmt.Errorf("failed to check for main.tf: %w", err)
+	}
+
+	// Directory exists but is empty or doesn't have TF files - safe to use
+	return false, nil
 }
 
 // createMachineDir creates the machine directory and copies TF templates.
