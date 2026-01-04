@@ -1,6 +1,6 @@
 // Package tfstate manages Terraform state and provides VM lifecycle operations.
-// It reads VM information from terraform state/outputs and uses virsh for
-// fast start/stop operations.
+// All VM operations are done through Terraform (no virsh) for consistency
+// and proper state management.
 package tfstate
 
 import (
@@ -38,20 +38,24 @@ type VMInfo struct {
 	MemoryMB  int
 	DiskGB    int
 	Autostart bool
+	Running   bool   // From terraform tfvars
+	TFDir     string // tf/<machine-name>/ path
 	CreatedAt time.Time
 }
 
 // Manager reads terraform state and provides VM lifecycle operations.
+// It manages multiple machines, each in their own tf/<machine-name>/ directory.
 type Manager struct {
-	workDir    string // terraform/ directory
+	baseDir    string // Project root directory (contains tf/)
 	libvirtURI string // libvirt connection URI
 	verbose    bool
 }
 
 // NewManager creates a new terraform state manager.
-func NewManager(workDir string) *Manager {
+// baseDir should be the project root (containing tf/ subdirectory).
+func NewManager(baseDir string) *Manager {
 	return &Manager{
-		workDir:    workDir,
+		baseDir:    baseDir,
 		libvirtURI: "qemu:///system",
 	}
 }
@@ -66,80 +70,154 @@ func (m *Manager) SetVerbose(verbose bool) {
 	m.verbose = verbose
 }
 
-// WorkDir returns the terraform working directory.
-func (m *Manager) WorkDir() string {
-	return m.workDir
+// BaseDir returns the project base directory.
+func (m *Manager) BaseDir() string {
+	return m.baseDir
 }
 
-// ListVMs returns all VMs managed by this terraform configuration.
-// It combines terraform output with virsh status for accurate state.
+// TFDir returns the tf/ directory path.
+func (m *Manager) TFDir() string {
+	return filepath.Join(m.baseDir, "tf")
+}
+
+// MachineDir returns the directory for a specific machine.
+func (m *Manager) MachineDir(name string) string {
+	return filepath.Join(m.TFDir(), name)
+}
+
+// ListVMs returns all VMs managed by terraform configurations in tf/.
 func (m *Manager) ListVMs(ctx context.Context) ([]VMInfo, error) {
-	// First, check if terraform state exists
-	statePath := filepath.Join(m.workDir, "terraform.tfstate")
-	if _, err := os.Stat(statePath); os.IsNotExist(err) {
-		return nil, nil // No VMs yet
-	}
-
-	// Get terraform outputs
-	outputs, err := m.getTerraformOutputs(ctx)
+	machines, err := DiscoverMachines(m.TFDir())
 	if err != nil {
-		return nil, fmt.Errorf("failed to get terraform outputs: %w", err)
+		return nil, fmt.Errorf("failed to discover machines: %w", err)
 	}
 
-	// If no outputs, no VMs
-	if len(outputs) == 0 {
-		return nil, nil
+	var vms []VMInfo
+	for _, name := range machines {
+		vm, err := m.GetVM(ctx, name)
+		if err != nil {
+			// Log but continue - some machines might have incomplete state
+			if m.verbose {
+				fmt.Printf("Warning: failed to get VM %s: %v\n", name, err)
+			}
+			continue
+		}
+		vms = append(vms, *vm)
 	}
 
-	// Get VM name from outputs
-	vmName, ok := outputs["vm_name"]
-	if !ok || vmName == "" {
-		return nil, nil
-	}
-
-	// Get VM info from virsh for accurate status
-	vm, err := m.getVMInfo(ctx, vmName, outputs)
-	if err != nil {
-		return nil, err
-	}
-
-	return []VMInfo{*vm}, nil
+	return vms, nil
 }
 
 // GetVM returns information about a specific VM.
 func (m *Manager) GetVM(ctx context.Context, name string) (*VMInfo, error) {
-	outputs, err := m.getTerraformOutputs(ctx)
+	machineDir := m.MachineDir(name)
+
+	// Check if machine exists
+	if !MachineExists(m.TFDir(), name) {
+		return nil, fmt.Errorf("machine %q does not exist", name)
+	}
+
+	vm := &VMInfo{
+		Name:   name,
+		Status: StatusUnknown,
+		TFDir:  machineDir,
+	}
+
+	// Check if terraform state exists
+	if !MachineHasState(m.TFDir(), name) {
+		vm.Status = StatusNotFound
+		return vm, nil
+	}
+
+	// Get terraform outputs
+	outputs, err := m.getTerraformOutputs(ctx, machineDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get terraform outputs: %w", err)
 	}
 
-	vmName, ok := outputs["vm_name"]
-	if !ok || vmName != name {
-		return nil, fmt.Errorf("VM %q not found in terraform state", name)
+	// Parse outputs
+	if ip, ok := outputs["vm_ip"]; ok {
+		vm.IP = ip
 	}
 
-	return m.getVMInfo(ctx, name, outputs)
+	if running, ok := outputs["vm_running"]; ok {
+		vm.Running = running == "true"
+		if vm.Running {
+			vm.Status = StatusRunning
+		} else {
+			vm.Status = StatusStopped
+		}
+	}
+
+	if cpus, ok := outputs["vm_vcpu_count"]; ok {
+		vm.CPUs, _ = strconv.Atoi(cpus)
+	}
+
+	if mem, ok := outputs["vm_memory_mb"]; ok {
+		vm.MemoryMB, _ = strconv.Atoi(mem)
+	}
+
+	if disk, ok := outputs["vm_disk_size_gb"]; ok {
+		vm.DiskGB, _ = strconv.Atoi(disk)
+	}
+
+	if autostart, ok := outputs["vm_autostart"]; ok {
+		vm.Autostart = autostart == "true"
+	}
+
+	return vm, nil
 }
 
-// StartVM starts a stopped VM using virsh.
+// StartVM starts a stopped VM by setting running=true and applying.
 func (m *Manager) StartVM(ctx context.Context, name string) error {
-	return m.virshCommand(ctx, "start", name)
+	machineDir := m.MachineDir(name)
+
+	if !MachineExists(m.TFDir(), name) {
+		return fmt.Errorf("machine %q does not exist", name)
+	}
+
+	// Update tfvars
+	if err := updateTFVar(machineDir, "running", "true"); err != nil {
+		return fmt.Errorf("failed to update running variable: %w", err)
+	}
+
+	// Run terraform apply
+	return m.terraformApply(ctx, machineDir)
 }
 
-// StopVM gracefully shuts down a running VM using virsh.
+// StopVM gracefully stops a running VM by setting running=false and applying.
 func (m *Manager) StopVM(ctx context.Context, name string) error {
-	return m.virshCommand(ctx, "shutdown", name)
+	machineDir := m.MachineDir(name)
+
+	if !MachineExists(m.TFDir(), name) {
+		return fmt.Errorf("machine %q does not exist", name)
+	}
+
+	// Update tfvars
+	if err := updateTFVar(machineDir, "running", "false"); err != nil {
+		return fmt.Errorf("failed to update running variable: %w", err)
+	}
+
+	// Run terraform apply
+	return m.terraformApply(ctx, machineDir)
 }
 
-// ForceStopVM immediately stops a VM (like pulling the power cord).
+// ForceStopVM is an alias for StopVM since we use terraform.
+// The libvirt provider handles graceful vs forced shutdown.
 func (m *Manager) ForceStopVM(ctx context.Context, name string) error {
-	return m.virshCommand(ctx, "destroy", name)
+	return m.StopVM(ctx, name)
 }
 
 // DeleteVM destroys the VM using terraform destroy.
 func (m *Manager) DeleteVM(ctx context.Context, name string) error {
+	machineDir := m.MachineDir(name)
+
+	if !MachineExists(m.TFDir(), name) {
+		return fmt.Errorf("machine %q does not exist", name)
+	}
+
 	cmd := exec.CommandContext(ctx, "terraform", "destroy", "-auto-approve")
-	cmd.Dir = m.workDir
+	cmd.Dir = machineDir
 
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -151,10 +229,23 @@ func (m *Manager) DeleteVM(ctx context.Context, name string) error {
 	return nil
 }
 
+// DeleteMachineDir removes the machine's terraform directory.
+// This should only be called after DeleteVM.
+func (m *Manager) DeleteMachineDir(name string) error {
+	machineDir := m.MachineDir(name)
+	return os.RemoveAll(machineDir)
+}
+
 // RefreshState runs terraform apply -refresh-only to update the state.
-func (m *Manager) RefreshState(ctx context.Context) error {
+func (m *Manager) RefreshState(ctx context.Context, name string) error {
+	machineDir := m.MachineDir(name)
+
+	if !MachineExists(m.TFDir(), name) {
+		return fmt.Errorf("machine %q does not exist", name)
+	}
+
 	cmd := exec.CommandContext(ctx, "terraform", "apply", "-refresh-only", "-auto-approve")
-	cmd.Dir = m.workDir
+	cmd.Dir = machineDir
 
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -183,10 +274,55 @@ func (m *Manager) SSHCommand(ip string) string {
 	return fmt.Sprintf("ssh ubuntu@%s", ip)
 }
 
+// IsInitialized returns true if any machine has been initialized.
+func (m *Manager) IsInitialized() bool {
+	machines, err := DiscoverMachines(m.TFDir())
+	if err != nil || len(machines) == 0 {
+		return false
+	}
+
+	for _, name := range machines {
+		if MachineIsInitialized(m.TFDir(), name) {
+			return true
+		}
+	}
+	return false
+}
+
+// HasState returns true if any machine has terraform state.
+func (m *Manager) HasState() bool {
+	machines, err := DiscoverMachines(m.TFDir())
+	if err != nil || len(machines) == 0 {
+		return false
+	}
+
+	for _, name := range machines {
+		if MachineHasState(m.TFDir(), name) {
+			return true
+		}
+	}
+	return false
+}
+
+// terraformApply runs terraform apply in the given directory.
+func (m *Manager) terraformApply(ctx context.Context, dir string) error {
+	cmd := exec.CommandContext(ctx, "terraform", "apply", "-auto-approve")
+	cmd.Dir = dir
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("terraform apply failed: %w\n%s", err, stderr.String())
+	}
+
+	return nil
+}
+
 // getTerraformOutputs runs terraform output -json and parses the results.
-func (m *Manager) getTerraformOutputs(ctx context.Context) (map[string]string, error) {
+func (m *Manager) getTerraformOutputs(ctx context.Context, dir string) (map[string]string, error) {
 	cmd := exec.CommandContext(ctx, "terraform", "output", "-json")
-	cmd.Dir = m.workDir
+	cmd.Dir = dir
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -239,147 +375,57 @@ func parseOutputJSON(data []byte) map[string]string {
 	return outputs
 }
 
-// getVMInfo gets VM info by combining terraform outputs with virsh status.
-func (m *Manager) getVMInfo(ctx context.Context, name string, outputs map[string]string) (*VMInfo, error) {
-	vm := &VMInfo{
-		Name:   name,
-		Status: StatusUnknown,
-	}
+// updateTFVar updates a single variable in terraform.tfvars.
+// Creates the file if it doesn't exist.
+func updateTFVar(machineDir, key, value string) error {
+	tfvarsPath := filepath.Join(machineDir, "terraform.tfvars")
 
-	// Get IP from outputs
-	if ip, ok := outputs["vm_ip"]; ok {
-		vm.IP = ip
+	// Read existing tfvars or start with empty
+	var lines []string
+	data, err := os.ReadFile(tfvarsPath)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to read tfvars: %w", err)
 	}
-
-	// Get status from virsh
-	status, err := m.getVirshStatus(ctx, name)
-	if err != nil {
-		// VM might not exist in virsh yet
-		vm.Status = StatusNotFound
-	} else {
-		vm.Status = status
-	}
-
-	// Get detailed info from virsh dominfo
-	info, err := m.getVirshDominfo(ctx, name)
 	if err == nil {
-		if cpus, ok := info["CPU(s)"]; ok {
-			vm.CPUs, _ = strconv.Atoi(cpus)
+		lines = strings.Split(string(data), "\n")
+	}
+
+	// Find and update the key, or add it
+	found := false
+	keyPrefix := key + " "
+	keyPrefixEq := key + "="
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, keyPrefix) || strings.HasPrefix(trimmed, keyPrefixEq) {
+			lines[i] = fmt.Sprintf("%s = %s", key, value)
+			found = true
+			break
 		}
-		if mem, ok := info["Max memory"]; ok {
-			// Parse "2097152 KiB" to MB
-			mem = strings.TrimSuffix(mem, " KiB")
-			if kib, err := strconv.ParseInt(mem, 10, 64); err == nil {
-				vm.MemoryMB = int(kib / 1024)
+	}
+
+	if !found {
+		// Add the variable at the end (before any trailing empty lines)
+		// Find last non-empty line
+		insertIdx := len(lines)
+		for i := len(lines) - 1; i >= 0; i-- {
+			if strings.TrimSpace(lines[i]) != "" {
+				insertIdx = i + 1
+				break
 			}
 		}
-		if autostart, ok := info["Autostart"]; ok {
-			vm.Autostart = autostart == "enable"
+		newLine := fmt.Sprintf("%s = %s", key, value)
+		if insertIdx >= len(lines) {
+			lines = append(lines, newLine)
+		} else {
+			lines = append(lines[:insertIdx], append([]string{newLine}, lines[insertIdx:]...)...)
 		}
 	}
 
-	return vm, nil
-}
-
-// getVirshStatus gets the current status of a VM from virsh.
-func (m *Manager) getVirshStatus(ctx context.Context, name string) (VMStatus, error) {
-	args := []string{"domstate", name}
-	if m.libvirtURI != "" {
-		args = append([]string{"-c", m.libvirtURI}, args...)
+	// Write back
+	content := strings.Join(lines, "\n")
+	if !strings.HasSuffix(content, "\n") {
+		content += "\n"
 	}
 
-	cmd := exec.CommandContext(ctx, "virsh", args...)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if strings.Contains(stderr.String(), "failed to get domain") {
-			return StatusNotFound, fmt.Errorf("VM not found")
-		}
-		return StatusUnknown, err
-	}
-
-	state := strings.TrimSpace(stdout.String())
-	switch state {
-	case "running":
-		return StatusRunning, nil
-	case "shut off":
-		return StatusShutoff, nil
-	case "paused":
-		return StatusPaused, nil
-	case "crashed":
-		return StatusCrashed, nil
-	default:
-		return StatusUnknown, nil
-	}
-}
-
-// getVirshDominfo gets detailed VM information from virsh dominfo.
-func (m *Manager) getVirshDominfo(ctx context.Context, name string) (map[string]string, error) {
-	args := []string{"dominfo", name}
-	if m.libvirtURI != "" {
-		args = append([]string{"-c", m.libvirtURI}, args...)
-	}
-
-	cmd := exec.CommandContext(ctx, "virsh", args...)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("virsh dominfo failed: %w\n%s", err, stderr.String())
-	}
-
-	info := make(map[string]string)
-	for _, line := range strings.Split(stdout.String(), "\n") {
-		parts := strings.SplitN(line, ":", 2)
-		if len(parts) == 2 {
-			key := strings.TrimSpace(parts[0])
-			value := strings.TrimSpace(parts[1])
-			info[key] = value
-		}
-	}
-
-	return info, nil
-}
-
-// virshCommand runs a virsh command with the configured libvirt URI.
-func (m *Manager) virshCommand(ctx context.Context, action, name string) error {
-	args := []string{action, name}
-	if m.libvirtURI != "" {
-		args = append([]string{"-c", m.libvirtURI}, args...)
-	}
-
-	cmd := exec.CommandContext(ctx, "virsh", args...)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("virsh %s failed: %w\n%s", action, err, stderr.String())
-	}
-
-	return nil
-}
-
-// IsInitialized returns true if the terraform directory has been initialized.
-// Returns true only when .terraform exists AND is a directory.
-func (m *Manager) IsInitialized() bool {
-	tfDir := filepath.Join(m.workDir, ".terraform")
-	info, err := os.Stat(tfDir)
-	if err != nil {
-		return false
-	}
-	return info.IsDir()
-}
-
-// HasState returns true if a terraform state file exists.
-func (m *Manager) HasState() bool {
-	statePath := filepath.Join(m.workDir, "terraform.tfstate")
-	info, err := os.Stat(statePath)
-	if err != nil {
-		return false
-	}
-	// Must be a regular file with content (not a directory)
-	return info.Mode().IsRegular() && info.Size() > 0
+	return os.WriteFile(tfvarsPath, []byte(content), 0644)
 }

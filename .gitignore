@@ -27,3 +27,6 @@ output/
 *.test
 *.out
 coverage.txt
+
+# Built binary at root
+ucli

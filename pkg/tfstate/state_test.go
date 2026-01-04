@@ -10,10 +10,10 @@ import (
 )
 
 func TestNewManager(t *testing.T) {
-	m := NewManager("/test/terraform")
+	m := NewManager("/test/project")
 
 	assert.NotNil(t, m)
-	assert.Equal(t, "/test/terraform", m.workDir)
+	assert.Equal(t, "/test/project", m.baseDir)
 	assert.Equal(t, "qemu:///system", m.libvirtURI)
 }
 
@@ -32,9 +32,19 @@ func TestManager_SetVerbose(t *testing.T) {
 	assert.True(t, m.verbose)
 }
 
-func TestManager_WorkDir(t *testing.T) {
-	m := NewManager("/path/to/terraform")
-	assert.Equal(t, "/path/to/terraform", m.WorkDir())
+func TestManager_BaseDir(t *testing.T) {
+	m := NewManager("/path/to/project")
+	assert.Equal(t, "/path/to/project", m.BaseDir())
+}
+
+func TestManager_TFDir(t *testing.T) {
+	m := NewManager("/path/to/project")
+	assert.Equal(t, "/path/to/project/tf", m.TFDir())
+}
+
+func TestManager_MachineDir(t *testing.T) {
+	m := NewManager("/path/to/project")
+	assert.Equal(t, "/path/to/project/tf/my-vm", m.MachineDir("my-vm"))
 }
 
 func TestManager_ConsoleCommand(t *testing.T) {
@@ -109,17 +119,29 @@ func TestManager_SSHCommand(t *testing.T) {
 }
 
 func TestManager_IsInitialized(t *testing.T) {
-	t.Run("not initialized", func(t *testing.T) {
+	t.Run("not initialized - no tf directory", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		m := NewManager(tmpDir)
 
 		assert.False(t, m.IsInitialized())
 	})
 
-	t.Run("initialized", func(t *testing.T) {
+	t.Run("not initialized - tf exists but no machines", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		tfDir := filepath.Join(tmpDir, ".terraform")
-		err := os.MkdirAll(tfDir, 0755)
+		err := os.MkdirAll(filepath.Join(tmpDir, "tf"), 0755)
+		require.NoError(t, err)
+
+		m := NewManager(tmpDir)
+		assert.False(t, m.IsInitialized())
+	})
+
+	t.Run("initialized - machine with .terraform dir", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		machineDir := filepath.Join(tmpDir, "tf", "test-vm")
+		err := os.MkdirAll(filepath.Join(machineDir, ".terraform"), 0755)
+		require.NoError(t, err)
+		// Create main.tf to make it a valid machine
+		err = os.WriteFile(filepath.Join(machineDir, "main.tf"), []byte("# test"), 0644)
 		require.NoError(t, err)
 
 		m := NewManager(tmpDir)
@@ -128,27 +150,39 @@ func TestManager_IsInitialized(t *testing.T) {
 }
 
 func TestManager_HasState(t *testing.T) {
-	t.Run("no state file", func(t *testing.T) {
+	t.Run("no state file - no machines", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		m := NewManager(tmpDir)
 
 		assert.False(t, m.HasState())
 	})
 
-	t.Run("empty state file", func(t *testing.T) {
+	t.Run("empty state file in machine dir", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		statePath := filepath.Join(tmpDir, "terraform.tfstate")
-		err := os.WriteFile(statePath, []byte{}, 0644)
+		machineDir := filepath.Join(tmpDir, "tf", "test-vm")
+		err := os.MkdirAll(machineDir, 0755)
+		require.NoError(t, err)
+		// Create main.tf to make it a valid machine
+		err = os.WriteFile(filepath.Join(machineDir, "main.tf"), []byte("# test"), 0644)
+		require.NoError(t, err)
+		statePath := filepath.Join(machineDir, "terraform.tfstate")
+		err = os.WriteFile(statePath, []byte{}, 0644)
 		require.NoError(t, err)
 
 		m := NewManager(tmpDir)
 		assert.False(t, m.HasState())
 	})
 
-	t.Run("non-empty state file", func(t *testing.T) {
+	t.Run("non-empty state file in machine dir", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		statePath := filepath.Join(tmpDir, "terraform.tfstate")
-		err := os.WriteFile(statePath, []byte(`{"version": 4}`), 0644)
+		machineDir := filepath.Join(tmpDir, "tf", "test-vm")
+		err := os.MkdirAll(machineDir, 0755)
+		require.NoError(t, err)
+		// Create main.tf to make it a valid machine
+		err = os.WriteFile(filepath.Join(machineDir, "main.tf"), []byte("# test"), 0644)
+		require.NoError(t, err)
+		statePath := filepath.Join(machineDir, "terraform.tfstate")
+		err = os.WriteFile(statePath, []byte(`{"version": 4}`), 0644)
 		require.NoError(t, err)
 
 		m := NewManager(tmpDir)
@@ -432,10 +466,17 @@ func TestManager_ConsoleCommand_EdgeCases(t *testing.T) {
 }
 
 func TestManager_HasState_EdgeCases(t *testing.T) {
-	t.Run("state file is a directory", func(t *testing.T) {
+	t.Run("state file is a directory in machine", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		statePath := filepath.Join(tmpDir, "terraform.tfstate")
-		err := os.MkdirAll(statePath, 0755)
+		machineDir := filepath.Join(tmpDir, "tf", "test-vm")
+		err := os.MkdirAll(machineDir, 0755)
+		require.NoError(t, err)
+		// Create main.tf
+		err = os.WriteFile(filepath.Join(machineDir, "main.tf"), []byte("# test"), 0644)
+		require.NoError(t, err)
+		// Create state as directory instead of file
+		statePath := filepath.Join(machineDir, "terraform.tfstate")
+		err = os.MkdirAll(statePath, 0755)
 		require.NoError(t, err)
 
 		m := NewManager(tmpDir)
@@ -443,10 +484,16 @@ func TestManager_HasState_EdgeCases(t *testing.T) {
 		assert.False(t, m.HasState())
 	})
 
-	t.Run("state file with only whitespace", func(t *testing.T) {
+	t.Run("state file with only whitespace in machine", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		statePath := filepath.Join(tmpDir, "terraform.tfstate")
-		err := os.WriteFile(statePath, []byte("   \n"), 0644)
+		machineDir := filepath.Join(tmpDir, "tf", "test-vm")
+		err := os.MkdirAll(machineDir, 0755)
+		require.NoError(t, err)
+		// Create main.tf
+		err = os.WriteFile(filepath.Join(machineDir, "main.tf"), []byte("# test"), 0644)
+		require.NoError(t, err)
+		statePath := filepath.Join(machineDir, "terraform.tfstate")
+		err = os.WriteFile(statePath, []byte("   \n"), 0644)
 		require.NoError(t, err)
 
 		m := NewManager(tmpDir)
@@ -455,10 +502,17 @@ func TestManager_HasState_EdgeCases(t *testing.T) {
 }
 
 func TestManager_IsInitialized_EdgeCases(t *testing.T) {
-	t.Run(".terraform is a file not directory", func(t *testing.T) {
+	t.Run(".terraform is a file not directory in machine", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		tfPath := filepath.Join(tmpDir, ".terraform")
-		err := os.WriteFile(tfPath, []byte("not a directory"), 0644)
+		machineDir := filepath.Join(tmpDir, "tf", "test-vm")
+		err := os.MkdirAll(machineDir, 0755)
+		require.NoError(t, err)
+		// Create main.tf
+		err = os.WriteFile(filepath.Join(machineDir, "main.tf"), []byte("# test"), 0644)
+		require.NoError(t, err)
+		// Create .terraform as file instead of directory
+		tfPath := filepath.Join(machineDir, ".terraform")
+		err = os.WriteFile(tfPath, []byte("not a directory"), 0644)
 		require.NoError(t, err)
 
 		m := NewManager(tmpDir)
@@ -497,6 +551,6 @@ func TestVMStatus_Comparison(t *testing.T) {
 
 func TestNewManager_EmptyPath(t *testing.T) {
 	m := NewManager("")
-	assert.Equal(t, "", m.workDir)
+	assert.Equal(t, "", m.baseDir)
 	assert.Equal(t, "qemu:///system", m.libvirtURI)
 }

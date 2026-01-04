@@ -58,6 +58,12 @@ variable "autostart" {
   default     = false
 }
 
+variable "running" {
+  description = "Whether the VM should be running (true) or stopped (false)"
+  type        = bool
+  default     = true
+}
+
 # =============================================================================
 # Ubuntu Image
 # =============================================================================
