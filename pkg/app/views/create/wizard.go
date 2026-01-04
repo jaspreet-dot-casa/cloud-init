@@ -246,3 +246,30 @@ func (s *WizardState) GetCheckState(name string) bool {
 func (s *WizardState) SetCheckState(name string, checked bool) {
 	s.CheckStates[name] = checked
 }
+
+// NavigateField moves focus up/down with bounds checking.
+// delta should be -1 for up or +1 for down.
+func (s *WizardState) NavigateField(delta int, maxField int) {
+	newField := s.FocusedField + delta
+	if newField < 0 {
+		newField = 0
+	} else if newField > maxField {
+		newField = maxField
+	}
+	s.FocusedField = newField
+}
+
+// CycleSelect cycles through options with wrap-around.
+// delta should be -1 for left or +1 for right.
+func (s *WizardState) CycleSelect(name string, optionCount, delta int) {
+	if optionCount <= 0 {
+		return
+	}
+	idx := s.SelectIdxs[name] + delta
+	if idx < 0 {
+		idx = optionCount - 1
+	} else if idx >= optionCount {
+		idx = 0
+	}
+	s.SelectIdxs[name] = idx
+}

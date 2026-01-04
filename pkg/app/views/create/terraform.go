@@ -116,31 +116,11 @@ func (m *Model) handleTerraformPhase(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 func (m *Model) cycleTerraformOption(delta int) {
 	switch m.wizard.FocusedField {
 	case terraformFieldCPU:
-		idx := m.wizard.SelectIdxs["cpu"] + delta
-		if idx < 0 {
-			idx = len(cpuOptions) - 1
-		} else if idx >= len(cpuOptions) {
-			idx = 0
-		}
-		m.wizard.SelectIdxs["cpu"] = idx
-
+		m.wizard.CycleSelect("cpu", len(CPUOptions), delta)
 	case terraformFieldMemory:
-		idx := m.wizard.SelectIdxs["memory"] + delta
-		if idx < 0 {
-			idx = len(memoryOptions) - 1
-		} else if idx >= len(memoryOptions) {
-			idx = 0
-		}
-		m.wizard.SelectIdxs["memory"] = idx
-
+		m.wizard.CycleSelect("memory", len(MemoryOptions), delta)
 	case terraformFieldDisk:
-		idx := m.wizard.SelectIdxs["disk"] + delta
-		if idx < 0 {
-			idx = len(diskOptions) - 1
-		} else if idx >= len(diskOptions) {
-			idx = 0
-		}
-		m.wizard.SelectIdxs["disk"] = idx
+		m.wizard.CycleSelect("disk", len(DiskOptions), delta)
 	}
 }
 
@@ -167,14 +147,14 @@ func (m *Model) saveTerraformOptions() {
 	}
 
 	m.wizard.Data.TerraformOpts = deploy.TerraformOptions{
-		VMName:       vmName,
-		CPUs:         cpuOptions[m.wizard.SelectIdxs["cpu"]].value,
-		MemoryMB:     memoryOptions[m.wizard.SelectIdxs["memory"]].value,
-		DiskGB:       diskOptions[m.wizard.SelectIdxs["disk"]].value,
-		UbuntuImage:  imagePath,
-		LibvirtURI:   libvirtURI,
-		StoragePool:  defaultStoragePool,
-		NetworkName:  defaultNetwork,
+		VMName:      vmName,
+		CPUs:        GetCPUValue(m.wizard.SelectIdxs["cpu"]),
+		MemoryMB:    GetMemoryValue(m.wizard.SelectIdxs["memory"]),
+		DiskGB:      GetDiskValue(m.wizard.SelectIdxs["disk"]),
+		UbuntuImage: imagePath,
+		LibvirtURI:  libvirtURI,
+		StoragePool: defaultStoragePool,
+		NetworkName: defaultNetwork,
 	}
 }
 
@@ -195,47 +175,23 @@ func (m *Model) viewTerraformPhase() string {
 	}
 
 	// VM Name
-	b.WriteString(m.renderTerraformTextField("VM Name", "vm_name", terraformFieldVMName))
+	b.WriteString(RenderTextField(m.wizard, "VM Name", "vm_name", terraformFieldVMName))
 
 	// CPU selection
-	b.WriteString(m.renderSelectField("CPUs", "cpu", terraformFieldCPU, getCPULabels()))
+	b.WriteString(RenderSelectField(m.wizard, "CPUs", "cpu", terraformFieldCPU, GetCPULabels()))
 
 	// Memory selection
-	b.WriteString(m.renderSelectField("Memory", "memory", terraformFieldMemory, getMemoryLabels()))
+	b.WriteString(RenderSelectField(m.wizard, "Memory", "memory", terraformFieldMemory, GetMemoryLabels()))
 
 	// Disk selection
-	b.WriteString(m.renderSelectField("Disk Size", "disk", terraformFieldDisk, getDiskLabels()))
+	b.WriteString(RenderSelectField(m.wizard, "Disk Size", "disk", terraformFieldDisk, GetDiskLabels()))
 
 	// Image path
-	b.WriteString(m.renderTerraformTextField("Ubuntu Image", "image_path", terraformFieldImagePath))
+	b.WriteString(RenderTextField(m.wizard, "Ubuntu Image", "image_path", terraformFieldImagePath))
 
 	// Libvirt URI
-	b.WriteString(m.renderTerraformTextField("Libvirt URI", "libvirt_uri", terraformFieldLibvirtURI))
+	b.WriteString(RenderTextField(m.wizard, "Libvirt URI", "libvirt_uri", terraformFieldLibvirtURI))
 
 	return b.String()
 }
 
-// renderTerraformTextField renders a text input field for Terraform
-func (m *Model) renderTerraformTextField(label, name string, fieldIdx int) string {
-	var b strings.Builder
-
-	focused := m.wizard.FocusedField == fieldIdx
-	cursor := "  "
-	if focused {
-		cursor = "▸ "
-	}
-
-	b.WriteString(cursor)
-	if focused {
-		b.WriteString(focusedInputStyle.Render(label + ": "))
-	} else {
-		b.WriteString(labelStyle.Render(label + ": "))
-	}
-
-	if ti, ok := m.wizard.TextInputs[name]; ok {
-		b.WriteString(ti.View())
-	}
-	b.WriteString("\n\n")
-
-	return b.String()
-}

@@ -241,38 +241,13 @@ func (m *Model) viewSSHPhase() string {
 	b.WriteString("\n\n")
 
 	// GitHub username
-	b.WriteString(m.renderSSHTextField("GitHub Username", "github_user", sshFieldGitHubUser))
+	b.WriteString(RenderTextField(m.wizard, "GitHub Username", "github_user", sshFieldGitHubUser))
 	b.WriteString(dimStyle.Render("  Leave empty to skip GitHub SSH key import"))
 	b.WriteString("\n\n")
 
 	// TODO: Show local SSH keys if discovered
 	// For now, just show a message
 	b.WriteString(dimStyle.Render("SSH keys will be fetched from GitHub if username is provided."))
-	b.WriteString("\n")
-
-	return b.String()
-}
-
-// renderSSHTextField renders a text input field for SSH
-func (m *Model) renderSSHTextField(label, name string, fieldIdx int) string {
-	var b strings.Builder
-
-	focused := m.wizard.FocusedField == fieldIdx
-	cursor := "  "
-	if focused {
-		cursor = "▸ "
-	}
-
-	b.WriteString(cursor)
-	if focused {
-		b.WriteString(focusedInputStyle.Render(label + ": "))
-	} else {
-		b.WriteString(labelStyle.Render(label + ": "))
-	}
-
-	if ti, ok := m.wizard.TextInputs[name]; ok {
-		b.WriteString(ti.View())
-	}
 	b.WriteString("\n")
 
 	return b.String()

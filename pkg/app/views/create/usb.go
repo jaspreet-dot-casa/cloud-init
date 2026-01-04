@@ -21,23 +21,28 @@ const (
 	usbFieldCount
 )
 
-// Storage layout options
-var storageOptions = []struct {
-	label string
-	value string
-}{
-	{"LVM (recommended)", "lvm"},
-	{"Direct", "direct"},
-	{"ZFS", "zfs"},
+// StorageOptions defines available storage layout options for USB install.
+var StorageOptions = []SelectOption[string]{
+	{Label: "LVM (recommended)", Value: "lvm"},
+	{Label: "Direct", Value: "direct"},
+	{Label: "ZFS", Value: "zfs"},
 }
 
-// getStorageLabels extracts labels for renderSelectField
-func getStorageLabels() []string {
-	labels := make([]string, len(storageOptions))
-	for i, opt := range storageOptions {
-		labels[i] = opt.label
+// GetStorageLabels returns labels for storage options.
+func GetStorageLabels() []string {
+	labels := make([]string, len(StorageOptions))
+	for i, opt := range StorageOptions {
+		labels[i] = opt.Label
 	}
 	return labels
+}
+
+// GetStorageValue returns the storage value at the given index.
+func GetStorageValue(idx int) string {
+	if idx < 0 || idx >= len(StorageOptions) {
+		return StorageOptions[0].Value // Default to LVM
+	}
+	return StorageOptions[idx].Value
 }
 
 // initUSBPhase initializes the USB/ISO options phase
@@ -114,13 +119,7 @@ func (m *Model) handleUSBPhase(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 // cycleUSBOption cycles through options for select fields
 func (m *Model) cycleUSBOption(delta int) {
 	if m.wizard.FocusedField == usbFieldStorage {
-		idx := m.wizard.SelectIdxs["storage"] + delta
-		if idx < 0 {
-			idx = len(storageOptions) - 1
-		} else if idx >= len(storageOptions) {
-			idx = 0
-		}
-		m.wizard.SelectIdxs["storage"] = idx
+		m.wizard.CycleSelect("storage", len(StorageOptions), delta)
 	}
 }
 
@@ -136,16 +135,10 @@ func (m *Model) saveUSBOptions() {
 		timezone = "UTC"
 	}
 
-	// Get storage index with bounds checking
-	storageIdx, ok := m.wizard.SelectIdxs["storage"]
-	if !ok || storageIdx < 0 || storageIdx >= len(storageOptions) {
-		storageIdx = 0 // Default to first option (lvm)
-	}
-
 	m.wizard.Data.USBOpts = USBOptions{
 		SourceISO:     sourceISO,
 		OutputPath:    outputPath,
-		StorageLayout: storageOptions[storageIdx].value,
+		StorageLayout: GetStorageValue(m.wizard.SelectIdxs["storage"]),
 		Timezone:      timezone,
 	}
 }
@@ -158,41 +151,17 @@ func (m *Model) viewUSBPhase() string {
 	b.WriteString("\n\n")
 
 	// Source ISO
-	b.WriteString(m.renderUSBTextField("Source ISO", "source_iso", usbFieldSourceISO))
+	b.WriteString(RenderTextField(m.wizard, "Source ISO", "source_iso", usbFieldSourceISO))
 
 	// Output path
-	b.WriteString(m.renderUSBTextField("Output Path", "output_path", usbFieldOutputPath))
+	b.WriteString(RenderTextField(m.wizard, "Output Path", "output_path", usbFieldOutputPath))
 
 	// Storage layout
-	b.WriteString(m.renderSelectField("Storage Layout", "storage", usbFieldStorage, getStorageLabels()))
+	b.WriteString(RenderSelectField(m.wizard, "Storage Layout", "storage", usbFieldStorage, GetStorageLabels()))
 
 	// Timezone
-	b.WriteString(m.renderUSBTextField("Timezone", "timezone", usbFieldTimezone))
+	b.WriteString(RenderTextField(m.wizard, "Timezone", "timezone", usbFieldTimezone))
 
 	return b.String()
 }
 
-// renderUSBTextField renders a text input field for USB
-func (m *Model) renderUSBTextField(label, name string, fieldIdx int) string {
-	var b strings.Builder
-
-	focused := m.wizard.FocusedField == fieldIdx
-	cursor := "  "
-	if focused {
-		cursor = "▸ "
-	}
-
-	b.WriteString(cursor)
-	if focused {
-		b.WriteString(focusedInputStyle.Render(label + ": "))
-	} else {
-		b.WriteString(labelStyle.Render(label + ": "))
-	}
-
-	if ti, ok := m.wizard.TextInputs[name]; ok {
-		b.WriteString(ti.View())
-	}
-	b.WriteString("\n\n")
-
-	return b.String()
-}

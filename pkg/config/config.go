@@ -1,9 +1,5 @@
-// Package config handles configuration file generation for cloud-init.
+// Package config handles configuration for cloud-init generation.
 package config
-
-import (
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/tui"
-)
 
 // FullConfig represents all configuration needed for cloud-init.
 type FullConfig struct {
@@ -47,21 +43,9 @@ type FullConfig struct {
 	RepoBranch string
 }
 
-// NewFullConfigFromFormResult creates a FullConfig from the TUI form result.
-func NewFullConfigFromFormResult(result *tui.FormResult) *FullConfig {
-	cfg := &FullConfig{
-		// User configuration
-		Username:      result.User.Username,
-		Hostname:      result.User.Hostname,
-		SSHPublicKeys: result.User.SSHPublicKeys,
-		FullName:      result.User.FullName,
-		Email:         result.User.Email,
-		MachineName:   result.User.MachineName,
-
-		// Package configuration
-		EnabledPackages:  result.SelectedPackages,
-		DisabledPackages: calculateDisabledPackages(result.AllPackages, result.SelectedPackages),
-
+// NewFullConfig creates a new FullConfig with sensible defaults.
+func NewFullConfig() *FullConfig {
+	return &FullConfig{
 		// Git defaults
 		GitDefaultBranch:       "main",
 		GitPushAutoSetupRemote: true,
@@ -70,7 +54,6 @@ func NewFullConfigFromFormResult(result *tui.FormResult) *FullConfig {
 		GitURLRewriteGithub:    true,
 
 		// Tailscale defaults
-		TailscaleAuthKey:        result.Optional.TailscaleKey,
 		TailscaleSSHEnabled:     true,
 		TailscaleExitNode:       true,
 		TailscaleSSHCheckMode:   true,
@@ -81,22 +64,13 @@ func NewFullConfigFromFormResult(result *tui.FormResult) *FullConfig {
 		DockerAddToGroup:  true,
 		DockerStartOnBoot: true,
 
-		// Optional integrations
-		GithubUser: result.Optional.GithubUser,
-		GithubPAT:  result.Optional.GithubPAT,
-
 		// Repository defaults
 		RepoBranch: "main",
 	}
-
-	// Check if docker is in enabled packages
-	cfg.DockerEnabled = containsPackage(result.SelectedPackages, "docker")
-
-	return cfg
 }
 
-// calculateDisabledPackages returns packages in allPackages that are not in enabledPackages.
-func calculateDisabledPackages(allPackages, enabledPackages []string) []string {
+// CalculateDisabledPackages returns packages in allPackages that are not in enabledPackages.
+func CalculateDisabledPackages(allPackages, enabledPackages []string) []string {
 	enabledSet := make(map[string]bool)
 	for _, pkg := range enabledPackages {
 		enabledSet[pkg] = true
@@ -111,8 +85,8 @@ func calculateDisabledPackages(allPackages, enabledPackages []string) []string {
 	return disabled
 }
 
-// containsPackage checks if a package name is in the list.
-func containsPackage(packages []string, name string) bool {
+// ContainsPackage checks if a package name is in the list.
+func ContainsPackage(packages []string, name string) bool {
 	for _, pkg := range packages {
 		if pkg == name {
 			return true

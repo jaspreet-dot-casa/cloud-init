@@ -118,38 +118,13 @@ func (m *Model) viewHostPhase() string {
 	b.WriteString("\n\n")
 
 	// Display name
-	b.WriteString(m.renderHostTextField("Display Name", "display_name", hostFieldDisplayName))
+	b.WriteString(RenderTextField(m.wizard, "Display Name", "display_name", hostFieldDisplayName))
 
 	// Username
-	b.WriteString(m.renderHostTextField("Username", "username", hostFieldUsername))
+	b.WriteString(RenderTextField(m.wizard, "Username", "username", hostFieldUsername))
 
 	// Hostname
-	b.WriteString(m.renderHostTextField("Hostname", "hostname", hostFieldHostname))
-
-	return b.String()
-}
-
-// renderHostTextField renders a text input field for Host
-func (m *Model) renderHostTextField(label, name string, fieldIdx int) string {
-	var b strings.Builder
-
-	focused := m.wizard.FocusedField == fieldIdx
-	cursor := "  "
-	if focused {
-		cursor = "▸ "
-	}
-
-	b.WriteString(cursor)
-	if focused {
-		b.WriteString(focusedInputStyle.Render(label + ": "))
-	} else {
-		b.WriteString(labelStyle.Render(label + ": "))
-	}
-
-	if ti, ok := m.wizard.TextInputs[name]; ok {
-		b.WriteString(ti.View())
-	}
-	b.WriteString("\n\n")
+	b.WriteString(RenderTextField(m.wizard, "Hostname", "hostname", hostFieldHostname))
 
 	return b.String()
 }

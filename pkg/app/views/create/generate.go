@@ -99,10 +99,10 @@ func (m *Model) viewGeneratePhase() string {
 	b.WriteString("\n\n")
 
 	// Output directory
-	b.WriteString(m.renderGenerateTextField("Output Directory", "output_dir", generateFieldOutputDir))
+	b.WriteString(RenderTextField(m.wizard, "Output Directory", "output_dir", generateFieldOutputDir))
 
 	// Generate cloud-init checkbox
-	b.WriteString(m.renderCheckbox("Generate cloud-init.yaml", "generate_cloudinit", generateFieldCloudInit))
+	b.WriteString(RenderCheckbox(m.wizard, "Generate cloud-init.yaml", "generate_cloudinit", generateFieldCloudInit))
 
 	// Info about what will be generated
 	b.WriteString("\n")
@@ -120,27 +120,3 @@ func (m *Model) viewGeneratePhase() string {
 	return b.String()
 }
 
-// renderGenerateTextField renders a text input field for Generate
-func (m *Model) renderGenerateTextField(label, name string, fieldIdx int) string {
-	var b strings.Builder
-
-	focused := m.wizard.FocusedField == fieldIdx
-	cursor := "  "
-	if focused {
-		cursor = "▸ "
-	}
-
-	b.WriteString(cursor)
-	if focused {
-		b.WriteString(focusedInputStyle.Render(label + ": "))
-	} else {
-		b.WriteString(labelStyle.Render(label + ": "))
-	}
-
-	if ti, ok := m.wizard.TextInputs[name]; ok {
-		b.WriteString(ti.View())
-	}
-	b.WriteString("\n\n")
-
-	return b.String()
-}

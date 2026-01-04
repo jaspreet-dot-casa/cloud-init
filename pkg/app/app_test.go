@@ -7,6 +7,28 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// mockTab is a simple Tab implementation for testing.
+type mockTab struct {
+	BaseTab
+	content string
+}
+
+func newMockTab(id TabID, name, shortKey, content string) *mockTab {
+	return &mockTab{
+		BaseTab: NewBaseTab(id, name, shortKey),
+		content: content,
+	}
+}
+
+func (t *mockTab) Init() tea.Cmd                        { return nil }
+func (t *mockTab) Update(msg tea.Msg) (Tab, tea.Cmd)    { return t, nil }
+func (t *mockTab) View() string                         { return t.content }
+func (t *mockTab) Focus() tea.Cmd                       { t.BaseTab.Focus(); return nil }
+func (t *mockTab) Blur()                                { t.BaseTab.Blur() }
+func (t *mockTab) SetSize(width, height int)            { t.BaseTab.SetSize(width, height) }
+func (t *mockTab) KeyBindings() []string                { return nil }
+func (t *mockTab) HasFocusedInput() bool                { return false }
+
 func TestNew(t *testing.T) {
 	m := New("/test/project")
 
@@ -18,8 +40,8 @@ func TestNew(t *testing.T) {
 }
 
 func TestModel_WithTabs(t *testing.T) {
-	tab1 := NewPlaceholderTab(TabVMs, "VMs", "1", "VM content")
-	tab2 := NewPlaceholderTab(TabCreate, "Create", "2", "Create content")
+	tab1 := newMockTab(TabVMs, "VMs", "1", "VM content")
+	tab2 := newMockTab(TabCreate, "Create", "2", "Create content")
 
 	m := New("/test").WithTabs(tab1, tab2)
 
@@ -29,17 +51,17 @@ func TestModel_WithTabs(t *testing.T) {
 }
 
 func TestModel_Init(t *testing.T) {
-	tab1 := NewPlaceholderTab(TabVMs, "VMs", "1", "content")
+	tab1 := newMockTab(TabVMs, "VMs", "1", "content")
 	m := New("/test").WithTabs(tab1)
 
 	cmd := m.Init()
 
-	// Placeholder tabs return nil commands
+	// Mock tabs return nil commands
 	assert.Nil(t, cmd)
 }
 
 func TestModel_Update_WindowSizeMsg(t *testing.T) {
-	tab := NewPlaceholderTab(TabVMs, "VMs", "1", "content")
+	tab := newMockTab(TabVMs, "VMs", "1", "content")
 	m := New("/test").WithTabs(tab)
 
 	msg := tea.WindowSizeMsg{Width: 100, Height: 50}
@@ -63,9 +85,9 @@ func TestModel_Update_QuitKey(t *testing.T) {
 }
 
 func TestModel_Update_TabSwitching(t *testing.T) {
-	tab1 := NewPlaceholderTab(TabVMs, "VMs", "1", "VMs content")
-	tab2 := NewPlaceholderTab(TabCreate, "Create", "2", "Create content")
-	tab3 := NewPlaceholderTab(TabISO, "ISO", "3", "ISO content")
+	tab1 := newMockTab(TabVMs, "VMs", "1", "VMs content")
+	tab2 := newMockTab(TabCreate, "Create", "2", "Create content")
+	tab3 := newMockTab(TabISO, "ISO", "3", "ISO content")
 
 	m := New("/test").WithTabs(tab1, tab2, tab3)
 	assert.Equal(t, 0, m.activeTab)
@@ -90,8 +112,8 @@ func TestModel_Update_TabSwitching(t *testing.T) {
 }
 
 func TestModel_Update_TabKey(t *testing.T) {
-	tab1 := NewPlaceholderTab(TabVMs, "VMs", "1", "content")
-	tab2 := NewPlaceholderTab(TabCreate, "Create", "2", "content")
+	tab1 := newMockTab(TabVMs, "VMs", "1", "content")
+	tab2 := newMockTab(TabCreate, "Create", "2", "content")
 
 	m := New("/test").WithTabs(tab1, tab2)
 	assert.Equal(t, 0, m.activeTab)
@@ -125,8 +147,8 @@ func TestModel_View_Quitting(t *testing.T) {
 }
 
 func TestModel_ActiveTab(t *testing.T) {
-	tab1 := NewPlaceholderTab(TabVMs, "VMs", "1", "content")
-	tab2 := NewPlaceholderTab(TabCreate, "Create", "2", "content")
+	tab1 := newMockTab(TabVMs, "VMs", "1", "content")
+	tab2 := newMockTab(TabCreate, "Create", "2", "content")
 
 	m := New("/test").WithTabs(tab1, tab2)
 
@@ -159,7 +181,7 @@ func TestModel_Error(t *testing.T) {
 }
 
 func TestModel_SwitchTab_BoundsCheck(t *testing.T) {
-	tab1 := NewPlaceholderTab(TabVMs, "VMs", "1", "content")
+	tab1 := newMockTab(TabVMs, "VMs", "1", "content")
 	m := New("/test").WithTabs(tab1)
 
 	// Try to switch to non-existent tab
