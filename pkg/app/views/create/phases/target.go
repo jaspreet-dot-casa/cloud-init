@@ -5,22 +5,22 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy"
 )
 
 // Ensure TargetPhase implements PhaseHandler
-var _ create.PhaseHandler = (*TargetPhase)(nil)
+var _ wizard.PhaseHandler = (*TargetPhase)(nil)
 
 // TargetPhase handles the deployment target selection step.
 type TargetPhase struct {
-	create.BasePhase
+	wizard.BasePhase
 }
 
 // NewTargetPhase creates a new TargetPhase.
 func NewTargetPhase() *TargetPhase {
 	return &TargetPhase{
-		BasePhase: create.NewBasePhase("Select Target", len(Targets)),
+		BasePhase: wizard.NewBasePhase("Select Target", len(Targets)),
 	}
 }
 
@@ -61,13 +61,13 @@ var Targets = []TargetItem{
 }
 
 // Init initializes the target phase state.
-func (p *TargetPhase) Init(ctx *create.PhaseContext) {
+func (p *TargetPhase) Init(ctx *wizard.PhaseContext) {
 	// Target selection starts at 0 (Terraform)
 	ctx.Wizard.TargetSelected = 0
 }
 
 // Update handles keyboard input for the target phase.
-func (p *TargetPhase) Update(ctx *create.PhaseContext, msg tea.KeyMsg) (advance bool, cmd tea.Cmd) {
+func (p *TargetPhase) Update(ctx *wizard.PhaseContext, msg tea.KeyMsg) (advance bool, cmd tea.Cmd) {
 	switch {
 	case key.Matches(msg, key.NewBinding(key.WithKeys("up", "k"))):
 		if ctx.Wizard.TargetSelected > 0 {
@@ -89,22 +89,22 @@ func (p *TargetPhase) Update(ctx *create.PhaseContext, msg tea.KeyMsg) (advance 
 }
 
 // View renders the target phase.
-func (p *TargetPhase) View(ctx *create.PhaseContext) string {
+func (p *TargetPhase) View(ctx *wizard.PhaseContext) string {
 	var b strings.Builder
 
-	b.WriteString(create.TitleStyle.Render("Select Deployment Target"))
+	b.WriteString(wizard.TitleStyle.Render("Select Deployment Target"))
 	b.WriteString("\n\n")
 
-	b.WriteString(create.DimStyle.Render("Choose how to deploy your configuration:"))
+	b.WriteString(wizard.DimStyle.Render("Choose how to deploy your configuration:"))
 	b.WriteString("\n\n")
 
 	for i, target := range Targets {
 		cursor := "  "
-		style := create.UnselectedStyle
+		style := wizard.UnselectedStyle
 
 		if i == ctx.Wizard.TargetSelected {
 			cursor = "▸ "
-			style = create.SelectedStyle
+			style = wizard.SelectedStyle
 		}
 
 		b.WriteString(cursor)
@@ -113,7 +113,7 @@ func (p *TargetPhase) View(ctx *create.PhaseContext) string {
 		b.WriteString(style.Render(target.Name))
 		b.WriteString("\n")
 
-		descStyle := create.DimStyle.MarginLeft(5)
+		descStyle := wizard.DimStyle.MarginLeft(5)
 		b.WriteString(descStyle.Render(target.Description))
 		b.WriteString("\n\n")
 	}
@@ -122,7 +122,7 @@ func (p *TargetPhase) View(ctx *create.PhaseContext) string {
 }
 
 // Save persists the target selection to wizard data.
-func (p *TargetPhase) Save(ctx *create.PhaseContext) {
+func (p *TargetPhase) Save(ctx *wizard.PhaseContext) {
 	if ctx.Wizard.TargetSelected >= 0 && ctx.Wizard.TargetSelected < len(Targets) {
 		ctx.Wizard.Data.Target = Targets[ctx.Wizard.TargetSelected].Target
 	}

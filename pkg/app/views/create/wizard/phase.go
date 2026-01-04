@@ -1,4 +1,5 @@
-package create
+// Package wizard provides shared types for the create wizard.
+package wizard
 
 // Phase represents the current step in the create wizard
 type Phase int

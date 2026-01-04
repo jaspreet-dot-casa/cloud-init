@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy"
 )
 
@@ -165,22 +166,22 @@ func (m *Model) viewMultipassPhase() string {
 	b.WriteString("\n\n")
 
 	// VM Name
-	b.WriteString(RenderTextField(m.wizard, "VM Name", "vm_name", multipassFieldVMName))
+	b.WriteString(wizard.RenderTextField(m.wizard, "VM Name", "vm_name", multipassFieldVMName))
 
 	// Image selection
-	b.WriteString(RenderSelectField(m.wizard, "Ubuntu Image", "image", multipassFieldImage, GetMultipassImageLabels()))
+	b.WriteString(wizard.RenderSelectField(m.wizard, "Ubuntu Image", "image", multipassFieldImage, GetMultipassImageLabels()))
 
 	// CPU selection
-	b.WriteString(RenderSelectField(m.wizard, "CPUs", "cpu", multipassFieldCPU, GetCPULabels()))
+	b.WriteString(wizard.RenderSelectField(m.wizard, "CPUs", "cpu", multipassFieldCPU, GetCPULabels()))
 
 	// Memory selection
-	b.WriteString(RenderSelectField(m.wizard, "Memory", "memory", multipassFieldMemory, GetMemoryLabels()))
+	b.WriteString(wizard.RenderSelectField(m.wizard, "Memory", "memory", multipassFieldMemory, GetMemoryLabels()))
 
 	// Disk selection
-	b.WriteString(RenderSelectField(m.wizard, "Disk Size", "disk", multipassFieldDisk, GetDiskLabels()))
+	b.WriteString(wizard.RenderSelectField(m.wizard, "Disk Size", "disk", multipassFieldDisk, GetDiskLabels()))
 
 	// Keep on failure checkbox
-	b.WriteString(RenderCheckbox(m.wizard, "Keep VM on failure", "keep_on_failure", multipassFieldKeepOnFailure))
+	b.WriteString(wizard.RenderCheckbox(m.wizard, "Keep VM on failure", "keep_on_failure", multipassFieldKeepOnFailure))
 
 	return b.String()
 }

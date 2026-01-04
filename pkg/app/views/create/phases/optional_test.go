@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -173,5 +173,5 @@ func TestOptionalPhase_Save_Empty(t *testing.T) {
 }
 
 func TestOptionalPhase_ImplementsPhaseHandler(t *testing.T) {
-	var _ create.PhaseHandler = (*OptionalPhase)(nil)
+	var _ wizard.PhaseHandler = (*OptionalPhase)(nil)
 }

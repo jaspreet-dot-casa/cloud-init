@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
 )
 
 // Host-specific field indices
@@ -20,22 +20,22 @@ const (
 )
 
 // Ensure HostPhase implements PhaseHandler
-var _ create.PhaseHandler = (*HostPhase)(nil)
+var _ wizard.PhaseHandler = (*HostPhase)(nil)
 
 // HostPhase handles the host configuration step of the wizard.
 type HostPhase struct {
-	create.BasePhase
+	wizard.BasePhase
 }
 
 // NewHostPhase creates a new HostPhase.
 func NewHostPhase() *HostPhase {
 	return &HostPhase{
-		BasePhase: create.NewBasePhase("Host Details", hostFieldCount),
+		BasePhase: wizard.NewBasePhase("Host Details", hostFieldCount),
 	}
 }
 
 // Init initializes the host phase state.
-func (p *HostPhase) Init(ctx *create.PhaseContext) {
+func (p *HostPhase) Init(ctx *wizard.PhaseContext) {
 	// Get current username as default
 	currentUser := "ubuntu"
 	if u, err := user.Current(); err == nil {
@@ -70,7 +70,7 @@ func (p *HostPhase) Init(ctx *create.PhaseContext) {
 }
 
 // Update handles keyboard input for the host phase.
-func (p *HostPhase) Update(ctx *create.PhaseContext, msg tea.KeyMsg) (advance bool, cmd tea.Cmd) {
+func (p *HostPhase) Update(ctx *wizard.PhaseContext, msg tea.KeyMsg) (advance bool, cmd tea.Cmd) {
 	// Handle navigation
 	switch {
 	case key.Matches(msg, key.NewBinding(key.WithKeys("up", "k"))):
@@ -102,29 +102,29 @@ func (p *HostPhase) Update(ctx *create.PhaseContext, msg tea.KeyMsg) (advance bo
 }
 
 // View renders the host phase.
-func (p *HostPhase) View(ctx *create.PhaseContext) string {
+func (p *HostPhase) View(ctx *wizard.PhaseContext) string {
 	var b strings.Builder
 
-	b.WriteString(create.TitleStyle.Render("Host Details"))
+	b.WriteString(wizard.TitleStyle.Render("Host Details"))
 	b.WriteString("\n\n")
 
-	b.WriteString(create.DimStyle.Render("Configure the target system."))
+	b.WriteString(wizard.DimStyle.Render("Configure the target system."))
 	b.WriteString("\n\n")
 
 	// Display name
-	b.WriteString(create.RenderTextField(ctx.Wizard, "Display Name", "display_name", hostFieldDisplayName))
+	b.WriteString(wizard.RenderTextField(ctx.Wizard, "Display Name", "display_name", hostFieldDisplayName))
 
 	// Username
-	b.WriteString(create.RenderTextField(ctx.Wizard, "Username", "username", hostFieldUsername))
+	b.WriteString(wizard.RenderTextField(ctx.Wizard, "Username", "username", hostFieldUsername))
 
 	// Hostname
-	b.WriteString(create.RenderTextField(ctx.Wizard, "Hostname", "hostname", hostFieldHostname))
+	b.WriteString(wizard.RenderTextField(ctx.Wizard, "Hostname", "hostname", hostFieldHostname))
 
 	return b.String()
 }
 
 // Save persists the host options to wizard data.
-func (p *HostPhase) Save(ctx *create.PhaseContext) {
+func (p *HostPhase) Save(ctx *wizard.PhaseContext) {
 	ctx.Wizard.Data.DisplayName = ctx.Wizard.GetTextInput("display_name")
 	ctx.Wizard.Data.Username = ctx.Wizard.GetTextInput("username")
 	ctx.Wizard.Data.Hostname = ctx.Wizard.GetTextInput("hostname")
@@ -140,19 +140,19 @@ func (p *HostPhase) Save(ctx *create.PhaseContext) {
 
 // Helper methods
 
-func (p *HostPhase) blurCurrentInput(ctx *create.PhaseContext) {
+func (p *HostPhase) blurCurrentInput(ctx *wizard.PhaseContext) {
 	name := p.getInputName(ctx.Wizard.FocusedField)
-	create.BlurInput(ctx, name)
+	wizard.BlurInput(ctx, name)
 }
 
-func (p *HostPhase) focusCurrentInput(ctx *create.PhaseContext) {
+func (p *HostPhase) focusCurrentInput(ctx *wizard.PhaseContext) {
 	name := p.getInputName(ctx.Wizard.FocusedField)
-	create.FocusInput(ctx, name)
+	wizard.FocusInput(ctx, name)
 }
 
-func (p *HostPhase) updateActiveTextInput(ctx *create.PhaseContext, msg tea.KeyMsg) tea.Cmd {
+func (p *HostPhase) updateActiveTextInput(ctx *wizard.PhaseContext, msg tea.KeyMsg) tea.Cmd {
 	name := p.getInputName(ctx.Wizard.FocusedField)
-	return create.HandleTextInput(ctx, name, msg)
+	return wizard.HandleTextInput(ctx, name, msg)
 }
 
 func (p *HostPhase) getInputName(field int) string {

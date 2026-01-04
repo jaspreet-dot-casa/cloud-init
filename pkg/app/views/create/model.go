@@ -10,6 +10,8 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/phases"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/packages"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/settings"
@@ -25,10 +27,11 @@ type CreateCompleteMsg struct {
 type Model struct {
 	app.BaseTab
 
-	projectDir string
-	store      *settings.Store
-	wizard     *WizardState
-	message    string
+	projectDir    string
+	store         *settings.Store
+	wizard        *wizard.State
+	phaseRegistry *phases.Registry
+	message       string
 
 	// For loading packages
 	loadingPackages bool
@@ -44,10 +47,11 @@ type Model struct {
 // New creates a new Create VM model
 func New(projectDir string, store *settings.Store) *Model {
 	m := &Model{
-		BaseTab:    app.NewBaseTab(app.TabCreate, "Create", "2"),
-		projectDir: projectDir,
-		store:      store,
-		wizard:     NewWizardState(),
+		BaseTab:       app.NewBaseTab(app.TabCreate, "Create", "2"),
+		projectDir:    projectDir,
+		store:         store,
+		wizard:        wizard.NewState(),
+		phaseRegistry: phases.NewRegistry(),
 	}
 
 	// Load cloud images from settings
@@ -58,6 +62,17 @@ func New(projectDir string, store *settings.Store) *Model {
 	}
 
 	return m
+}
+
+// phaseContext creates a PhaseContext for the current state
+func (m *Model) phaseContext() *wizard.PhaseContext {
+	return &wizard.PhaseContext{
+		Wizard:      m.wizard,
+		ProjectDir:  m.projectDir,
+		CloudImages: m.cloudImages,
+		Store:       m.store,
+		Message:     &m.message,
+	}
 }
 
 // Init initializes the create view
@@ -99,7 +114,7 @@ func (m *Model) Update(msg tea.Msg) (app.Tab, tea.Cmd) {
 		m.wizard.Deploying = false
 		if msg.Success {
 			m.message = "Deployment complete! Press [1] to view VMs."
-			m.wizard.Phase = PhaseComplete
+			m.wizard.Phase = wizard.PhaseComplete
 		} else if msg.Error != nil {
 			m.message = "Error: " + msg.Error.Error()
 		}
@@ -139,7 +154,7 @@ func (m *Model) Update(msg tea.Msg) (app.Tab, tea.Cmd) {
 
 	case deployProgressMsg, deployCompleteMsg, spinner.TickMsg, progress.FrameMsg:
 		// Route deploy messages to the deploy phase handler
-		if m.wizard.Phase == PhaseDeploy {
+		if m.wizard.Phase == wizard.PhaseDeploy {
 			return m.handleDeployPhase(msg)
 		}
 		return m, nil
@@ -168,18 +183,18 @@ func (m *Model) updateActiveTextInput(msg tea.Msg) (app.Tab, tea.Cmd) {
 // getActiveInputName returns the name of the currently active text input
 func (m *Model) getActiveInputName() string {
 	switch m.wizard.Phase {
-	case PhaseTargetOptions:
+	case wizard.PhaseTargetOptions:
 		return m.getTargetOptionsInputName()
-	case PhaseSSH:
+	case wizard.PhaseSSH:
 		return "github_user"
-	case PhaseGit:
+	case wizard.PhaseGit:
 		switch m.wizard.FocusedField {
 		case 0:
 			return "git_name"
 		case 1:
 			return "git_email"
 		}
-	case PhaseHost:
+	case wizard.PhaseHost:
 		switch m.wizard.FocusedField {
 		case 0:
 			return "display_name"
@@ -188,7 +203,7 @@ func (m *Model) getActiveInputName() string {
 		case 2:
 			return "hostname"
 		}
-	case PhaseOptional:
+	case wizard.PhaseOptional:
 		switch m.wizard.FocusedField {
 		case 0:
 			return "tailscale_key"
@@ -217,7 +232,7 @@ func (m *Model) getTargetOptionsInputName() string {
 		case 1:
 			return "output_path"
 		}
-	case TargetConfigOnly:
+	case deploy.TargetConfigOnly:
 		if m.wizard.FocusedField == 0 {
 			return "output_dir"
 		}
@@ -235,42 +250,33 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 		}
 	}
 
-	// Handle based on current phase
-	switch m.wizard.Phase {
-	case PhaseTarget:
-		cmd, advance := m.handleTargetPhase(msg)
+	// Check if there's a registered handler for this phase
+	if handler := m.phaseRegistry.Get(m.wizard.Phase); handler != nil {
+		ctx := m.phaseContext()
+		advance, cmd := handler.Update(ctx, msg)
 		if advance {
+			handler.Save(ctx)
 			m.wizard.Advance()
 			m.initPhase(m.wizard.Phase)
 		}
 		return m, cmd
+	}
 
-	case PhaseTargetOptions:
+	// Handle phases without registered handlers
+	switch m.wizard.Phase {
+	case wizard.PhaseTargetOptions:
 		return m.handleTargetOptionsPhase(msg)
 
-	case PhaseSSH:
+	case wizard.PhaseSSH:
 		return m.handleSSHPhase(msg)
 
-	case PhaseGit:
-		return m.handleGitPhase(msg)
-
-	case PhaseHost:
-		return m.handleHostPhase(msg)
-
-	case PhasePackages:
-		return m.handlePackagesPhase(msg)
-
-	case PhaseOptional:
-		return m.handleOptionalPhase(msg)
-
-	case PhaseReview:
+	case wizard.PhaseReview:
 		return m.handleReviewPhase(msg)
 
-	case PhaseDeploy:
-		// Route key messages to deploy phase handler
+	case wizard.PhaseDeploy:
 		return m.handleDeployPhase(msg)
 
-	case PhaseComplete:
+	case wizard.PhaseComplete:
 		return m.handleCompletePhase(msg)
 	}
 
@@ -278,25 +284,26 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 }
 
 // initPhase initializes a new phase
-func (m *Model) initPhase(phase Phase) {
+func (m *Model) initPhase(phase wizard.Phase) {
 	m.wizard.FocusedField = 0
 
+	// Check if there's a registered handler for this phase
+	if handler := m.phaseRegistry.Get(phase); handler != nil {
+		handler.Init(m.phaseContext())
+		return
+	}
+
+	// Handle phases without registered handlers
 	switch phase {
-	case PhaseTargetOptions:
+	case wizard.PhaseTargetOptions:
 		m.initTargetOptionsPhase()
-	case PhaseSSH:
+	case wizard.PhaseSSH:
 		m.initSSHPhase()
-	case PhaseGit:
-		m.initGitPhase()
-	case PhaseHost:
-		m.initHostPhase()
-	case PhaseOptional:
-		m.initOptionalPhase()
-	case PhaseReview:
+	case wizard.PhaseReview:
 		m.initReviewPhase()
-	case PhaseDeploy:
+	case wizard.PhaseDeploy:
 		m.initDeployPhase()
-	case PhaseComplete:
+	case wizard.PhaseComplete:
 		m.initCompletePhase()
 	}
 }
@@ -317,28 +324,23 @@ func (m *Model) View() string {
 	b.WriteString(m.viewPhaseIndicator())
 	b.WriteString("\n")
 
-	// Phase content
-	switch m.wizard.Phase {
-	case PhaseTarget:
-		b.WriteString(m.viewTargetPhase())
-	case PhaseTargetOptions:
-		b.WriteString(m.viewTargetOptionsPhase())
-	case PhaseSSH:
-		b.WriteString(m.viewSSHPhase())
-	case PhaseGit:
-		b.WriteString(m.viewGitPhase())
-	case PhaseHost:
-		b.WriteString(m.viewHostPhase())
-	case PhasePackages:
-		b.WriteString(m.viewPackagesPhase())
-	case PhaseOptional:
-		b.WriteString(m.viewOptionalPhase())
-	case PhaseReview:
-		b.WriteString(m.viewReviewPhase())
-	case PhaseDeploy:
-		b.WriteString(m.viewDeployPhase())
-	case PhaseComplete:
-		b.WriteString(m.viewCompletePhase())
+	// Check if there's a registered handler for this phase
+	if handler := m.phaseRegistry.Get(m.wizard.Phase); handler != nil {
+		b.WriteString(handler.View(m.phaseContext()))
+	} else {
+		// Handle phases without registered handlers
+		switch m.wizard.Phase {
+		case wizard.PhaseTargetOptions:
+			b.WriteString(m.viewTargetOptionsPhase())
+		case wizard.PhaseSSH:
+			b.WriteString(m.viewSSHPhase())
+		case wizard.PhaseReview:
+			b.WriteString(m.viewReviewPhase())
+		case wizard.PhaseDeploy:
+			b.WriteString(m.viewDeployPhase())
+		case wizard.PhaseComplete:
+			b.WriteString(m.viewCompletePhase())
+		}
 	}
 
 	// Message
@@ -359,7 +361,7 @@ func (m *Model) viewPhaseIndicator() string {
 
 	// Progress dots
 	b.WriteString("  ")
-	for i := 0; i <= int(PhaseComplete); i++ {
+	for i := 0; i <= int(wizard.PhaseComplete); i++ {
 		if i == int(m.wizard.Phase) {
 			b.WriteString(activeStyle.Render("●"))
 		} else if i < int(m.wizard.Phase) {
@@ -367,7 +369,7 @@ func (m *Model) viewPhaseIndicator() string {
 		} else {
 			b.WriteString(dimStyle.Render("○"))
 		}
-		if i < int(PhaseComplete) {
+		if i < int(wizard.PhaseComplete) {
 			b.WriteString(" ")
 		}
 	}
@@ -425,15 +427,15 @@ func (m *Model) SetSize(width, height int) {
 // KeyBindings returns the key bindings for this tab
 func (m *Model) KeyBindings() []string {
 	switch m.wizard.Phase {
-	case PhaseTarget:
+	case wizard.PhaseTarget:
 		return m.targetKeyBindings()
-	case PhasePackages:
+	case wizard.PhasePackages:
 		return []string{"[↑/↓] navigate", "[Space] toggle", "[Enter] continue", "[Esc] back"}
-	case PhaseReview:
+	case wizard.PhaseReview:
 		return []string{"[Enter] deploy", "[Esc] back"}
-	case PhaseDeploy:
+	case wizard.PhaseDeploy:
 		return []string{"Deploying..."}
-	case PhaseComplete:
+	case wizard.PhaseComplete:
 		return []string{"[Enter] new", "[1] view VMs"}
 	default:
 		bindings := []string{"[↑/↓] navigate", "[Enter] continue"}
@@ -442,6 +444,11 @@ func (m *Model) KeyBindings() []string {
 		}
 		return bindings
 	}
+}
+
+// targetKeyBindings returns key bindings for the target selection phase
+func (m *Model) targetKeyBindings() []string {
+	return []string{"[↑/↓] navigate", "[Enter] select"}
 }
 
 // ProjectDir returns the project directory
@@ -458,7 +465,7 @@ func (m *Model) SelectedTarget() deploy.DeploymentTarget {
 func (m *Model) HasFocusedInput() bool {
 	// Check if we're in a phase with text inputs
 	switch m.wizard.Phase {
-	case PhaseTargetOptions, PhaseSSH, PhaseGit, PhaseHost, PhaseOptional:
+	case wizard.PhaseTargetOptions, wizard.PhaseSSH, wizard.PhaseGit, wizard.PhaseHost, wizard.PhaseOptional:
 		inputName := m.getActiveInputName()
 		if inputName != "" {
 			if ti, ok := m.wizard.TextInputs[inputName]; ok {

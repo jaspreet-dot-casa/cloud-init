@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -147,5 +147,5 @@ func TestGitPhase_Save(t *testing.T) {
 }
 
 func TestGitPhase_ImplementsPhaseHandler(t *testing.T) {
-	var _ create.PhaseHandler = (*GitPhase)(nil)
+	var _ wizard.PhaseHandler = (*GitPhase)(nil)
 }

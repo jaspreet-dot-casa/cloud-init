@@ -5,13 +5,13 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
 	"github.com/stretchr/testify/assert"
 )
 
-func newTestContext() *create.PhaseContext {
-	return &create.PhaseContext{
-		Wizard: create.NewWizardState(),
+func newTestContext() *wizard.PhaseContext {
+	return &wizard.PhaseContext{
+		Wizard: wizard.NewState(),
 	}
 }
 
@@ -194,7 +194,7 @@ func TestHostPhase_Save_AppliesDefaults(t *testing.T) {
 
 func TestHostPhase_ImplementsPhaseHandler(t *testing.T) {
 	// This test verifies that HostPhase implements the PhaseHandler interface
-	var _ create.PhaseHandler = (*HostPhase)(nil)
+	var _ wizard.PhaseHandler = (*HostPhase)(nil)
 }
 
 // Helper to create a key message

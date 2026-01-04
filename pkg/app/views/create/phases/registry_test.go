@@ -3,7 +3,7 @@ package phases
 import (
 	"testing"
 
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -16,25 +16,25 @@ func TestRegistry_HasAllExpectedPhases(t *testing.T) {
 	r := NewRegistry()
 
 	// Check that all expected phases are registered
-	assert.True(t, r.Has(create.PhaseTarget), "PhaseTarget should be registered")
-	assert.True(t, r.Has(create.PhaseGit), "PhaseGit should be registered")
-	assert.True(t, r.Has(create.PhaseHost), "PhaseHost should be registered")
-	assert.True(t, r.Has(create.PhasePackages), "PhasePackages should be registered")
-	assert.True(t, r.Has(create.PhaseOptional), "PhaseOptional should be registered")
+	assert.True(t, r.Has(wizard.PhaseTarget), "PhaseTarget should be registered")
+	assert.True(t, r.Has(wizard.PhaseGit), "PhaseGit should be registered")
+	assert.True(t, r.Has(wizard.PhaseHost), "PhaseHost should be registered")
+	assert.True(t, r.Has(wizard.PhasePackages), "PhasePackages should be registered")
+	assert.True(t, r.Has(wizard.PhaseOptional), "PhaseOptional should be registered")
 }
 
 func TestRegistry_Get(t *testing.T) {
 	r := NewRegistry()
 
 	tests := []struct {
-		phase        create.Phase
+		phase        wizard.Phase
 		expectedName string
 	}{
-		{create.PhaseTarget, "Select Target"},
-		{create.PhaseGit, "Git Config"},
-		{create.PhaseHost, "Host Details"},
-		{create.PhasePackages, "Packages"},
-		{create.PhaseOptional, "Optional Services"},
+		{wizard.PhaseTarget, "Select Target"},
+		{wizard.PhaseGit, "Git Config"},
+		{wizard.PhaseHost, "Host Details"},
+		{wizard.PhasePackages, "Packages"},
+		{wizard.PhaseOptional, "Optional Services"},
 	}
 
 	for _, tt := range tests {
@@ -50,28 +50,28 @@ func TestRegistry_Get_UnregisteredPhase(t *testing.T) {
 	r := NewRegistry()
 
 	// PhaseSSH is not registered yet
-	handler := r.Get(create.PhaseSSH)
+	handler := r.Get(wizard.PhaseSSH)
 	assert.Nil(t, handler)
 }
 
 func TestRegistry_Has_UnregisteredPhase(t *testing.T) {
 	r := NewRegistry()
 
-	assert.False(t, r.Has(create.PhaseSSH))
-	assert.False(t, r.Has(create.PhaseReview))
-	assert.False(t, r.Has(create.PhaseDeploy))
+	assert.False(t, r.Has(wizard.PhaseSSH))
+	assert.False(t, r.Has(wizard.PhaseReview))
+	assert.False(t, r.Has(wizard.PhaseDeploy))
 }
 
 func TestRegistry_Register(t *testing.T) {
 	r := &Registry{
-		handlers: make(map[create.Phase]create.PhaseHandler),
+		handlers: make(map[wizard.Phase]wizard.PhaseHandler),
 	}
 
 	// Register a phase
-	r.Register(create.PhaseTarget, NewTargetPhase())
+	r.Register(wizard.PhaseTarget, NewTargetPhase())
 
-	assert.True(t, r.Has(create.PhaseTarget))
-	assert.Equal(t, "Select Target", r.Get(create.PhaseTarget).Name())
+	assert.True(t, r.Has(wizard.PhaseTarget))
+	assert.Equal(t, "Select Target", r.Get(wizard.PhaseTarget).Name())
 }
 
 func TestRegistry_Register_Override(t *testing.T) {
@@ -79,21 +79,21 @@ func TestRegistry_Register_Override(t *testing.T) {
 
 	// Create a custom host phase with a different name
 	customPhase := &HostPhase{
-		BasePhase: create.NewBasePhase("Custom Host", 3),
+		BasePhase: wizard.NewBasePhase("Custom Host", 3),
 	}
 
 	// Override the existing registration
-	r.Register(create.PhaseHost, customPhase)
+	r.Register(wizard.PhaseHost, customPhase)
 
-	assert.Equal(t, "Custom Host", r.Get(create.PhaseHost).Name())
+	assert.Equal(t, "Custom Host", r.Get(wizard.PhaseHost).Name())
 }
 
 func TestRegistry_HandlersAreIndependent(t *testing.T) {
 	r := NewRegistry()
 
 	// Get handlers
-	target := r.Get(create.PhaseTarget)
-	git := r.Get(create.PhaseGit)
+	target := r.Get(wizard.PhaseTarget)
+	git := r.Get(wizard.PhaseGit)
 
 	// They should be different instances
 	assert.NotSame(t, target, git)

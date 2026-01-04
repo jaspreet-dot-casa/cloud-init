@@ -5,6 +5,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/phases"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy"
 	"github.com/stretchr/testify/assert"
 )
@@ -16,7 +18,7 @@ func TestNew(t *testing.T) {
 	assert.Equal(t, "Create", m.Name())
 	assert.Equal(t, "2", m.ShortKey())
 	assert.Equal(t, "/test/project", m.ProjectDir())
-	assert.Equal(t, PhaseTarget, m.wizard.Phase)
+	assert.Equal(t, wizard.PhaseTarget, m.wizard.Phase)
 }
 
 func TestModel_Init(t *testing.T) {
@@ -76,7 +78,7 @@ func TestModel_Blur(t *testing.T) {
 
 func TestModel_Update_NavigateDown_TargetPhase(t *testing.T) {
 	m := New("/test/project", nil)
-	m.wizard.Phase = PhaseTarget
+	m.wizard.Phase = wizard.PhaseTarget
 	m.wizard.TargetSelected = 0
 
 	msg := tea.KeyMsg{Type: tea.KeyDown}
@@ -88,7 +90,7 @@ func TestModel_Update_NavigateDown_TargetPhase(t *testing.T) {
 
 func TestModel_Update_NavigateUp_TargetPhase(t *testing.T) {
 	m := New("/test/project", nil)
-	m.wizard.Phase = PhaseTarget
+	m.wizard.Phase = wizard.PhaseTarget
 	m.wizard.TargetSelected = 1
 
 	msg := tea.KeyMsg{Type: tea.KeyUp}
@@ -100,20 +102,20 @@ func TestModel_Update_NavigateUp_TargetPhase(t *testing.T) {
 
 func TestModel_Update_NavigateDown_AtEnd(t *testing.T) {
 	m := New("/test/project", nil)
-	m.wizard.Phase = PhaseTarget
-	m.wizard.TargetSelected = len(targets) - 1
+	m.wizard.Phase = wizard.PhaseTarget
+	m.wizard.TargetSelected = len(phases.Targets) - 1
 
 	msg := tea.KeyMsg{Type: tea.KeyDown}
 	updated, _ := m.Update(msg)
 	model := updated.(*Model)
 
 	// Should not go past last item
-	assert.Equal(t, len(targets)-1, model.wizard.TargetSelected)
+	assert.Equal(t, len(phases.Targets)-1, model.wizard.TargetSelected)
 }
 
 func TestModel_Update_NavigateUp_AtStart(t *testing.T) {
 	m := New("/test/project", nil)
-	m.wizard.Phase = PhaseTarget
+	m.wizard.Phase = wizard.PhaseTarget
 	m.wizard.TargetSelected = 0
 
 	msg := tea.KeyMsg{Type: tea.KeyUp}
@@ -126,7 +128,7 @@ func TestModel_Update_NavigateUp_AtStart(t *testing.T) {
 
 func TestModel_Update_VimKeys(t *testing.T) {
 	m := New("/test/project", nil)
-	m.wizard.Phase = PhaseTarget
+	m.wizard.Phase = wizard.PhaseTarget
 	m.wizard.TargetSelected = 0
 
 	// j for down
@@ -144,7 +146,7 @@ func TestModel_Update_VimKeys(t *testing.T) {
 
 func TestModel_Update_Enter_AdvancesPhase(t *testing.T) {
 	m := New("/test/project", nil)
-	m.wizard.Phase = PhaseTarget
+	m.wizard.Phase = wizard.PhaseTarget
 	m.wizard.TargetSelected = 0 // Terraform
 
 	msg := tea.KeyMsg{Type: tea.KeyEnter}
@@ -152,7 +154,7 @@ func TestModel_Update_Enter_AdvancesPhase(t *testing.T) {
 	model := updated.(*Model)
 
 	// Should advance to target options phase
-	assert.Equal(t, PhaseTargetOptions, model.wizard.Phase)
+	assert.Equal(t, wizard.PhaseTargetOptions, model.wizard.Phase)
 	assert.Equal(t, deploy.TargetTerraform, model.wizard.Data.Target)
 }
 
@@ -167,7 +169,7 @@ func TestModel_View_ZeroWidth(t *testing.T) {
 func TestModel_View_TargetPhase(t *testing.T) {
 	m := New("/test/project", nil)
 	m.SetSize(100, 40)
-	m.wizard.Phase = PhaseTarget
+	m.wizard.Phase = wizard.PhaseTarget
 
 	view := m.View()
 
@@ -190,50 +192,50 @@ func TestModel_View_WithMessage(t *testing.T) {
 
 func TestTargets(t *testing.T) {
 	// Verify all targets are set up correctly
-	assert.Equal(t, deploy.TargetTerraform, targets[0].target)
-	assert.Equal(t, "Terraform/libvirt", targets[0].name)
+	assert.Equal(t, deploy.TargetTerraform, phases.Targets[0].Target)
+	assert.Equal(t, "Terraform/libvirt", phases.Targets[0].Name)
 
-	assert.Equal(t, deploy.TargetMultipass, targets[1].target)
-	assert.Equal(t, "Multipass", targets[1].name)
+	assert.Equal(t, deploy.TargetMultipass, phases.Targets[1].Target)
+	assert.Equal(t, "Multipass", phases.Targets[1].Name)
 
-	assert.Equal(t, deploy.TargetUSB, targets[2].target)
-	assert.Equal(t, "Bootable USB", targets[2].name)
+	assert.Equal(t, deploy.TargetUSB, phases.Targets[2].Target)
+	assert.Equal(t, "Bootable USB", phases.Targets[2].Name)
 
-	assert.Equal(t, TargetConfigOnly, targets[3].target)
-	assert.Equal(t, "Generate Config", targets[3].name)
+	assert.Equal(t, deploy.TargetConfigOnly, phases.Targets[3].Target)
+	assert.Equal(t, "Generate Config", phases.Targets[3].Name)
 }
 
 func TestWizardState_NextPhase(t *testing.T) {
-	w := NewWizardState()
+	w := wizard.NewState()
 
-	assert.Equal(t, PhaseTarget, w.Phase)
+	assert.Equal(t, wizard.PhaseTarget, w.Phase)
 
 	// NextPhase returns the next phase without modifying state
-	assert.Equal(t, PhaseTargetOptions, w.NextPhase())
-	assert.Equal(t, PhaseTarget, w.Phase) // State unchanged
+	assert.Equal(t, wizard.PhaseTargetOptions, w.NextPhase())
+	assert.Equal(t, wizard.PhaseTarget, w.Phase) // State unchanged
 
 	// Advance actually moves to next phase
 	w.Advance()
-	assert.Equal(t, PhaseTargetOptions, w.Phase)
+	assert.Equal(t, wizard.PhaseTargetOptions, w.Phase)
 
 	w.Advance()
-	assert.Equal(t, PhaseSSH, w.Phase)
+	assert.Equal(t, wizard.PhaseSSH, w.Phase)
 }
 
 func TestWizardState_PrevPhase(t *testing.T) {
-	w := NewWizardState()
-	w.Phase = PhaseSSH
+	w := wizard.NewState()
+	w.Phase = wizard.PhaseSSH
 
 	// PrevPhase returns the prev phase without modifying state
-	assert.Equal(t, PhaseTargetOptions, w.PrevPhase())
-	assert.Equal(t, PhaseSSH, w.Phase) // State unchanged
+	assert.Equal(t, wizard.PhaseTargetOptions, w.PrevPhase())
+	assert.Equal(t, wizard.PhaseSSH, w.Phase) // State unchanged
 
 	// GoBack actually moves to previous phase
 	w.GoBack()
-	assert.Equal(t, PhaseTargetOptions, w.Phase)
+	assert.Equal(t, wizard.PhaseTargetOptions, w.Phase)
 
 	w.GoBack()
-	assert.Equal(t, PhaseTarget, w.Phase)
+	assert.Equal(t, wizard.PhaseTarget, w.Phase)
 
 	// Should not go before target (CanGoBack returns false)
 	assert.False(t, w.CanGoBack())
@@ -241,19 +243,19 @@ func TestWizardState_PrevPhase(t *testing.T) {
 
 func TestPhase_String(t *testing.T) {
 	tests := []struct {
-		phase    Phase
+		phase    wizard.Phase
 		expected string
 	}{
-		{PhaseTarget, "Select Target"},
-		{PhaseTargetOptions, "Target Options"},
-		{PhaseSSH, "SSH Keys"},
-		{PhaseGit, "Git Config"},
-		{PhaseHost, "Host Details"},
-		{PhasePackages, "Packages"},
-		{PhaseOptional, "Optional Services"},
-		{PhaseReview, "Review"},
-		{PhaseDeploy, "Deploying"},
-		{PhaseComplete, "Complete"},
+		{wizard.PhaseTarget, "Select Target"},
+		{wizard.PhaseTargetOptions, "Target Options"},
+		{wizard.PhaseSSH, "SSH Keys"},
+		{wizard.PhaseGit, "Git Config"},
+		{wizard.PhaseHost, "Host Details"},
+		{wizard.PhasePackages, "Packages"},
+		{wizard.PhaseOptional, "Optional Services"},
+		{wizard.PhaseReview, "Review"},
+		{wizard.PhaseDeploy, "Deploying"},
+		{wizard.PhaseComplete, "Complete"},
 	}
 
 	for _, tt := range tests {

@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
 )
 
 // Ensure app.Tab is used
@@ -82,7 +83,7 @@ func (m *Model) saveGenerateOptions() {
 		outputDir = "."
 	}
 
-	m.wizard.Data.GenerateOpts = GenerateOptions{
+	m.wizard.Data.GenerateOpts = wizard.GenerateOptions{
 		OutputDir:         outputDir,
 		GenerateCloudInit: m.wizard.CheckStates["generate_cloudinit"],
 	}
@@ -99,10 +100,10 @@ func (m *Model) viewGeneratePhase() string {
 	b.WriteString("\n\n")
 
 	// Output directory
-	b.WriteString(RenderTextField(m.wizard, "Output Directory", "output_dir", generateFieldOutputDir))
+	b.WriteString(wizard.RenderTextField(m.wizard, "Output Directory", "output_dir", generateFieldOutputDir))
 
 	// Generate cloud-init checkbox
-	b.WriteString(RenderCheckbox(m.wizard, "Generate cloud-init.yaml", "generate_cloudinit", generateFieldCloudInit))
+	b.WriteString(wizard.RenderCheckbox(m.wizard, "Generate cloud-init.yaml", "generate_cloudinit", generateFieldCloudInit))
 
 	// Info about what will be generated
 	b.WriteString("\n")

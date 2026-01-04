@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy"
 )
 
@@ -175,22 +176,22 @@ func (m *Model) viewTerraformPhase() string {
 	}
 
 	// VM Name
-	b.WriteString(RenderTextField(m.wizard, "VM Name", "vm_name", terraformFieldVMName))
+	b.WriteString(wizard.RenderTextField(m.wizard, "VM Name", "vm_name", terraformFieldVMName))
 
 	// CPU selection
-	b.WriteString(RenderSelectField(m.wizard, "CPUs", "cpu", terraformFieldCPU, GetCPULabels()))
+	b.WriteString(wizard.RenderSelectField(m.wizard, "CPUs", "cpu", terraformFieldCPU, GetCPULabels()))
 
 	// Memory selection
-	b.WriteString(RenderSelectField(m.wizard, "Memory", "memory", terraformFieldMemory, GetMemoryLabels()))
+	b.WriteString(wizard.RenderSelectField(m.wizard, "Memory", "memory", terraformFieldMemory, GetMemoryLabels()))
 
 	// Disk selection
-	b.WriteString(RenderSelectField(m.wizard, "Disk Size", "disk", terraformFieldDisk, GetDiskLabels()))
+	b.WriteString(wizard.RenderSelectField(m.wizard, "Disk Size", "disk", terraformFieldDisk, GetDiskLabels()))
 
 	// Image path
-	b.WriteString(RenderTextField(m.wizard, "Ubuntu Image", "image_path", terraformFieldImagePath))
+	b.WriteString(wizard.RenderTextField(m.wizard, "Ubuntu Image", "image_path", terraformFieldImagePath))
 
 	// Libvirt URI
-	b.WriteString(RenderTextField(m.wizard, "Libvirt URI", "libvirt_uri", terraformFieldLibvirtURI))
+	b.WriteString(wizard.RenderTextField(m.wizard, "Libvirt URI", "libvirt_uri", terraformFieldLibvirtURI))
 
 	return b.String()
 }

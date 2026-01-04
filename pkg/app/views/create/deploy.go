@@ -34,6 +34,14 @@ type deployState struct {
 	done         bool
 }
 
+// getDeployState returns the deploy state with proper type assertion
+func (m *Model) getDeployState() *deployState {
+	if m.wizard.DeployState == nil {
+		return nil
+	}
+	return m.wizard.DeployState.(*deployState)
+}
+
 // initDeployPhase initializes the Deploy phase
 func (m *Model) initDeployPhase() {
 	s := spinner.New()
@@ -46,15 +54,16 @@ func (m *Model) initDeployPhase() {
 		progress.WithoutPercentage(),
 	)
 
-	m.wizard.DeployState = &deployState{
+	state := &deployState{
 		spinner:      s,
 		progressBar:  p,
 		events:       make([]deploy.ProgressEvent, 0),
 		progressChan: make(chan deploy.ProgressEvent, 100),
 	}
+	m.wizard.DeployState = state
 
 	// Create the appropriate deployer based on target
-	m.wizard.DeployState.deployer = m.createDeployer()
+	state.deployer = m.createDeployer()
 }
 
 // createDeployer creates the appropriate deployer for the selected target
@@ -66,7 +75,7 @@ func (m *Model) createDeployer() deploy.Deployer {
 		return terraform.New(m.projectDir)
 	case deploy.TargetUSB:
 		return usb.New(m.projectDir)
-	case TargetConfigOnly:
+	case deploy.TargetConfigOnly:
 		// For config-only, we'll use a simple generator
 		return &configOnlyDeployer{
 			projectDir:   m.projectDir,
@@ -84,8 +93,12 @@ func (m *Model) createDeployer() deploy.Deployer {
 
 // startDeploy starts the deployment process
 func (m *Model) startDeploy() tea.Cmd {
+	state := m.getDeployState()
+	if state == nil {
+		return nil
+	}
 	return tea.Batch(
-		m.wizard.DeployState.spinner.Tick,
+		state.spinner.Tick,
 		m.runDeployment(),
 		m.waitForDeployProgress(),
 	)
@@ -94,7 +107,7 @@ func (m *Model) startDeploy() tea.Cmd {
 // runDeployment runs the deployment in the background
 func (m *Model) runDeployment() tea.Cmd {
 	return func() tea.Msg {
-		state := m.wizard.DeployState
+		state := m.getDeployState()
 		if state == nil || state.deployer == nil {
 			return deployCompleteMsg{result: &deploy.DeployResult{
 				Success: false,
@@ -132,7 +145,7 @@ func (m *Model) runDeployment() tea.Cmd {
 // waitForDeployProgress waits for progress events
 func (m *Model) waitForDeployProgress() tea.Cmd {
 	return func() tea.Msg {
-		state := m.wizard.DeployState
+		state := m.getDeployState()
 		if state == nil {
 			return nil
 		}
@@ -208,7 +221,7 @@ func (m *Model) buildDeployOptions() *deploy.DeployOptions {
 
 // handleDeployPhase handles input for the Deploy phase
 func (m *Model) handleDeployPhase(msg tea.Msg) (app.Tab, tea.Cmd) {
-	state := m.wizard.DeployState
+	state := m.getDeployState()
 	if state == nil {
 		return m, nil
 	}
@@ -256,7 +269,7 @@ func (m *Model) handleDeployPhase(msg tea.Msg) (app.Tab, tea.Cmd) {
 
 // viewDeployPhase renders the Deploy phase
 func (m *Model) viewDeployPhase() string {
-	state := m.wizard.DeployState
+	state := m.getDeployState()
 	if state == nil {
 		return "Initializing deployment...\n"
 	}
@@ -364,7 +377,7 @@ func (d *configOnlyDeployer) Name() string {
 }
 
 func (d *configOnlyDeployer) Target() deploy.DeploymentTarget {
-	return TargetConfigOnly
+	return deploy.TargetConfigOnly
 }
 
 func (d *configOnlyDeployer) Validate(opts *deploy.DeployOptions) error {

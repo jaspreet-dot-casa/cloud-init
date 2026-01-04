@@ -4,13 +4,13 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/packages"
 	"github.com/stretchr/testify/assert"
 )
 
 // createTestContextWithPackages creates a test context with a real package registry
-func createTestContextWithPackages() *create.PhaseContext {
+func createTestContextWithPackages() *wizard.PhaseContext {
 	ctx := newTestContext()
 
 	// Create a real registry with test packages
@@ -285,5 +285,5 @@ func TestPackagesPhase_Save_IsSorted(t *testing.T) {
 }
 
 func TestPackagesPhase_ImplementsPhaseHandler(t *testing.T) {
-	var _ create.PhaseHandler = (*PackagesPhase)(nil)
+	var _ wizard.PhaseHandler = (*PackagesPhase)(nil)
 }

@@ -1,6 +1,7 @@
 package create
 
 import (
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/packages"
 )
@@ -13,7 +14,7 @@ type packagesLoadedMsg struct {
 
 // phaseCompleteMsg is sent when a wizard phase is completed.
 type phaseCompleteMsg struct {
-	phase Phase
+	phase wizard.Phase
 }
 
 // deployProgressMsg wraps a deploy.ProgressEvent for Bubble Tea.

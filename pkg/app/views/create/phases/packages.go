@@ -7,26 +7,26 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
 )
 
 // Ensure PackagesPhase implements PhaseHandler
-var _ create.PhaseHandler = (*PackagesPhase)(nil)
+var _ wizard.PhaseHandler = (*PackagesPhase)(nil)
 
 // PackagesPhase handles the package selection step.
 type PackagesPhase struct {
-	create.BasePhase
+	wizard.BasePhase
 }
 
 // NewPackagesPhase creates a new PackagesPhase.
 func NewPackagesPhase() *PackagesPhase {
 	return &PackagesPhase{
-		BasePhase: create.NewBasePhase("Packages", 0), // Dynamic field count
+		BasePhase: wizard.NewBasePhase("Packages", 0), // Dynamic field count
 	}
 }
 
 // Init initializes the packages phase state.
-func (p *PackagesPhase) Init(ctx *create.PhaseContext) {
+func (p *PackagesPhase) Init(ctx *wizard.PhaseContext) {
 	ctx.Wizard.FocusedField = 0
 
 	// Initialize package selection to all selected by default
@@ -38,7 +38,7 @@ func (p *PackagesPhase) Init(ctx *create.PhaseContext) {
 }
 
 // getSortedPackages returns a sorted list of package names.
-func (p *PackagesPhase) getSortedPackages(ctx *create.PhaseContext) []string {
+func (p *PackagesPhase) getSortedPackages(ctx *wizard.PhaseContext) []string {
 	if ctx.Wizard.Registry == nil {
 		return nil
 	}
@@ -56,7 +56,7 @@ func (p *PackagesPhase) FieldCount() int {
 }
 
 // Update handles keyboard input for the packages phase.
-func (p *PackagesPhase) Update(ctx *create.PhaseContext, msg tea.KeyMsg) (advance bool, cmd tea.Cmd) {
+func (p *PackagesPhase) Update(ctx *wizard.PhaseContext, msg tea.KeyMsg) (advance bool, cmd tea.Cmd) {
 	pkgs := p.getSortedPackages(ctx)
 	if len(pkgs) == 0 {
 		// No packages, just advance on enter
@@ -109,20 +109,20 @@ func (p *PackagesPhase) Update(ctx *create.PhaseContext, msg tea.KeyMsg) (advanc
 }
 
 // View renders the packages phase.
-func (p *PackagesPhase) View(ctx *create.PhaseContext) string {
+func (p *PackagesPhase) View(ctx *wizard.PhaseContext) string {
 	var b strings.Builder
 
-	b.WriteString(create.TitleStyle.Render("Package Selection"))
+	b.WriteString(wizard.TitleStyle.Render("Package Selection"))
 	b.WriteString("\n\n")
 
-	b.WriteString(create.DimStyle.Render("Select packages to install. All are selected by default."))
+	b.WriteString(wizard.DimStyle.Render("Select packages to install. All are selected by default."))
 	b.WriteString("\n")
-	b.WriteString(create.DimStyle.Render("[Space] toggle  [a] all  [n] none"))
+	b.WriteString(wizard.DimStyle.Render("[Space] toggle  [a] all  [n] none"))
 	b.WriteString("\n\n")
 
 	pkgs := p.getSortedPackages(ctx)
 	if len(pkgs) == 0 {
-		b.WriteString(create.DimStyle.Render("No packages found."))
+		b.WriteString(wizard.DimStyle.Render("No packages found."))
 		b.WriteString("\n")
 		return b.String()
 	}
@@ -150,15 +150,15 @@ func (p *PackagesPhase) View(ctx *create.PhaseContext) string {
 
 		b.WriteString(cursor)
 		if focused {
-			b.WriteString(create.FocusedInputStyle.Render(checkbox + " " + pkgName))
+			b.WriteString(wizard.FocusedInputStyle.Render(checkbox + " " + pkgName))
 		} else if selected {
-			b.WriteString(create.SelectedStyle.Render(checkbox + " " + pkgName))
+			b.WriteString(wizard.SelectedStyle.Render(checkbox + " " + pkgName))
 		} else {
-			b.WriteString(create.LabelStyle.Render(checkbox + " " + pkgName))
+			b.WriteString(wizard.LabelStyle.Render(checkbox + " " + pkgName))
 		}
 
 		if desc != "" {
-			b.WriteString(create.DimStyle.Render(" - " + desc))
+			b.WriteString(wizard.DimStyle.Render(" - " + desc))
 		}
 		b.WriteString("\n")
 	}
@@ -171,16 +171,16 @@ func (p *PackagesPhase) View(ctx *create.PhaseContext) string {
 		}
 	}
 	b.WriteString("\n")
-	b.WriteString(create.DimStyle.Render(strings.Repeat("-", 40)))
+	b.WriteString(wizard.DimStyle.Render(strings.Repeat("-", 40)))
 	b.WriteString("\n")
-	b.WriteString(create.ValueStyle.Render(strconv.Itoa(selectedCount) + "/" + strconv.Itoa(len(pkgs)) + " packages selected"))
+	b.WriteString(wizard.ValueStyle.Render(strconv.Itoa(selectedCount) + "/" + strconv.Itoa(len(pkgs)) + " packages selected"))
 	b.WriteString("\n")
 
 	return b.String()
 }
 
 // Save persists the selected packages to wizard data.
-func (p *PackagesPhase) Save(ctx *create.PhaseContext) {
+func (p *PackagesPhase) Save(ctx *wizard.PhaseContext) {
 	var selected []string
 	for pkg, isSelected := range ctx.Wizard.PackageSelected {
 		if isSelected {

@@ -1,5 +1,4 @@
-// Package create provides the PhaseHandler interface for wizard phases.
-package create
+package wizard
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
@@ -8,7 +7,6 @@ import (
 
 // PhaseHandler represents a wizard phase that handles its own state, input, and rendering.
 // Each phase is responsible for a specific step in the wizard flow.
-// This is named PhaseHandler to avoid conflict with the Phase enum type.
 type PhaseHandler interface {
 	// Name returns the display name for this phase (shown in progress indicator)
 	Name() string
@@ -35,7 +33,7 @@ type PhaseHandler interface {
 // This decouples phases from the Model and makes them independently testable.
 type PhaseContext struct {
 	// Wizard holds all wizard state including form inputs and collected data
-	Wizard *WizardState
+	Wizard *State
 
 	// ProjectDir is the root directory of the project
 	ProjectDir string
@@ -73,20 +71,6 @@ func (p *BasePhase) Name() string {
 // FieldCount returns the number of focusable fields.
 func (p *BasePhase) FieldCount() int {
 	return p.fieldCount
-}
-
-// HandleNavigation provides common up/down navigation logic.
-// Returns true if the key was handled.
-func HandleNavigation(ctx *PhaseContext, msg tea.KeyMsg, maxField int) bool {
-	switch msg.String() {
-	case "up", "k":
-		ctx.Wizard.NavigateField(-1, maxField)
-		return true
-	case "down", "j", "tab":
-		ctx.Wizard.NavigateField(1, maxField)
-		return true
-	}
-	return false
 }
 
 // HandleTextInput updates the focused text input with the key message.

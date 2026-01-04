@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy"
 	"github.com/stretchr/testify/assert"
 )
@@ -177,7 +177,7 @@ func TestTargetPhase_Save_AllTargets(t *testing.T) {
 }
 
 func TestTargetPhase_ImplementsPhaseHandler(t *testing.T) {
-	var _ create.PhaseHandler = (*TargetPhase)(nil)
+	var _ wizard.PhaseHandler = (*TargetPhase)(nil)
 }
 
 func TestTargets_HasExpectedCount(t *testing.T) {

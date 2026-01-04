@@ -1,4 +1,4 @@
-package create
+package wizard
 
 import (
 	"github.com/charmbracelet/bubbles/textinput"
@@ -58,8 +58,8 @@ type GenerateOptions struct {
 	OutputDir         string
 }
 
-// WizardState holds the current state of the wizard
-type WizardState struct {
+// State holds the current state of the wizard
+type State struct {
 	// Current phase
 	Phase Phase
 
@@ -84,17 +84,17 @@ type WizardState struct {
 	// SSH keys multi-select
 	SSHKeySelected map[string]bool
 
-	// Deployment state
+	// Deployment state (type is any to allow create package to use its own deployState)
 	Deploying   bool
-	DeployState *deployState
+	DeployState any
 
 	// Error state
 	LastError error
 }
 
-// NewWizardState creates a new wizard state
-func NewWizardState() *WizardState {
-	return &WizardState{
+// NewState creates a new wizard state
+func NewState() *State {
+	return &State{
 		Phase:           PhaseTarget,
 		Data:            WizardData{},
 		TextInputs:      make(map[string]textinput.Model),
@@ -106,7 +106,7 @@ func NewWizardState() *WizardState {
 }
 
 // CanGoBack returns true if the user can go back from the current phase
-func (s *WizardState) CanGoBack() bool {
+func (s *State) CanGoBack() bool {
 	switch s.Phase {
 	case PhaseTarget, PhaseDeploy, PhaseComplete:
 		return false
@@ -116,7 +116,7 @@ func (s *WizardState) CanGoBack() bool {
 }
 
 // NextPhase advances to the next phase
-func (s *WizardState) NextPhase() Phase {
+func (s *State) NextPhase() Phase {
 	switch s.Phase {
 	case PhaseTarget:
 		return PhaseTargetOptions
@@ -142,7 +142,7 @@ func (s *WizardState) NextPhase() Phase {
 }
 
 // PrevPhase goes back to the previous phase
-func (s *WizardState) PrevPhase() Phase {
+func (s *State) PrevPhase() Phase {
 	switch s.Phase {
 	case PhaseTargetOptions:
 		return PhaseTarget
@@ -164,14 +164,14 @@ func (s *WizardState) PrevPhase() Phase {
 }
 
 // Advance moves to the next phase and returns any initialization commands
-func (s *WizardState) Advance() tea.Cmd {
+func (s *State) Advance() tea.Cmd {
 	s.Phase = s.NextPhase()
 	s.FocusedField = 0
 	return nil
 }
 
 // GoBack moves to the previous phase
-func (s *WizardState) GoBack() tea.Cmd {
+func (s *State) GoBack() tea.Cmd {
 	if s.CanGoBack() {
 		s.Phase = s.PrevPhase()
 		s.FocusedField = 0
@@ -180,7 +180,7 @@ func (s *WizardState) GoBack() tea.Cmd {
 }
 
 // Reset resets the wizard to the initial state
-func (s *WizardState) Reset() {
+func (s *State) Reset() {
 	s.Phase = PhaseTarget
 	s.Data = WizardData{}
 	s.FocusedField = 0
@@ -197,14 +197,14 @@ func (s *WizardState) Reset() {
 }
 
 // PhaseProgress returns the current progress as a fraction
-func (s *WizardState) PhaseProgress() float64 {
+func (s *State) PhaseProgress() float64 {
 	total := float64(PhaseComplete)
 	current := float64(s.Phase)
 	return current / total
 }
 
 // InitTextInput initializes a text input field
-func (s *WizardState) InitTextInput(name, placeholder string, charLimit int) {
+func (s *State) InitTextInput(name, placeholder string, charLimit int) {
 	ti := textinput.New()
 	ti.Placeholder = placeholder
 	ti.CharLimit = charLimit
@@ -212,7 +212,7 @@ func (s *WizardState) InitTextInput(name, placeholder string, charLimit int) {
 }
 
 // GetTextInput gets the value of a text input
-func (s *WizardState) GetTextInput(name string) string {
+func (s *State) GetTextInput(name string) string {
 	if ti, ok := s.TextInputs[name]; ok {
 		return ti.Value()
 	}
@@ -220,7 +220,7 @@ func (s *WizardState) GetTextInput(name string) string {
 }
 
 // SetTextInput sets the value of a text input
-func (s *WizardState) SetTextInput(name, value string) {
+func (s *State) SetTextInput(name, value string) {
 	if ti, ok := s.TextInputs[name]; ok {
 		ti.SetValue(value)
 		s.TextInputs[name] = ti
@@ -228,28 +228,28 @@ func (s *WizardState) SetTextInput(name, value string) {
 }
 
 // GetSelectIdx gets the selected index for a select field
-func (s *WizardState) GetSelectIdx(name string) int {
+func (s *State) GetSelectIdx(name string) int {
 	return s.SelectIdxs[name]
 }
 
 // SetSelectIdx sets the selected index for a select field
-func (s *WizardState) SetSelectIdx(name string, idx int) {
+func (s *State) SetSelectIdx(name string, idx int) {
 	s.SelectIdxs[name] = idx
 }
 
 // GetCheckState gets the checked state for a checkbox
-func (s *WizardState) GetCheckState(name string) bool {
+func (s *State) GetCheckState(name string) bool {
 	return s.CheckStates[name]
 }
 
 // SetCheckState sets the checked state for a checkbox
-func (s *WizardState) SetCheckState(name string, checked bool) {
+func (s *State) SetCheckState(name string, checked bool) {
 	s.CheckStates[name] = checked
 }
 
 // NavigateField moves focus up/down with bounds checking.
 // delta should be -1 for up or +1 for down.
-func (s *WizardState) NavigateField(delta int, maxField int) {
+func (s *State) NavigateField(delta int, maxField int) {
 	newField := s.FocusedField + delta
 	if newField < 0 {
 		newField = 0
@@ -261,7 +261,7 @@ func (s *WizardState) NavigateField(delta int, maxField int) {
 
 // CycleSelect cycles through options with wrap-around.
 // delta should be -1 for left or +1 for right.
-func (s *WizardState) CycleSelect(name string, optionCount, delta int) {
+func (s *State) CycleSelect(name string, optionCount, delta int) {
 	if optionCount <= 0 {
 		return
 	}

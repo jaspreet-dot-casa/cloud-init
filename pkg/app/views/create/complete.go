@@ -40,7 +40,7 @@ func (m *Model) handleCompletePhase(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 func (m *Model) viewCompletePhase() string {
 	var b strings.Builder
 
-	state := m.wizard.DeployState
+	state := m.getDeployState()
 
 	// Check if we have deployment results
 	if state == nil || state.result == nil {
@@ -130,7 +130,7 @@ func (m *Model) viewNextSteps() string {
 	b.WriteString("\n\n")
 
 	switch m.wizard.Data.Target {
-	case TargetConfigOnly:
+	case deploy.TargetConfigOnly:
 		// Config-only: show cloud-init and manual install commands
 		if m.wizard.Data.GenerateOpts.GenerateCloudInit {
 			b.WriteString(labelStyle.Render("  Apply cloud-init on existing Ubuntu desktop/server:"))

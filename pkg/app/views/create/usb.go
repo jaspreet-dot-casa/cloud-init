@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
 )
 
 // Ensure app.Tab is used
@@ -135,7 +136,7 @@ func (m *Model) saveUSBOptions() {
 		timezone = "UTC"
 	}
 
-	m.wizard.Data.USBOpts = USBOptions{
+	m.wizard.Data.USBOpts = wizard.USBOptions{
 		SourceISO:     sourceISO,
 		OutputPath:    outputPath,
 		StorageLayout: GetStorageValue(m.wizard.SelectIdxs["storage"]),
@@ -151,16 +152,16 @@ func (m *Model) viewUSBPhase() string {
 	b.WriteString("\n\n")
 
 	// Source ISO
-	b.WriteString(RenderTextField(m.wizard, "Source ISO", "source_iso", usbFieldSourceISO))
+	b.WriteString(wizard.RenderTextField(m.wizard, "Source ISO", "source_iso", usbFieldSourceISO))
 
 	// Output path
-	b.WriteString(RenderTextField(m.wizard, "Output Path", "output_path", usbFieldOutputPath))
+	b.WriteString(wizard.RenderTextField(m.wizard, "Output Path", "output_path", usbFieldOutputPath))
 
 	// Storage layout
-	b.WriteString(RenderSelectField(m.wizard, "Storage Layout", "storage", usbFieldStorage, GetStorageLabels()))
+	b.WriteString(wizard.RenderSelectField(m.wizard, "Storage Layout", "storage", usbFieldStorage, GetStorageLabels()))
 
 	// Timezone
-	b.WriteString(RenderTextField(m.wizard, "Timezone", "timezone", usbFieldTimezone))
+	b.WriteString(wizard.RenderTextField(m.wizard, "Timezone", "timezone", usbFieldTimezone))
 
 	return b.String()
 }

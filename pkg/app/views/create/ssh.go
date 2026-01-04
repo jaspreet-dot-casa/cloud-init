@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
 )
 
 // Ensure app.Tab is used
@@ -241,7 +242,7 @@ func (m *Model) viewSSHPhase() string {
 	b.WriteString("\n\n")
 
 	// GitHub username
-	b.WriteString(RenderTextField(m.wizard, "GitHub Username", "github_user", sshFieldGitHubUser))
+	b.WriteString(wizard.RenderTextField(m.wizard, "GitHub Username", "github_user", sshFieldGitHubUser))
 	b.WriteString(dimStyle.Render("  Leave empty to skip GitHub SSH key import"))
 	b.WriteString("\n\n")
 

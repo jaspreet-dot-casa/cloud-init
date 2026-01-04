@@ -6,7 +6,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
 )
 
 // Optional-specific field indices
@@ -17,22 +17,22 @@ const (
 )
 
 // Ensure OptionalPhase implements PhaseHandler
-var _ create.PhaseHandler = (*OptionalPhase)(nil)
+var _ wizard.PhaseHandler = (*OptionalPhase)(nil)
 
 // OptionalPhase handles the optional services configuration step.
 type OptionalPhase struct {
-	create.BasePhase
+	wizard.BasePhase
 }
 
 // NewOptionalPhase creates a new OptionalPhase.
 func NewOptionalPhase() *OptionalPhase {
 	return &OptionalPhase{
-		BasePhase: create.NewBasePhase("Optional Services", optionalFieldCount),
+		BasePhase: wizard.NewBasePhase("Optional Services", optionalFieldCount),
 	}
 }
 
 // Init initializes the optional phase state.
-func (p *OptionalPhase) Init(ctx *create.PhaseContext) {
+func (p *OptionalPhase) Init(ctx *wizard.PhaseContext) {
 	// Tailscale auth key input
 	tailscaleKey := textinput.New()
 	tailscaleKey.Placeholder = "tskey-auth-..."
@@ -52,7 +52,7 @@ func (p *OptionalPhase) Init(ctx *create.PhaseContext) {
 }
 
 // Update handles keyboard input for the optional phase.
-func (p *OptionalPhase) Update(ctx *create.PhaseContext, msg tea.KeyMsg) (advance bool, cmd tea.Cmd) {
+func (p *OptionalPhase) Update(ctx *wizard.PhaseContext, msg tea.KeyMsg) (advance bool, cmd tea.Cmd) {
 	switch {
 	case key.Matches(msg, key.NewBinding(key.WithKeys("up", "k"))):
 		p.blurCurrentInput(ctx)
@@ -80,49 +80,49 @@ func (p *OptionalPhase) Update(ctx *create.PhaseContext, msg tea.KeyMsg) (advanc
 }
 
 // View renders the optional phase.
-func (p *OptionalPhase) View(ctx *create.PhaseContext) string {
+func (p *OptionalPhase) View(ctx *wizard.PhaseContext) string {
 	var b strings.Builder
 
-	b.WriteString(create.TitleStyle.Render("Optional Services"))
+	b.WriteString(wizard.TitleStyle.Render("Optional Services"))
 	b.WriteString("\n\n")
 
-	b.WriteString(create.DimStyle.Render("Configure optional services. Leave empty to skip."))
+	b.WriteString(wizard.DimStyle.Render("Configure optional services. Leave empty to skip."))
 	b.WriteString("\n\n")
 
 	// Tailscale auth key
-	b.WriteString(create.RenderTextField(ctx.Wizard, "Tailscale Auth Key", "tailscale_key", optionalFieldTailscale))
-	b.WriteString(create.DimStyle.Render("  Used for automatic Tailscale authentication"))
+	b.WriteString(wizard.RenderTextField(ctx.Wizard, "Tailscale Auth Key", "tailscale_key", optionalFieldTailscale))
+	b.WriteString(wizard.DimStyle.Render("  Used for automatic Tailscale authentication"))
 	b.WriteString("\n\n")
 
 	// GitHub PAT
-	b.WriteString(create.RenderTextField(ctx.Wizard, "GitHub PAT", "github_pat", optionalFieldGitHubPAT))
-	b.WriteString(create.DimStyle.Render("  Personal Access Token for private repos"))
+	b.WriteString(wizard.RenderTextField(ctx.Wizard, "GitHub PAT", "github_pat", optionalFieldGitHubPAT))
+	b.WriteString(wizard.DimStyle.Render("  Personal Access Token for private repos"))
 	b.WriteString("\n")
 
 	return b.String()
 }
 
 // Save persists the optional options to wizard data.
-func (p *OptionalPhase) Save(ctx *create.PhaseContext) {
+func (p *OptionalPhase) Save(ctx *wizard.PhaseContext) {
 	ctx.Wizard.Data.TailscaleKey = ctx.Wizard.GetTextInput("tailscale_key")
 	ctx.Wizard.Data.GitHubPAT = ctx.Wizard.GetTextInput("github_pat")
 }
 
 // Helper methods
 
-func (p *OptionalPhase) blurCurrentInput(ctx *create.PhaseContext) {
+func (p *OptionalPhase) blurCurrentInput(ctx *wizard.PhaseContext) {
 	name := p.getInputName(ctx.Wizard.FocusedField)
-	create.BlurInput(ctx, name)
+	wizard.BlurInput(ctx, name)
 }
 
-func (p *OptionalPhase) focusCurrentInput(ctx *create.PhaseContext) {
+func (p *OptionalPhase) focusCurrentInput(ctx *wizard.PhaseContext) {
 	name := p.getInputName(ctx.Wizard.FocusedField)
-	create.FocusInput(ctx, name)
+	wizard.FocusInput(ctx, name)
 }
 
-func (p *OptionalPhase) updateActiveTextInput(ctx *create.PhaseContext, msg tea.KeyMsg) tea.Cmd {
+func (p *OptionalPhase) updateActiveTextInput(ctx *wizard.PhaseContext, msg tea.KeyMsg) tea.Cmd {
 	name := p.getInputName(ctx.Wizard.FocusedField)
-	return create.HandleTextInput(ctx, name, msg)
+	return wizard.HandleTextInput(ctx, name, msg)
 }
 
 func (p *OptionalPhase) getInputName(field int) string {
