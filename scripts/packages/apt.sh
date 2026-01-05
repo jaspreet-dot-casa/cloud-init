@@ -111,7 +111,14 @@ verify() {
 main() {
     parse_dry_run_flag "$@"
 
-    local action="${1:-install}"
+    # Extract action from args, skipping flags
+    local action="install"
+    for arg in "$@"; do
+        case "${arg}" in
+            --dry-run|-n) ;;  # Skip flags
+            *) action="${arg}"; break ;;
+        esac
+    done
 
     case "${action}" in
         install)

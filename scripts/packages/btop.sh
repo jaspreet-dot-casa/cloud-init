@@ -64,7 +64,15 @@ create_shell_config() {
 
 main() {
     parse_dry_run_flag "$@"
-    local action="${1:-install}"
+
+    # Extract action from args, skipping flags
+    local action="install"
+    for arg in "$@"; do
+        case "${arg}" in
+            --dry-run|-n) ;;  # Skip flags
+            *) action="${arg}"; break ;;
+        esac
+    done
 
     # shellcheck source=config.env.template
     [[ -f "${PROJECT_ROOT}/config.env" ]] && source "${PROJECT_ROOT}/config.env"
