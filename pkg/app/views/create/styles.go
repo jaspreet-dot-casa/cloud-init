@@ -5,22 +5,8 @@ import (
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
 )
 
-// Re-export styles from wizard package as the canonical source.
-// This ensures consistency across the create package and its subpackages.
-var (
-	TitleStyle        = wizard.TitleStyle
-	DimStyle          = wizard.DimStyle
-	SuccessStyle      = wizard.SuccessStyle
-	ErrorStyle        = wizard.ErrorStyle
-	WarningStyle      = wizard.WarningStyle
-	SelectedStyle     = wizard.SelectedStyle
-	UnselectedStyle   = wizard.UnselectedStyle
-	LabelStyle        = wizard.LabelStyle
-	ValueStyle        = wizard.ValueStyle
-	FocusedInputStyle = wizard.FocusedInputStyle
-)
-
-// Internal styles (unexported, specific to create package views)
+// Internal styles for create package views.
+// Canonical exported styles are in wizard package - use wizard.TitleStyle etc.
 var (
 	titleStyle    = wizard.TitleStyle
 	subtitleStyle = lipgloss.NewStyle().
