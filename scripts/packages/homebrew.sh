@@ -59,6 +59,19 @@ do_install() {
     log_success "Homebrew installed"
 }
 
+do_update() {
+    log_info "Updating Homebrew..."
+
+    if is_dry_run; then
+        echo "[DRY-RUN] Would run: brew update"
+        return 0
+    fi
+
+    brew update
+
+    log_success "Homebrew updated"
+}
+
 verify() {
     if ! is_installed; then
         health_fail "${PACKAGE_NAME}" "not installed"
@@ -110,9 +123,18 @@ main() {
     [[ "${PACKAGE_HOMEBREW_ENABLED:-true}" != "true" ]] && { log_info "homebrew disabled"; return 0; }
 
     case "${action}" in
-        install|update)
-            if is_installed && [[ "${action}" == "install" ]]; then
+        install)
+            if is_installed; then
                 log_success "Homebrew already installed: v$(get_installed_version)"
+            else
+                do_install
+            fi
+            create_shell_config
+            verify
+            ;;
+        update)
+            if is_installed; then
+                do_update
             else
                 do_install
             fi
