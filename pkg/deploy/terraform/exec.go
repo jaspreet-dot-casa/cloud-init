@@ -9,10 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"github.com/charmbracelet/huh"
-
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/tui"
 )
 
 // checkTerraformInstalled verifies terraform is available.
@@ -107,24 +103,8 @@ func (d *Deployer) confirmApply(planOutput string) (bool, error) {
 
 	fmt.Println(strings.Repeat("─", 60))
 
-	// Prompt for confirmation
-	var confirmed bool
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewConfirm().
-				Title("Apply this plan?").
-				Description("This will create the resources shown above").
-				Affirmative("Yes, apply").
-				Negative("No, cancel").
-				Value(&confirmed),
-		),
-	).WithTheme(tui.Theme())
-
-	if err := form.Run(); err != nil {
-		return false, fmt.Errorf("confirmation cancelled: %w", err)
-	}
-
-	return confirmed, nil
+	// Prompt for confirmation using bubbles-based dialog
+	return runConfirm("Apply this plan? This will create the resources shown above.")
 }
 
 // terraformApply runs terraform apply.

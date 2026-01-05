@@ -1,31 +1,21 @@
 package create
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"github.com/charmbracelet/lipgloss"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
+)
 
-// Styles for the create wizard TUI
+// Internal styles for create package views.
+// Canonical exported styles are in wizard package - use wizard.TitleStyle etc.
 var (
-	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("39")).
-			MarginBottom(1)
-
+	titleStyle    = wizard.TitleStyle
 	subtitleStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("39"))
 
-	successStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("40")).
-			Bold(true)
-
-	errorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("196")).
-			Bold(true)
-
-	warningStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("214")).
-			Bold(true)
-
-	dimStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("8"))
+	successStyle = wizard.SuccessStyle
+	errorStyle   = wizard.ErrorStyle
+	warningStyle = wizard.WarningStyle
+	dimStyle     = wizard.DimStyle
 
 	commandStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("244")).
@@ -44,22 +34,11 @@ var (
 			Foreground(lipgloss.Color("214")).
 			Bold(true)
 
-	selectedStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("229")).
-			Bold(true)
-
-	unselectedStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("252"))
-
-	labelStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("245"))
-
-	valueStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("252"))
-
-	focusedInputStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("229")).
-				Bold(true)
+	selectedStyle     = wizard.SelectedStyle
+	unselectedStyle   = wizard.UnselectedStyle
+	labelStyle        = wizard.LabelStyle
+	valueStyle        = wizard.ValueStyle
+	focusedInputStyle = wizard.FocusedInputStyle
 
 	blurredInputStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("240"))

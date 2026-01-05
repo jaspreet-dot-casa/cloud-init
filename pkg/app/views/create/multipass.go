@@ -1,7 +1,6 @@
 package create
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -9,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy"
 )
 
@@ -26,78 +26,29 @@ const (
 	multipassFieldCount
 )
 
-// Multipass image options
-var multipassImages = []struct {
-	label string
-	value string
-}{
-	{"24.04 LTS (Noble Numbat)", "24.04"},
-	{"22.04 LTS (Jammy Jellyfish)", "22.04"},
-	{"25.04 (Plucky Puffin)", "25.04"},
-	{"daily:26.04 (Resolute)", "daily:26.04"},
+// MultipassImageOptions defines available Ubuntu images for Multipass.
+var MultipassImageOptions = []SelectOption[string]{
+	{Label: "24.04 LTS (Noble Numbat)", Value: "24.04"},
+	{Label: "22.04 LTS (Jammy Jellyfish)", Value: "22.04"},
+	{Label: "25.04 (Plucky Puffin)", Value: "25.04"},
+	{Label: "daily:26.04 (Resolute)", Value: "daily:26.04"},
 }
 
-// CPU options
-var cpuOptions = []struct {
-	label string
-	value int
-}{
-	{"1 CPU", 1},
-	{"2 CPUs (recommended)", 2},
-	{"4 CPUs", 4},
-}
-
-// Memory options
-var memoryOptions = []struct {
-	label string
-	value int
-}{
-	{"2 GB", 2048},
-	{"4 GB (recommended)", 4096},
-	{"8 GB", 8192},
-}
-
-// Disk options
-var diskOptions = []struct {
-	label string
-	value int
-}{
-	{"10 GB", 10},
-	{"20 GB (recommended)", 20},
-	{"40 GB", 40},
-}
-
-// Helper functions to extract labels for renderSelectField
-func getImageLabels() []string {
-	labels := make([]string, len(multipassImages))
-	for i, opt := range multipassImages {
-		labels[i] = opt.label
+// GetMultipassImageLabels returns labels for Multipass image options.
+func GetMultipassImageLabels() []string {
+	labels := make([]string, len(MultipassImageOptions))
+	for i, opt := range MultipassImageOptions {
+		labels[i] = opt.Label
 	}
 	return labels
 }
 
-func getCPULabels() []string {
-	labels := make([]string, len(cpuOptions))
-	for i, opt := range cpuOptions {
-		labels[i] = opt.label
+// GetMultipassImageValue returns the image value at the given index.
+func GetMultipassImageValue(idx int) string {
+	if idx < 0 || idx >= len(MultipassImageOptions) {
+		return MultipassImageOptions[0].Value // Default to first
 	}
-	return labels
-}
-
-func getMemoryLabels() []string {
-	labels := make([]string, len(memoryOptions))
-	for i, opt := range memoryOptions {
-		labels[i] = opt.label
-	}
-	return labels
-}
-
-func getDiskLabels() []string {
-	labels := make([]string, len(diskOptions))
-	for i, opt := range diskOptions {
-		labels[i] = opt.label
-	}
-	return labels
+	return MultipassImageOptions[idx].Value
 }
 
 // initMultipassPhase initializes the Multipass options phase
@@ -180,40 +131,13 @@ func (m *Model) handleMultipassPhase(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 func (m *Model) cycleMultipassOption(delta int) {
 	switch m.wizard.FocusedField {
 	case multipassFieldImage:
-		idx := m.wizard.SelectIdxs["image"] + delta
-		if idx < 0 {
-			idx = len(multipassImages) - 1
-		} else if idx >= len(multipassImages) {
-			idx = 0
-		}
-		m.wizard.SelectIdxs["image"] = idx
-
+		m.wizard.CycleSelect("image", len(MultipassImageOptions), delta)
 	case multipassFieldCPU:
-		idx := m.wizard.SelectIdxs["cpu"] + delta
-		if idx < 0 {
-			idx = len(cpuOptions) - 1
-		} else if idx >= len(cpuOptions) {
-			idx = 0
-		}
-		m.wizard.SelectIdxs["cpu"] = idx
-
+		m.wizard.CycleSelect("cpu", len(CPUOptions), delta)
 	case multipassFieldMemory:
-		idx := m.wizard.SelectIdxs["memory"] + delta
-		if idx < 0 {
-			idx = len(memoryOptions) - 1
-		} else if idx >= len(memoryOptions) {
-			idx = 0
-		}
-		m.wizard.SelectIdxs["memory"] = idx
-
+		m.wizard.CycleSelect("memory", len(MemoryOptions), delta)
 	case multipassFieldDisk:
-		idx := m.wizard.SelectIdxs["disk"] + delta
-		if idx < 0 {
-			idx = len(diskOptions) - 1
-		} else if idx >= len(diskOptions) {
-			idx = 0
-		}
-		m.wizard.SelectIdxs["disk"] = idx
+		m.wizard.CycleSelect("disk", len(DiskOptions), delta)
 	}
 }
 
@@ -224,32 +148,12 @@ func (m *Model) saveMultipassOptions() {
 		vmName = "cloud-init-" + time.Now().Format("0102-1504")
 	}
 
-	// Get indices with bounds checking
-	imageIdx := m.wizard.SelectIdxs["image"]
-	cpuIdx := m.wizard.SelectIdxs["cpu"]
-	memIdx := m.wizard.SelectIdxs["memory"]
-	diskIdx := m.wizard.SelectIdxs["disk"]
-
-	// Clamp indices to valid ranges
-	if imageIdx < 0 || imageIdx >= len(multipassImages) {
-		imageIdx = 0
-	}
-	if cpuIdx < 0 || cpuIdx >= len(cpuOptions) {
-		cpuIdx = 1 // Default to recommended (2 CPUs)
-	}
-	if memIdx < 0 || memIdx >= len(memoryOptions) {
-		memIdx = 1 // Default to recommended (4 GB)
-	}
-	if diskIdx < 0 || diskIdx >= len(diskOptions) {
-		diskIdx = 1 // Default to recommended (20 GB)
-	}
-
 	m.wizard.Data.MultipassOpts = deploy.MultipassOptions{
 		VMName:        vmName,
-		UbuntuVersion: multipassImages[imageIdx].value,
-		CPUs:          cpuOptions[cpuIdx].value,
-		MemoryMB:      memoryOptions[memIdx].value,
-		DiskGB:        diskOptions[diskIdx].value,
+		UbuntuVersion: GetMultipassImageValue(m.wizard.SelectIdxs["image"]),
+		CPUs:          GetCPUValue(m.wizard.SelectIdxs["cpu"]),
+		MemoryMB:      GetMemoryValue(m.wizard.SelectIdxs["memory"]),
+		DiskGB:        GetDiskValue(m.wizard.SelectIdxs["disk"]),
 		KeepOnFailure: m.wizard.CheckStates["keep_on_failure"],
 	}
 }
@@ -262,104 +166,23 @@ func (m *Model) viewMultipassPhase() string {
 	b.WriteString("\n\n")
 
 	// VM Name
-	b.WriteString(m.renderTextField("VM Name", "vm_name", multipassFieldVMName))
+	b.WriteString(wizard.RenderTextField(m.wizard, "VM Name", "vm_name", multipassFieldVMName))
 
 	// Image selection
-	b.WriteString(m.renderSelectField("Ubuntu Image", "image", multipassFieldImage, getImageLabels()))
+	b.WriteString(wizard.RenderSelectField(m.wizard, "Ubuntu Image", "image", multipassFieldImage, GetMultipassImageLabels()))
 
 	// CPU selection
-	b.WriteString(m.renderSelectField("CPUs", "cpu", multipassFieldCPU, getCPULabels()))
+	b.WriteString(wizard.RenderSelectField(m.wizard, "CPUs", "cpu", multipassFieldCPU, GetCPULabels()))
 
 	// Memory selection
-	b.WriteString(m.renderSelectField("Memory", "memory", multipassFieldMemory, getMemoryLabels()))
+	b.WriteString(wizard.RenderSelectField(m.wizard, "Memory", "memory", multipassFieldMemory, GetMemoryLabels()))
 
 	// Disk selection
-	b.WriteString(m.renderSelectField("Disk Size", "disk", multipassFieldDisk, getDiskLabels()))
+	b.WriteString(wizard.RenderSelectField(m.wizard, "Disk Size", "disk", multipassFieldDisk, GetDiskLabels()))
 
 	// Keep on failure checkbox
-	b.WriteString(m.renderCheckbox("Keep VM on failure", "keep_on_failure", multipassFieldKeepOnFailure))
+	b.WriteString(wizard.RenderCheckbox(m.wizard, "Keep VM on failure", "keep_on_failure", multipassFieldKeepOnFailure))
 
 	return b.String()
 }
 
-// renderTextField renders a text input field
-func (m *Model) renderTextField(label, name string, fieldIdx int) string {
-	var b strings.Builder
-
-	focused := m.wizard.FocusedField == fieldIdx
-	cursor := "  "
-	if focused {
-		cursor = "▸ "
-	}
-
-	b.WriteString(cursor)
-	if focused {
-		b.WriteString(focusedInputStyle.Render(label + ": "))
-	} else {
-		b.WriteString(labelStyle.Render(label + ": "))
-	}
-
-	if ti, ok := m.wizard.TextInputs[name]; ok {
-		b.WriteString(ti.View())
-	}
-	b.WriteString("\n\n")
-
-	return b.String()
-}
-
-// renderSelectField renders a select field with options
-func (m *Model) renderSelectField(label, name string, fieldIdx int, options []string) string {
-	var b strings.Builder
-
-	focused := m.wizard.FocusedField == fieldIdx
-	cursor := "  "
-	if focused {
-		cursor = "▸ "
-	}
-
-	b.WriteString(cursor)
-	if focused {
-		b.WriteString(focusedInputStyle.Render(label + ": "))
-	} else {
-		b.WriteString(labelStyle.Render(label + ": "))
-	}
-
-	idx := m.wizard.SelectIdxs[name]
-	if idx >= 0 && idx < len(options) {
-		if focused {
-			b.WriteString(fmt.Sprintf("◀ %s ▶", selectedStyle.Render(options[idx])))
-		} else {
-			b.WriteString(valueStyle.Render(options[idx]))
-		}
-	}
-	b.WriteString("\n\n")
-
-	return b.String()
-}
-
-// renderCheckbox renders a checkbox field
-func (m *Model) renderCheckbox(label, name string, fieldIdx int) string {
-	var b strings.Builder
-
-	focused := m.wizard.FocusedField == fieldIdx
-	cursor := "  "
-	if focused {
-		cursor = "▸ "
-	}
-
-	checked := m.wizard.CheckStates[name]
-	checkbox := "[ ]"
-	if checked {
-		checkbox = "[✓]"
-	}
-
-	b.WriteString(cursor)
-	if focused {
-		b.WriteString(focusedInputStyle.Render(checkbox + " " + label))
-	} else {
-		b.WriteString(labelStyle.Render(checkbox + " " + label))
-	}
-	b.WriteString("\n\n")
-
-	return b.String()
-}

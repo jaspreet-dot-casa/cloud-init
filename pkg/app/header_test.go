@@ -4,13 +4,32 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 )
 
+// mockTabForHeader is a simple Tab implementation for header tests.
+type mockTabForHeader struct {
+	BaseTab
+}
+
+func newMockTabForHeader(id TabID, name, shortKey string) *mockTabForHeader {
+	return &mockTabForHeader{BaseTab: NewBaseTab(id, name, shortKey)}
+}
+
+func (t *mockTabForHeader) Init() tea.Cmd                     { return nil }
+func (t *mockTabForHeader) Update(msg tea.Msg) (Tab, tea.Cmd) { return t, nil }
+func (t *mockTabForHeader) View() string                      { return "" }
+func (t *mockTabForHeader) Focus() tea.Cmd                    { t.BaseTab.Focus(); return nil }
+func (t *mockTabForHeader) Blur()                             { t.BaseTab.Blur() }
+func (t *mockTabForHeader) SetSize(width, height int)         { t.BaseTab.SetSize(width, height) }
+func (t *mockTabForHeader) KeyBindings() []string             { return nil }
+func (t *mockTabForHeader) HasFocusedInput() bool             { return false }
+
 func TestRenderHeader(t *testing.T) {
 	tabs := []Tab{
-		NewPlaceholderTab(TabVMs, "VMs", "1", ""),
-		NewPlaceholderTab(TabCreate, "Create", "2", ""),
+		newMockTabForHeader(TabVMs, "VMs", "1"),
+		newMockTabForHeader(TabCreate, "Create", "2"),
 	}
 
 	header := renderHeader(tabs, 0, 100)
@@ -29,8 +48,8 @@ func TestRenderHeader(t *testing.T) {
 
 func TestRenderHeader_ActiveTab(t *testing.T) {
 	tabs := []Tab{
-		NewPlaceholderTab(TabVMs, "VMs", "1", ""),
-		NewPlaceholderTab(TabCreate, "Create", "2", ""),
+		newMockTabForHeader(TabVMs, "VMs", "1"),
+		newMockTabForHeader(TabCreate, "Create", "2"),
 	}
 
 	// Active tab 0

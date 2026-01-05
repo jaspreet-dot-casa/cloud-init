@@ -20,7 +20,7 @@ func (m *Model) initTargetOptionsPhase() {
 		m.initTerraformPhase()
 	case deploy.TargetUSB:
 		m.initUSBPhase()
-	case TargetConfigOnly:
+	case deploy.TargetConfigOnly:
 		m.initGeneratePhase()
 	default:
 		// Unknown target - skip initialization
@@ -36,7 +36,7 @@ func (m *Model) handleTargetOptionsPhase(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 		return m.handleTerraformPhase(msg)
 	case deploy.TargetUSB:
 		return m.handleUSBPhase(msg)
-	case TargetConfigOnly:
+	case deploy.TargetConfigOnly:
 		return m.handleGeneratePhase(msg)
 	default:
 		return m, nil
@@ -52,7 +52,7 @@ func (m *Model) viewTargetOptionsPhase() string {
 		return m.viewTerraformPhase()
 	case deploy.TargetUSB:
 		return m.viewUSBPhase()
-	case TargetConfigOnly:
+	case deploy.TargetConfigOnly:
 		return m.viewGeneratePhase()
 	}
 

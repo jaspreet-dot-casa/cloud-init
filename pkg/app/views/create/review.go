@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create/wizard"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy"
 )
 
@@ -49,7 +50,7 @@ func (m *Model) handleReviewPhase(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 			return m, m.startDeploy()
 		} else if m.wizard.FocusedField == reviewFieldCancel {
 			// Go back to target selection
-			m.wizard.Phase = PhaseTarget
+			m.wizard.Phase = wizard.PhaseTarget
 			m.initPhase(m.wizard.Phase)
 			return m, nil
 		}
@@ -183,7 +184,7 @@ func (m *Model) getTargetName() string {
 		return "Multipass"
 	case deploy.TargetUSB:
 		return "Bootable USB"
-	case TargetConfigOnly:
+	case deploy.TargetConfigOnly:
 		return "Generate Config Only"
 	default:
 		return "Unknown"
@@ -249,7 +250,7 @@ func (m *Model) viewTargetSpecificReview() string {
 		b.WriteString(valueStyle.Render(opts.Timezone))
 		b.WriteString("\n\n")
 
-	case TargetConfigOnly:
+	case deploy.TargetConfigOnly:
 		opts := m.wizard.Data.GenerateOpts
 		b.WriteString(labelStyle.Render("Output Directory: "))
 		b.WriteString(valueStyle.Render(opts.OutputDir))
