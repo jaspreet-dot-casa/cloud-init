@@ -66,7 +66,7 @@ verify() {
 }
 
 create_shell_config() {
-    local config_file="${HOME}/.config/shell/70-starship.sh"
+    local config_file="${HOME}/.config/shell/900-starship.sh"
     mkdir -p "$(dirname "${config_file}")" 2>/dev/null || true
     # shellcheck disable=SC2016
     write_or_print "${config_file}" '# Starship prompt

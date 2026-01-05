@@ -29,7 +29,7 @@ source "${SCRIPT_DIR}/../lib/health.sh"
 PACKAGE_NAME="apt"
 
 # Default packages if not specified in config.env
-DEFAULT_APT_PACKAGES="curl wget git zsh tree jq htop unzip build-essential make neovim"
+DEFAULT_APT_PACKAGES="curl wget git zsh tree jq htop unzip build-essential make neovim ripgrep"
 
 #==============================================================================
 # Functions
