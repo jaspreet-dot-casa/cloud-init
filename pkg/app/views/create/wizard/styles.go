@@ -12,7 +12,7 @@ var (
 
 	// DimStyle is used for hints and secondary text
 	DimStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("8"))
+			Foreground(lipgloss.Color("244"))
 
 	// SuccessStyle is used for success messages
 	SuccessStyle = lipgloss.NewStyle().

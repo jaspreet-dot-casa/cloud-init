@@ -101,8 +101,19 @@ func (p *GitPhase) View(ctx *wizard.PhaseContext) string {
 
 // Save persists the git options to wizard data.
 func (p *GitPhase) Save(ctx *wizard.PhaseContext) {
-	ctx.Wizard.Data.GitName = ctx.Wizard.GetTextInput("git_name")
-	ctx.Wizard.Data.GitEmail = ctx.Wizard.GetTextInput("git_email")
+	gitName := strings.TrimSpace(ctx.Wizard.GetTextInput("git_name"))
+	gitEmail := strings.TrimSpace(ctx.Wizard.GetTextInput("git_email"))
+
+	// Apply defaults if empty
+	if gitName == "" {
+		gitName = "git"
+	}
+	if gitEmail == "" {
+		gitEmail = "git@example.com"
+	}
+
+	ctx.Wizard.Data.GitName = gitName
+	ctx.Wizard.Data.GitEmail = gitEmail
 }
 
 // Helper methods

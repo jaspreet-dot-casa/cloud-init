@@ -34,12 +34,17 @@ type deployState struct {
 	done         bool
 }
 
-// getDeployState returns the deploy state with proper type assertion
+// getDeployState returns the deploy state with proper type assertion.
+// Returns nil if DeployState is nil or holds a different type.
 func (m *Model) getDeployState() *deployState {
 	if m.wizard.DeployState == nil {
 		return nil
 	}
-	return m.wizard.DeployState.(*deployState)
+	state, ok := m.wizard.DeployState.(*deployState)
+	if !ok {
+		return nil
+	}
+	return state
 }
 
 // initDeployPhase initializes the Deploy phase

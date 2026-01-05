@@ -29,6 +29,11 @@ func NewPackagesPhase() *PackagesPhase {
 func (p *PackagesPhase) Init(ctx *wizard.PhaseContext) {
 	ctx.Wizard.FocusedField = 0
 
+	// Ensure PackageSelected map is initialized
+	if ctx.Wizard.PackageSelected == nil {
+		ctx.Wizard.PackageSelected = make(map[string]bool)
+	}
+
 	// Initialize package selection to all selected by default
 	if ctx.Wizard.Registry != nil && len(ctx.Wizard.PackageSelected) == 0 {
 		for _, name := range ctx.Wizard.Registry.Names() {
@@ -57,6 +62,11 @@ func (p *PackagesPhase) FieldCount() int {
 
 // Update handles keyboard input for the packages phase.
 func (p *PackagesPhase) Update(ctx *wizard.PhaseContext, msg tea.KeyMsg) (advance bool, cmd tea.Cmd) {
+	// Ensure PackageSelected map is initialized before any writes
+	if ctx.Wizard.PackageSelected == nil {
+		ctx.Wizard.PackageSelected = make(map[string]bool)
+	}
+
 	pkgs := p.getSortedPackages(ctx)
 	if len(pkgs) == 0 {
 		// No packages, just advance on enter

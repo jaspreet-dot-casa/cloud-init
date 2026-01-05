@@ -14,6 +14,9 @@ import (
 type GitHubClient struct {
 	httpClient *http.Client
 	userAgent  string
+	// baseURL and apiBaseURL are used for testing; empty means use defaults
+	baseURL    string // For SSH keys (github.com)
+	apiBaseURL string // For API (api.github.com)
 }
 
 // Profile holds fetched GitHub profile data.
@@ -50,7 +53,11 @@ func NewGitHubClient() *GitHubClient {
 
 // FetchSSHKeys fetches public SSH keys from GitHub for a user.
 func (c *GitHubClient) FetchSSHKeys(username string) ([]string, error) {
-	url := fmt.Sprintf("https://github.com/%s.keys", username)
+	baseURL := c.baseURL
+	if baseURL == "" {
+		baseURL = "https://github.com"
+	}
+	url := fmt.Sprintf("%s/%s.keys", baseURL, username)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -91,7 +98,11 @@ func (c *GitHubClient) FetchSSHKeys(username string) ([]string, error) {
 
 // FetchProfile fetches public profile from GitHub API.
 func (c *GitHubClient) FetchProfile(username string) (*Profile, error) {
-	url := fmt.Sprintf("https://api.github.com/users/%s", username)
+	apiBaseURL := c.apiBaseURL
+	if apiBaseURL == "" {
+		apiBaseURL = "https://api.github.com"
+	}
+	url := fmt.Sprintf("%s/users/%s", apiBaseURL, username)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
