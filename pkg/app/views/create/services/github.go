@@ -138,8 +138,7 @@ func (c *GitHubClient) FetchProfile(username string) (*Profile, error) {
 	return &profile, nil
 }
 
-// FetchUserData fetches both SSH keys and profile data for a user.
-// Returns keys, profile, and any errors encountered.
+// UserData holds the results of fetching both SSH keys and profile data.
 type UserData struct {
 	Keys       []string
 	Profile    *Profile
