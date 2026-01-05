@@ -29,10 +29,6 @@ PACKAGE_NAME="starship"
 # Starship installs to ~/.local/bin - ensure it's in PATH for detection
 [[ -d "${HOME}/.local/bin" ]] && export PATH="${HOME}/.local/bin:${PATH}"
 
-# Source shell config if it exists (for PATH setup)
-# shellcheck source=/dev/null
-[[ -f "${HOME}/.zsh_custom_config" ]] && source "${HOME}/.zsh_custom_config"
-
 is_installed() { command_exists starship; }
 
 get_installed_version() {
