@@ -370,7 +370,9 @@ check_stale_shell_configs() {
         done
         echo ""
         echo "To remove them, run:"
-        echo "  rm ${shell_config_dir}/{$(IFS=,; echo "${found_stale[*]}")}"
+        for file in "${found_stale[@]}"; do
+            echo "rm ${shell_config_dir}/${file}"
+        done
     fi
 }
 
