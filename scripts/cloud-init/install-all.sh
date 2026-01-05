@@ -216,6 +216,7 @@ install_binary_packages() {
     log_section "Installing Binary Packages"
 
     local packages=(
+        "homebrew"
         "yq"
         "lazygit"
         "lazydocker"
