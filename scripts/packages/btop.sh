@@ -25,10 +25,9 @@ source "${SCRIPT_DIR}/../lib/health.sh"
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="btop"
-BREW_PREFIX="/home/linuxbrew/.linuxbrew"
 
-# Add brew to PATH for detection
-[[ -x "${BREW_PREFIX}/bin/brew" ]] && eval "$("${BREW_PREFIX}/bin/brew" shellenv)"
+# shellcheck source=scripts/lib/brew.sh
+source "${SCRIPT_DIR}/../lib/brew.sh"
 
 is_installed() { command_exists btop; }
 

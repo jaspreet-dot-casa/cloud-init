@@ -103,7 +103,13 @@ cleanup_usr_local_bin() {
 cleanup_local_bin() {
     log_info "Cleaning up ~/.local/bin binaries..."
 
-    local user_home="${HOME}"
+    # Get actual user's home, even when run with sudo
+    local user_home
+    if [[ -n "${SUDO_USER:-}" ]]; then
+        user_home=$(eval echo ~"${SUDO_USER}")
+    else
+        user_home="${HOME}"
+    fi
 
     # Binaries installed by official installers to ~/.local/bin
     local binaries=(

@@ -25,10 +25,9 @@ source "${SCRIPT_DIR}/../lib/health.sh"
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="fzf"
-BREW_PREFIX="/home/linuxbrew/.linuxbrew"
 
-# Add brew to PATH for detection
-[[ -x "${BREW_PREFIX}/bin/brew" ]] && eval "$("${BREW_PREFIX}/bin/brew" shellenv)"
+# shellcheck source=scripts/lib/brew.sh
+source "${SCRIPT_DIR}/../lib/brew.sh"
 
 is_installed() { command_exists fzf; }
 
@@ -92,9 +91,24 @@ if command -v fzf &> /dev/null; then
 
     # Set up fzf key bindings and fuzzy completion for zsh
     source <(fzf --zsh 2>/dev/null) || {
-        # Fallback for older fzf versions
-        [[ -f /usr/share/doc/fzf/examples/key-bindings.zsh ]] && source /usr/share/doc/fzf/examples/key-bindings.zsh
-        [[ -f /usr/share/doc/fzf/examples/completion.zsh ]] && source /usr/share/doc/fzf/examples/completion.zsh
+        # Fallback for older fzf versions - check Homebrew locations first
+        local brew_prefix=""
+        if [[ -x "/home/linuxbrew/.linuxbrew/bin/brew" ]]; then
+            brew_prefix="/home/linuxbrew/.linuxbrew"
+        elif [[ -x "/opt/homebrew/bin/brew" ]]; then
+            brew_prefix="/opt/homebrew"
+        elif [[ -x "/usr/local/bin/brew" ]]; then
+            brew_prefix="/usr/local"
+        fi
+
+        if [[ -n "$brew_prefix" ]]; then
+            [[ -f "${brew_prefix}/opt/fzf/shell/key-bindings.zsh" ]] && source "${brew_prefix}/opt/fzf/shell/key-bindings.zsh"
+            [[ -f "${brew_prefix}/opt/fzf/shell/completion.zsh" ]] && source "${brew_prefix}/opt/fzf/shell/completion.zsh"
+        else
+            # Fallback for apt-installed fzf
+            [[ -f /usr/share/doc/fzf/examples/key-bindings.zsh ]] && source /usr/share/doc/fzf/examples/key-bindings.zsh
+            [[ -f /usr/share/doc/fzf/examples/completion.zsh ]] && source /usr/share/doc/fzf/examples/completion.zsh
+        fi
     }
 fi
 '
