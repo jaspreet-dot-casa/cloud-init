@@ -5,7 +5,7 @@
 # A command-line fuzzy finder
 # https://github.com/junegunn/fzf
 #
-# Installs via apt and configures zsh integration
+# Installs via Homebrew for latest version
 #
 # Usage: ./fzf.sh [install|update|verify|version]
 #==============================================================================
@@ -26,6 +26,9 @@ source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="fzf"
 
+# shellcheck source=scripts/lib/brew.sh
+source "${SCRIPT_DIR}/../lib/brew.sh"
+
 is_installed() { command_exists fzf; }
 
 get_installed_version() {
@@ -35,16 +38,41 @@ get_installed_version() {
 }
 
 do_install() {
-    log_info "Installing fzf via apt..."
+    log_info "Installing fzf via Homebrew..."
 
     if is_dry_run; then
-        echo "[DRY-RUN] Would run: apt-get install -y fzf"
+        echo "[DRY-RUN] Would run: brew install fzf"
         return 0
     fi
 
-    apt_or_print install -y -qq fzf
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew install fzf
 
     log_success "fzf installed"
+}
+
+do_update() {
+    log_info "Updating fzf via Homebrew..."
+
+    if is_dry_run; then
+        echo "[DRY-RUN] Would run: brew upgrade fzf"
+        return 0
+    fi
+
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew upgrade fzf || {
+        log_info "fzf is already up-to-date"
+    }
+
+    log_success "fzf updated"
 }
 
 verify() {
@@ -83,9 +111,24 @@ if command -v fzf &> /dev/null; then
 
     # Set up fzf key bindings and fuzzy completion for zsh
     source <(fzf --zsh 2>/dev/null) || {
-        # Fallback for older fzf versions
-        [[ -f /usr/share/doc/fzf/examples/key-bindings.zsh ]] && source /usr/share/doc/fzf/examples/key-bindings.zsh
-        [[ -f /usr/share/doc/fzf/examples/completion.zsh ]] && source /usr/share/doc/fzf/examples/completion.zsh
+        # Fallback for older fzf versions - check Homebrew locations first
+        local brew_prefix=""
+        if [[ -x "/home/linuxbrew/.linuxbrew/bin/brew" ]]; then
+            brew_prefix="/home/linuxbrew/.linuxbrew"
+        elif [[ -x "/opt/homebrew/bin/brew" ]]; then
+            brew_prefix="/opt/homebrew"
+        elif [[ -x "/usr/local/bin/brew" ]]; then
+            brew_prefix="/usr/local"
+        fi
+
+        if [[ -n "$brew_prefix" ]]; then
+            [[ -f "${brew_prefix}/opt/fzf/shell/key-bindings.zsh" ]] && source "${brew_prefix}/opt/fzf/shell/key-bindings.zsh"
+            [[ -f "${brew_prefix}/opt/fzf/shell/completion.zsh" ]] && source "${brew_prefix}/opt/fzf/shell/completion.zsh"
+        else
+            # Fallback for apt-installed fzf
+            [[ -f /usr/share/doc/fzf/examples/key-bindings.zsh ]] && source /usr/share/doc/fzf/examples/key-bindings.zsh
+            [[ -f /usr/share/doc/fzf/examples/completion.zsh ]] && source /usr/share/doc/fzf/examples/completion.zsh
+        fi
     }
 fi
 '
@@ -108,9 +151,18 @@ main() {
     [[ "${PACKAGE_FZF_ENABLED:-true}" != "true" ]] && { log_info "fzf disabled"; return 0; }
 
     case "${action}" in
-        install|update)
-            if is_installed && [[ "${action}" == "install" ]]; then
+        install)
+            if is_installed; then
                 log_success "fzf already installed: v$(get_installed_version)"
+            else
+                do_install
+            fi
+            create_shell_config
+            verify
+            ;;
+        update)
+            if is_installed; then
+                do_update
             else
                 do_install
             fi

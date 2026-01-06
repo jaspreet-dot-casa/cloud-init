@@ -5,7 +5,7 @@
 # The minimal, blazing-fast, and infinitely customizable prompt
 # https://starship.rs
 #
-# Uses official installer: curl -sS https://starship.rs/install.sh | sh
+# Installs via Homebrew for latest version
 #
 # Usage: ./starship.sh [install|update|verify|version]
 #==============================================================================
@@ -26,12 +26,8 @@ source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="starship"
 
-# Starship installs to ~/.local/bin - ensure it's in PATH for detection
-[[ -d "${HOME}/.local/bin" ]] && export PATH="${HOME}/.local/bin:${PATH}"
-
-# Source shell config if it exists (for PATH setup)
-# shellcheck source=/dev/null
-[[ -f "${HOME}/.zsh_custom_config" ]] && source "${HOME}/.zsh_custom_config"
+# shellcheck source=scripts/lib/brew.sh
+source "${SCRIPT_DIR}/../lib/brew.sh"
 
 is_installed() { command_exists starship; }
 
@@ -42,18 +38,41 @@ get_installed_version() {
 }
 
 do_install() {
-    log_info "Installing starship via official installer..."
+    log_info "Installing starship via Homebrew..."
 
     if is_dry_run; then
-        echo "[DRY-RUN] Would run: curl -sS https://starship.rs/install.sh | sh -s -- -y -b ~/.local/bin"
+        echo "[DRY-RUN] Would run: brew install starship"
         return 0
     fi
 
-    # Install to ~/.local/bin (user-local, no sudo needed)
-    mkdir -p "${HOME}/.local/bin"
-    curl -sS https://starship.rs/install.sh | sh -s -- -y -b "${HOME}/.local/bin"
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew install starship
 
     log_success "starship installed"
+}
+
+do_update() {
+    log_info "Updating starship via Homebrew..."
+
+    if is_dry_run; then
+        echo "[DRY-RUN] Would run: brew upgrade starship"
+        return 0
+    fi
+
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew upgrade starship || {
+        log_info "starship is already up-to-date"
+    }
+
+    log_success "starship updated"
 }
 
 verify() {
@@ -95,13 +114,20 @@ main() {
     [[ "${PACKAGE_STARSHIP_ENABLED:-true}" != "true" ]] && { log_info "starship disabled"; return 0; }
 
     case "${action}" in
-        install|update)
-            if is_installed && [[ "${action}" == "install" ]]; then
+        install)
+            if is_installed; then
                 log_success "starship already installed: v$(get_installed_version)"
             else
                 do_install
-                # Refresh PATH after install (directory now exists)
-                export PATH="${HOME}/.local/bin:${PATH}"
+            fi
+            create_shell_config
+            verify
+            ;;
+        update)
+            if is_installed; then
+                do_update
+            else
+                do_install
             fi
             create_shell_config
             verify

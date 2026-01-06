@@ -5,7 +5,7 @@
 # The polyglot runtime manager (replaces asdf, nvm, pyenv, etc.)
 # https://mise.jdx.dev
 #
-# Uses official installer: curl https://mise.jdx.dev/install.sh | sh
+# Installs via Homebrew for latest version
 #
 # Usage: ./mise.sh [install|update|verify|version]
 #==============================================================================
@@ -26,12 +26,8 @@ source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="mise"
 
-# Mise installs to ~/.local/bin - ensure it's in PATH for detection
-[[ -d "${HOME}/.local/bin" ]] && export PATH="${HOME}/.local/bin:${PATH}"
-
-# Source shell config if it exists (for PATH setup)
-# shellcheck source=/dev/null
-[[ -f "${HOME}/.zsh_custom_config" ]] && source "${HOME}/.zsh_custom_config"
+# shellcheck source=scripts/lib/brew.sh
+source "${SCRIPT_DIR}/../lib/brew.sh"
 
 is_installed() { command_exists mise; }
 
@@ -42,18 +38,41 @@ get_installed_version() {
 }
 
 do_install() {
-    log_info "Installing mise via official installer..."
+    log_info "Installing mise via Homebrew..."
 
     if is_dry_run; then
-        echo "[DRY-RUN] Would run: curl https://mise.jdx.dev/install.sh | sh"
+        echo "[DRY-RUN] Would run: brew install mise"
         return 0
     fi
 
-    # Install to ~/.local/bin (user-local, no sudo needed)
-    mkdir -p "${HOME}/.local/bin"
-    curl -fsSL https://mise.jdx.dev/install.sh | sh
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew install mise
 
     log_success "mise installed"
+}
+
+do_update() {
+    log_info "Updating mise via Homebrew..."
+
+    if is_dry_run; then
+        echo "[DRY-RUN] Would run: brew upgrade mise"
+        return 0
+    fi
+
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew upgrade mise || {
+        log_info "mise is already up-to-date"
+    }
+
+    log_success "mise updated"
 }
 
 verify() {
@@ -96,9 +115,18 @@ main() {
     [[ "${PACKAGE_MISE_ENABLED:-true}" != "true" ]] && { log_info "mise disabled"; return 0; }
 
     case "${action}" in
-        install|update)
-            if is_installed && [[ "${action}" == "install" ]]; then
+        install)
+            if is_installed; then
                 log_success "mise already installed: v$(get_installed_version)"
+            else
+                do_install
+            fi
+            create_shell_config
+            verify
+            ;;
+        update)
+            if is_installed; then
+                do_update
             else
                 do_install
             fi

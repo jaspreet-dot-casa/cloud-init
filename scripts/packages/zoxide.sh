@@ -5,7 +5,7 @@
 # A smarter cd command
 # https://github.com/ajeetdsouza/zoxide
 #
-# Uses official installer: curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh
+# Installs via Homebrew for latest version
 #
 # Usage: ./zoxide.sh [install|update|verify|version]
 #==============================================================================
@@ -26,13 +26,8 @@ source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="zoxide"
 
-# zoxide official installer installs to ~/.local/bin
-# Ensure it's in PATH for detection
-[[ -d "${HOME}/.local/bin" ]] && export PATH="${HOME}/.local/bin:${PATH}"
-
-# Source shell config if it exists (for PATH setup)
-# shellcheck source=/dev/null
-[[ -f "${HOME}/.zsh_custom_config" ]] && source "${HOME}/.zsh_custom_config"
+# shellcheck source=scripts/lib/brew.sh
+source "${SCRIPT_DIR}/../lib/brew.sh"
 
 is_installed() { command_exists zoxide; }
 
@@ -43,16 +38,41 @@ get_installed_version() {
 }
 
 do_install() {
-    log_info "Installing zoxide via official installer..."
+    log_info "Installing zoxide via Homebrew..."
 
     if is_dry_run; then
-        echo "[DRY-RUN] Would run: curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh"
+        echo "[DRY-RUN] Would run: brew install zoxide"
         return 0
     fi
 
-    curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew install zoxide
 
     log_success "zoxide installed"
+}
+
+do_update() {
+    log_info "Updating zoxide via Homebrew..."
+
+    if is_dry_run; then
+        echo "[DRY-RUN] Would run: brew upgrade zoxide"
+        return 0
+    fi
+
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew upgrade zoxide || {
+        log_info "zoxide is already up-to-date"
+    }
+
+    log_success "zoxide updated"
 }
 
 verify() {
@@ -95,9 +115,18 @@ main() {
     [[ "${PACKAGE_ZOXIDE_ENABLED:-true}" != "true" ]] && { log_info "zoxide disabled"; return 0; }
 
     case "${action}" in
-        install|update)
-            if is_installed && [[ "${action}" == "install" ]]; then
+        install)
+            if is_installed; then
                 log_success "zoxide already installed: v$(get_installed_version)"
+            else
+                do_install
+            fi
+            create_shell_config
+            verify
+            ;;
+        update)
+            if is_installed; then
+                do_update
             else
                 do_install
             fi

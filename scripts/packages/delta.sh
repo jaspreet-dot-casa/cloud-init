@@ -5,7 +5,7 @@
 # A syntax-highlighting pager for git, diff, and grep output
 # https://github.com/dandavison/delta
 #
-# Uses GitHub releases (no official installer script)
+# Installs via Homebrew for latest version
 #
 # Usage: ./delta.sh [install|update|verify|version]
 #==============================================================================
@@ -25,7 +25,9 @@ source "${SCRIPT_DIR}/../lib/health.sh"
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="delta"
-INSTALL_PATH="/usr/local/bin/delta"
+
+# shellcheck source=scripts/lib/brew.sh
+source "${SCRIPT_DIR}/../lib/brew.sh"
 
 is_installed() { command_exists delta; }
 
@@ -35,38 +37,42 @@ get_installed_version() {
     fi
 }
 
-get_latest_version() {
-    curl -fsSL "https://api.github.com/repos/dandavison/delta/releases/latest" 2>/dev/null | \
-        grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/'
-}
-
 do_install() {
-    log_info "Installing delta..."
+    log_info "Installing delta via Homebrew..."
 
     if is_dry_run; then
-        echo "[DRY-RUN] Would download and install delta"
+        echo "[DRY-RUN] Would run: brew install git-delta"
         return 0
     fi
 
-    local arch
-    arch=$(uname -m)
-    # delta uses x86_64 and aarch64
-    [[ "${arch}" == "arm64" ]] && arch="aarch64"
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
 
-    local version
-    version=$(get_latest_version)
-    local tmp_dir
-    tmp_dir=$(mktemp -d)
-    # shellcheck disable=SC2064  # Intentional: expand tmp_dir now to capture current value
-    trap "rm -rf '${tmp_dir}'" EXIT
-
-    local url="https://github.com/dandavison/delta/releases/download/${version}/delta-${version}-${arch}-unknown-linux-gnu.tar.gz"
-
-    curl -fsSL "${url}" -o "${tmp_dir}/delta.tar.gz"
-    tar -xzf "${tmp_dir}/delta.tar.gz" -C "${tmp_dir}"
-    sudo install -m 755 "${tmp_dir}/delta-${version}-${arch}-unknown-linux-gnu/delta" "${INSTALL_PATH}"
+    brew install git-delta
 
     log_success "delta installed"
+}
+
+do_update() {
+    log_info "Updating delta via Homebrew..."
+
+    if is_dry_run; then
+        echo "[DRY-RUN] Would run: brew upgrade git-delta"
+        return 0
+    fi
+
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew upgrade git-delta || {
+        log_info "delta is already up-to-date"
+    }
+
+    log_success "delta updated"
 }
 
 verify() {
@@ -100,9 +106,18 @@ main() {
     [[ "${PACKAGE_DELTA_ENABLED:-true}" != "true" ]] && { log_info "delta disabled"; return 0; }
 
     case "${action}" in
-        install|update)
-            if is_installed && [[ "${action}" == "install" ]]; then
+        install)
+            if is_installed; then
                 log_success "delta already installed: v$(get_installed_version)"
+            else
+                do_install
+            fi
+            create_shell_config
+            verify
+            ;;
+        update)
+            if is_installed; then
+                do_update
             else
                 do_install
             fi

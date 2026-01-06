@@ -5,7 +5,7 @@
 # A terminal workspace with batteries included
 # https://zellij.dev
 #
-# Uses official installer from GitHub releases
+# Installs via Homebrew for latest version
 #
 # Usage: ./zellij.sh [install|update|verify|version]
 #==============================================================================
@@ -25,7 +25,9 @@ source "${SCRIPT_DIR}/../lib/health.sh"
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="zellij"
-INSTALL_PATH="/usr/local/bin/zellij"
+
+# shellcheck source=scripts/lib/brew.sh
+source "${SCRIPT_DIR}/../lib/brew.sh"
 
 is_installed() { command_exists zellij; }
 
@@ -36,31 +38,41 @@ get_installed_version() {
 }
 
 do_install() {
-    log_info "Installing zellij..."
+    log_info "Installing zellij via Homebrew..."
 
     if is_dry_run; then
-        echo "[DRY-RUN] Would download and install zellij"
+        echo "[DRY-RUN] Would run: brew install zellij"
         return 0
     fi
 
-    local arch
-    arch=$(uname -m)
-    # zellij uses x86_64 and aarch64
-    [[ "${arch}" == "arm64" ]] && arch="aarch64"
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
 
-    local tmp_dir
-    tmp_dir=$(mktemp -d)
-    # shellcheck disable=SC2064  # Intentional: expand tmp_dir now to capture current value
-    trap "rm -rf '${tmp_dir}'" EXIT
-
-    # Get latest release URL
-    local url="https://github.com/zellij-org/zellij/releases/latest/download/zellij-${arch}-unknown-linux-musl.tar.gz"
-
-    curl -fsSL "${url}" -o "${tmp_dir}/zellij.tar.gz"
-    tar -xzf "${tmp_dir}/zellij.tar.gz" -C "${tmp_dir}"
-    sudo install -m 755 "${tmp_dir}/zellij" "${INSTALL_PATH}"
+    brew install zellij
 
     log_success "zellij installed"
+}
+
+do_update() {
+    log_info "Updating zellij via Homebrew..."
+
+    if is_dry_run; then
+        echo "[DRY-RUN] Would run: brew upgrade zellij"
+        return 0
+    fi
+
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew upgrade zellij || {
+        log_info "zellij is already up-to-date"
+    }
+
+    log_success "zellij updated"
 }
 
 verify() {
@@ -99,9 +111,18 @@ main() {
     [[ "${PACKAGE_ZELLIJ_ENABLED:-true}" != "true" ]] && { log_info "zellij disabled"; return 0; }
 
     case "${action}" in
-        install|update)
-            if is_installed && [[ "${action}" == "install" ]]; then
+        install)
+            if is_installed; then
                 log_success "zellij already installed: v$(get_installed_version)"
+            else
+                do_install
+            fi
+            create_shell_config
+            verify
+            ;;
+        update)
+            if is_installed; then
+                do_update
             else
                 do_install
             fi

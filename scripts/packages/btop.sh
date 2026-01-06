@@ -5,7 +5,7 @@
 # Resource monitor that shows usage and stats
 # https://github.com/aristocratos/btop
 #
-# Uses apt on Ubuntu 22.04+ (available in universe repo)
+# Installs via Homebrew for latest version
 #
 # Usage: ./btop.sh [install|update|verify|version]
 #==============================================================================
@@ -26,6 +26,9 @@ source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="btop"
 
+# shellcheck source=scripts/lib/brew.sh
+source "${SCRIPT_DIR}/../lib/brew.sh"
+
 is_installed() { command_exists btop; }
 
 get_installed_version() {
@@ -35,17 +38,41 @@ get_installed_version() {
 }
 
 do_install() {
-    log_info "Installing btop via apt..."
+    log_info "Installing btop via Homebrew..."
 
     if is_dry_run; then
-        echo "[DRY-RUN] Would run: sudo apt-get install -y btop"
+        echo "[DRY-RUN] Would run: brew install btop"
         return 0
     fi
 
-    sudo apt-get update -qq
-    sudo apt-get install -y btop
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew install btop
 
     log_success "btop installed"
+}
+
+do_update() {
+    log_info "Updating btop via Homebrew..."
+
+    if is_dry_run; then
+        echo "[DRY-RUN] Would run: brew upgrade btop"
+        return 0
+    fi
+
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew upgrade btop || {
+        log_info "btop is already up-to-date"
+    }
+
+    log_success "btop updated"
 }
 
 verify() {
@@ -79,9 +106,18 @@ main() {
     [[ "${PACKAGE_BTOP_ENABLED:-true}" != "true" ]] && { log_info "btop disabled"; return 0; }
 
     case "${action}" in
-        install|update)
-            if is_installed && [[ "${action}" == "install" ]]; then
+        install)
+            if is_installed; then
                 log_success "btop already installed: v$(get_installed_version)"
+            else
+                do_install
+            fi
+            create_shell_config
+            verify
+            ;;
+        update)
+            if is_installed; then
+                do_update
             else
                 do_install
             fi

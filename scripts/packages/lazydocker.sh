@@ -5,7 +5,7 @@
 # A simple terminal UI for Docker
 # https://github.com/jesseduffield/lazydocker
 #
-# Uses GitHub releases (downloads latest)
+# Installs via Homebrew for latest version
 #
 # Usage: ./lazydocker.sh [install|update|verify|version]
 #==============================================================================
@@ -25,7 +25,9 @@ source "${SCRIPT_DIR}/../lib/health.sh"
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="lazydocker"
-INSTALL_PATH="/usr/local/bin/lazydocker"
+
+# shellcheck source=scripts/lib/brew.sh
+source "${SCRIPT_DIR}/../lib/brew.sh"
 
 is_installed() { command_exists lazydocker; }
 
@@ -35,38 +37,42 @@ get_installed_version() {
     fi
 }
 
-get_latest_version() {
-    curl -fsSL "https://api.github.com/repos/jesseduffield/lazydocker/releases/latest" 2>/dev/null | \
-        grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/'
-}
-
 do_install() {
-    log_info "Installing lazydocker..."
+    log_info "Installing lazydocker via Homebrew..."
 
     if is_dry_run; then
-        echo "[DRY-RUN] Would download and install lazydocker"
+        echo "[DRY-RUN] Would run: brew install lazydocker"
         return 0
     fi
 
-    local arch
-    arch=$(uname -m)
-    # lazydocker uses x86_64 and arm64
-    [[ "${arch}" == "aarch64" ]] && arch="arm64"
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
 
-    local version
-    version=$(get_latest_version)
-    local tmp_dir
-    tmp_dir=$(mktemp -d)
-    # shellcheck disable=SC2064  # Intentional: expand tmp_dir now to capture current value
-    trap "rm -rf '${tmp_dir}'" EXIT
-
-    local url="https://github.com/jesseduffield/lazydocker/releases/download/v${version}/lazydocker_${version}_Linux_${arch}.tar.gz"
-
-    curl -fsSL "${url}" -o "${tmp_dir}/lazydocker.tar.gz"
-    tar -xzf "${tmp_dir}/lazydocker.tar.gz" -C "${tmp_dir}"
-    sudo install -m 755 "${tmp_dir}/lazydocker" "${INSTALL_PATH}"
+    brew install lazydocker
 
     log_success "lazydocker installed"
+}
+
+do_update() {
+    log_info "Updating lazydocker via Homebrew..."
+
+    if is_dry_run; then
+        echo "[DRY-RUN] Would run: brew upgrade lazydocker"
+        return 0
+    fi
+
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew upgrade lazydocker || {
+        log_info "lazydocker is already up-to-date"
+    }
+
+    log_success "lazydocker updated"
 }
 
 verify() {
@@ -105,9 +111,18 @@ main() {
     [[ "${PACKAGE_LAZYDOCKER_ENABLED:-true}" != "true" ]] && { log_info "lazydocker disabled"; return 0; }
 
     case "${action}" in
-        install|update)
-            if is_installed && [[ "${action}" == "install" ]]; then
+        install)
+            if is_installed; then
                 log_success "lazydocker already installed: v$(get_installed_version)"
+            else
+                do_install
+            fi
+            create_shell_config
+            verify
+            ;;
+        update)
+            if is_installed; then
+                do_update
             else
                 do_install
             fi
