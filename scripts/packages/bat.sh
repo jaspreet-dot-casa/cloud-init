@@ -5,8 +5,7 @@
 # A cat clone with syntax highlighting and Git integration
 # https://github.com/sharkdp/bat
 #
-# Uses apt on Ubuntu (package name: bat, binary: batcat)
-# Creates symlink for 'bat' command
+# Installs via Homebrew for latest version
 #
 # Usage: ./bat.sh [install|update|verify|version]
 #==============================================================================
@@ -26,34 +25,33 @@ source "${SCRIPT_DIR}/../lib/health.sh"
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="bat"
+BREW_PREFIX="/home/linuxbrew/.linuxbrew"
 
-# bat is installed as 'batcat' on Ubuntu due to name conflict
-is_installed() { command_exists batcat || command_exists bat; }
+# Add brew to PATH for detection
+[[ -x "${BREW_PREFIX}/bin/brew" ]] && eval "$("${BREW_PREFIX}/bin/brew" shellenv)"
+
+is_installed() { command_exists bat; }
 
 get_installed_version() {
-    if command_exists bat; then
+    if is_installed; then
         bat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1
-    elif command_exists batcat; then
-        batcat --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1
     fi
 }
 
 do_install() {
-    log_info "Installing bat via apt..."
+    log_info "Installing bat via Homebrew..."
 
-    apt_or_print update -qq
-    apt_or_print install -y bat
-
-    # Create symlink for 'bat' command (Ubuntu installs as 'batcat')
-    if command_exists batcat && ! command_exists bat; then
-        mkdir -p "${HOME}/.local/bin"
-        if is_dry_run; then
-            echo "[DRY-RUN] Would create symlink: ln -sf batcat ~/.local/bin/bat"
-        else
-            ln -sf "$(command -v batcat)" "${HOME}/.local/bin/bat"
-        fi
-        log_info "Created symlink: bat -> batcat"
+    if is_dry_run; then
+        echo "[DRY-RUN] Would run: brew install bat"
+        return 0
     fi
+
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew install bat
 
     log_success "bat installed"
 }

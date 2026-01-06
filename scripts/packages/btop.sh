@@ -5,7 +5,7 @@
 # Resource monitor that shows usage and stats
 # https://github.com/aristocratos/btop
 #
-# Uses apt on Ubuntu 22.04+ (available in universe repo)
+# Installs via Homebrew for latest version
 #
 # Usage: ./btop.sh [install|update|verify|version]
 #==============================================================================
@@ -25,6 +25,10 @@ source "${SCRIPT_DIR}/../lib/health.sh"
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="btop"
+BREW_PREFIX="/home/linuxbrew/.linuxbrew"
+
+# Add brew to PATH for detection
+[[ -x "${BREW_PREFIX}/bin/brew" ]] && eval "$("${BREW_PREFIX}/bin/brew" shellenv)"
 
 is_installed() { command_exists btop; }
 
@@ -35,15 +39,19 @@ get_installed_version() {
 }
 
 do_install() {
-    log_info "Installing btop via apt..."
+    log_info "Installing btop via Homebrew..."
 
     if is_dry_run; then
-        echo "[DRY-RUN] Would run: sudo apt-get install -y btop"
+        echo "[DRY-RUN] Would run: brew install btop"
         return 0
     fi
 
-    sudo apt-get update -qq
-    sudo apt-get install -y btop
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew install btop
 
     log_success "btop installed"
 }

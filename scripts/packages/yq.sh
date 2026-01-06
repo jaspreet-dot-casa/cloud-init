@@ -5,7 +5,7 @@
 # A portable command-line YAML processor
 # https://github.com/mikefarah/yq
 #
-# Uses GitHub releases (downloads latest)
+# Installs via Homebrew for latest version
 #
 # Usage: ./yq.sh [install|update|verify|version]
 #==============================================================================
@@ -25,7 +25,10 @@ source "${SCRIPT_DIR}/../lib/health.sh"
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="yq"
-INSTALL_PATH="/usr/local/bin/yq"
+BREW_PREFIX="/home/linuxbrew/.linuxbrew"
+
+# Add brew to PATH for detection
+[[ -x "${BREW_PREFIX}/bin/brew" ]] && eval "$("${BREW_PREFIX}/bin/brew" shellenv)"
 
 is_installed() { command_exists yq; }
 
@@ -36,32 +39,19 @@ get_installed_version() {
 }
 
 do_install() {
-    log_info "Installing yq..."
+    log_info "Installing yq via Homebrew..."
 
     if is_dry_run; then
-        echo "[DRY-RUN] Would download and install yq"
+        echo "[DRY-RUN] Would run: brew install yq"
         return 0
     fi
 
-    local arch
-    arch=$(uname -m)
-    # yq uses amd64 and arm64
-    case "${arch}" in
-        x86_64) arch="amd64" ;;
-        aarch64) arch="arm64" ;;
-    esac
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
 
-    local tmp_dir
-    tmp_dir=$(mktemp -d)
-    # shellcheck disable=SC2064  # Intentional: expand tmp_dir now to capture current value
-    trap "rm -rf '${tmp_dir}'" EXIT
-
-    # Download latest binary directly
-    local url="https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${arch}"
-
-    curl -fsSL "${url}" -o "${tmp_dir}/yq"
-    chmod +x "${tmp_dir}/yq"
-    sudo install -m 755 "${tmp_dir}/yq" "${INSTALL_PATH}"
+    brew install yq
 
     log_success "yq installed"
 }

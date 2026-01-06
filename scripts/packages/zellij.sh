@@ -5,7 +5,7 @@
 # A terminal workspace with batteries included
 # https://zellij.dev
 #
-# Uses official installer from GitHub releases
+# Installs via Homebrew for latest version
 #
 # Usage: ./zellij.sh [install|update|verify|version]
 #==============================================================================
@@ -25,7 +25,10 @@ source "${SCRIPT_DIR}/../lib/health.sh"
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="zellij"
-INSTALL_PATH="/usr/local/bin/zellij"
+BREW_PREFIX="/home/linuxbrew/.linuxbrew"
+
+# Add brew to PATH for detection
+[[ -x "${BREW_PREFIX}/bin/brew" ]] && eval "$("${BREW_PREFIX}/bin/brew" shellenv)"
 
 is_installed() { command_exists zellij; }
 
@@ -36,29 +39,19 @@ get_installed_version() {
 }
 
 do_install() {
-    log_info "Installing zellij..."
+    log_info "Installing zellij via Homebrew..."
 
     if is_dry_run; then
-        echo "[DRY-RUN] Would download and install zellij"
+        echo "[DRY-RUN] Would run: brew install zellij"
         return 0
     fi
 
-    local arch
-    arch=$(uname -m)
-    # zellij uses x86_64 and aarch64
-    [[ "${arch}" == "arm64" ]] && arch="aarch64"
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
 
-    local tmp_dir
-    tmp_dir=$(mktemp -d)
-    # shellcheck disable=SC2064  # Intentional: expand tmp_dir now to capture current value
-    trap "rm -rf '${tmp_dir}'" EXIT
-
-    # Get latest release URL
-    local url="https://github.com/zellij-org/zellij/releases/latest/download/zellij-${arch}-unknown-linux-musl.tar.gz"
-
-    curl -fsSL "${url}" -o "${tmp_dir}/zellij.tar.gz"
-    tar -xzf "${tmp_dir}/zellij.tar.gz" -C "${tmp_dir}"
-    sudo install -m 755 "${tmp_dir}/zellij" "${INSTALL_PATH}"
+    brew install zellij
 
     log_success "zellij installed"
 }

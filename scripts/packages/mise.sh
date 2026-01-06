@@ -5,7 +5,7 @@
 # The polyglot runtime manager (replaces asdf, nvm, pyenv, etc.)
 # https://mise.jdx.dev
 #
-# Uses official installer: curl https://mise.jdx.dev/install.sh | sh
+# Installs via Homebrew for latest version
 #
 # Usage: ./mise.sh [install|update|verify|version]
 #==============================================================================
@@ -25,9 +25,10 @@ source "${SCRIPT_DIR}/../lib/health.sh"
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="mise"
+BREW_PREFIX="/home/linuxbrew/.linuxbrew"
 
-# Mise installs to ~/.local/bin - ensure it's in PATH for detection
-[[ -d "${HOME}/.local/bin" ]] && export PATH="${HOME}/.local/bin:${PATH}"
+# Add brew to PATH for detection
+[[ -x "${BREW_PREFIX}/bin/brew" ]] && eval "$("${BREW_PREFIX}/bin/brew" shellenv)"
 
 is_installed() { command_exists mise; }
 
@@ -38,16 +39,19 @@ get_installed_version() {
 }
 
 do_install() {
-    log_info "Installing mise via official installer..."
+    log_info "Installing mise via Homebrew..."
 
     if is_dry_run; then
-        echo "[DRY-RUN] Would run: curl https://mise.jdx.dev/install.sh | sh"
+        echo "[DRY-RUN] Would run: brew install mise"
         return 0
     fi
 
-    # Install to ~/.local/bin (user-local, no sudo needed)
-    mkdir -p "${HOME}/.local/bin"
-    curl -fsSL https://mise.jdx.dev/install.sh | sh
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew install mise
 
     log_success "mise installed"
 }

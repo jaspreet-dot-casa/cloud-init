@@ -5,7 +5,7 @@
 # The minimal, blazing-fast, and infinitely customizable prompt
 # https://starship.rs
 #
-# Uses official installer: curl -sS https://starship.rs/install.sh | sh
+# Installs via Homebrew for latest version
 #
 # Usage: ./starship.sh [install|update|verify|version]
 #==============================================================================
@@ -25,9 +25,10 @@ source "${SCRIPT_DIR}/../lib/health.sh"
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="starship"
+BREW_PREFIX="/home/linuxbrew/.linuxbrew"
 
-# Starship installs to ~/.local/bin - ensure it's in PATH for detection
-[[ -d "${HOME}/.local/bin" ]] && export PATH="${HOME}/.local/bin:${PATH}"
+# Add brew to PATH for detection
+[[ -x "${BREW_PREFIX}/bin/brew" ]] && eval "$("${BREW_PREFIX}/bin/brew" shellenv)"
 
 is_installed() { command_exists starship; }
 
@@ -38,16 +39,19 @@ get_installed_version() {
 }
 
 do_install() {
-    log_info "Installing starship via official installer..."
+    log_info "Installing starship via Homebrew..."
 
     if is_dry_run; then
-        echo "[DRY-RUN] Would run: curl -sS https://starship.rs/install.sh | sh -s -- -y -b ~/.local/bin"
+        echo "[DRY-RUN] Would run: brew install starship"
         return 0
     fi
 
-    # Install to ~/.local/bin (user-local, no sudo needed)
-    mkdir -p "${HOME}/.local/bin"
-    curl -sS https://starship.rs/install.sh | sh -s -- -y -b "${HOME}/.local/bin"
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew install starship
 
     log_success "starship installed"
 }
@@ -96,8 +100,6 @@ main() {
                 log_success "starship already installed: v$(get_installed_version)"
             else
                 do_install
-                # Refresh PATH after install (directory now exists)
-                export PATH="${HOME}/.local/bin:${PATH}"
             fi
             create_shell_config
             verify

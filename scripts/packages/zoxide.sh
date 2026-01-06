@@ -5,7 +5,7 @@
 # A smarter cd command
 # https://github.com/ajeetdsouza/zoxide
 #
-# Uses official installer: curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh
+# Installs via Homebrew for latest version
 #
 # Usage: ./zoxide.sh [install|update|verify|version]
 #==============================================================================
@@ -25,10 +25,10 @@ source "${SCRIPT_DIR}/../lib/health.sh"
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="zoxide"
+BREW_PREFIX="/home/linuxbrew/.linuxbrew"
 
-# zoxide official installer installs to ~/.local/bin
-# Ensure it's in PATH for detection
-[[ -d "${HOME}/.local/bin" ]] && export PATH="${HOME}/.local/bin:${PATH}"
+# Add brew to PATH for detection
+[[ -x "${BREW_PREFIX}/bin/brew" ]] && eval "$("${BREW_PREFIX}/bin/brew" shellenv)"
 
 is_installed() { command_exists zoxide; }
 
@@ -39,14 +39,19 @@ get_installed_version() {
 }
 
 do_install() {
-    log_info "Installing zoxide via official installer..."
+    log_info "Installing zoxide via Homebrew..."
 
     if is_dry_run; then
-        echo "[DRY-RUN] Would run: curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh"
+        echo "[DRY-RUN] Would run: brew install zoxide"
         return 0
     fi
 
-    curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew install zoxide
 
     log_success "zoxide installed"
 }

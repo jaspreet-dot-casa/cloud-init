@@ -5,7 +5,7 @@
 # GitHub's official command line tool
 # https://github.com/cli/cli
 #
-# Installed via apt repository (not GitHub releases)
+# Installs via Homebrew for latest version
 #
 # Usage: ./github-cli.sh [install|update|verify|version]
 #==============================================================================
@@ -19,14 +19,16 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # shellcheck source=scripts/lib/core.sh
 source "${SCRIPT_DIR}/../lib/core.sh"
-# shellcheck source=scripts/lib/lock.sh
-source "${SCRIPT_DIR}/../lib/lock.sh"
 # shellcheck source=scripts/lib/health.sh
 source "${SCRIPT_DIR}/../lib/health.sh"
 # shellcheck source=scripts/lib/dryrun.sh
 source "${SCRIPT_DIR}/../lib/dryrun.sh"
 
 PACKAGE_NAME="gh"
+BREW_PREFIX="/home/linuxbrew/.linuxbrew"
+
+# Add brew to PATH for detection
+[[ -x "${BREW_PREFIX}/bin/brew" ]] && eval "$("${BREW_PREFIX}/bin/brew" shellenv)"
 
 is_installed() { command_exists gh; }
 
@@ -36,54 +38,20 @@ get_installed_version() {
     fi
 }
 
-# Check if GitHub CLI repository is configured
-is_repo_configured() {
-    [[ -f /etc/apt/sources.list.d/github-cli.list ]]
-}
-
-# Add GitHub CLI repository
-add_gh_repo() {
-    log_info "Adding GitHub CLI repository..."
-
-    if ! is_dry_run; then
-        # Install prerequisites
-        sudo apt-get update -qq
-        sudo apt-get install -y -qq curl gpg
-
-        # Add GPG key
-        sudo mkdir -p -m 755 /etc/apt/keyrings
-        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
-        sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
-
-        # Add repository
-        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | \
-            sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-
-        sudo apt-get update -qq
-    else
-        echo "[DRY-RUN] Would add GitHub CLI repository"
-    fi
-
-    log_success "GitHub CLI repository added"
-}
-
 do_install() {
-    log_info "Installing GitHub CLI..."
+    log_info "Installing GitHub CLI via Homebrew..."
 
-    # Add repository if not configured
-    if ! is_repo_configured; then
-        add_gh_repo
+    if is_dry_run; then
+        echo "[DRY-RUN] Would run: brew install gh"
+        return 0
     fi
 
-    # Install gh
-    apt_or_print install -y -qq gh
-
-    # Update lock file
-    local version
-    version=$(get_installed_version)
-    if [[ -n "${version}" ]]; then
-        update_lock "${PACKAGE_NAME}" "${version}"
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
     fi
+
+    brew install gh
 
     log_success "GitHub CLI installed"
 }
@@ -132,22 +100,13 @@ main() {
     [[ "${PACKAGE_GITHUB_CLI_ENABLED:-true}" != "true" ]] && { log_info "GitHub CLI disabled"; return 0; }
 
     case "${action}" in
-        install)
-            if is_installed; then
+        install|update)
+            if is_installed && [[ "${action}" == "install" ]]; then
                 log_success "GitHub CLI already installed: v$(get_installed_version)"
             else
                 do_install
             fi
             create_shell_config
-            verify
-            ;;
-        update)
-            log_info "Updating GitHub CLI via apt..."
-            apt_or_print update -qq
-            apt_or_print upgrade -y -qq gh
-            local version
-            version=$(get_installed_version)
-            [[ -n "${version}" ]] && update_lock "${PACKAGE_NAME}" "${version}"
             verify
             ;;
         verify) verify ;;
@@ -161,10 +120,6 @@ main() {
             ;;
         *) echo "Usage: $0 [install|update|verify|version] [--dry-run]"; exit 1 ;;
     esac
-
-    if is_dry_run; then
-        print_dry_run_summary
-    fi
 }
 
 [[ "${BASH_SOURCE[0]}" == "${0}" ]] && main "$@"
