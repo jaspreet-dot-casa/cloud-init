@@ -55,6 +55,27 @@ do_install() {
     log_success "GitHub CLI installed"
 }
 
+do_update() {
+    log_info "Updating GitHub CLI via Homebrew..."
+
+    if is_dry_run; then
+        echo "[DRY-RUN] Would run: brew upgrade gh"
+        return 0
+    fi
+
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew upgrade gh || {
+        # brew upgrade fails if already up-to-date, which is fine
+        log_info "GitHub CLI is already up-to-date"
+    }
+
+    log_success "GitHub CLI updated"
+}
+
 verify() {
     if ! is_installed; then
         health_fail "${PACKAGE_NAME}" "not installed"
@@ -99,9 +120,18 @@ main() {
     [[ "${PACKAGE_GITHUB_CLI_ENABLED:-true}" != "true" ]] && { log_info "GitHub CLI disabled"; return 0; }
 
     case "${action}" in
-        install|update)
-            if is_installed && [[ "${action}" == "install" ]]; then
+        install)
+            if is_installed; then
                 log_success "GitHub CLI already installed: v$(get_installed_version)"
+            else
+                do_install
+            fi
+            create_shell_config
+            verify
+            ;;
+        update)
+            if is_installed; then
+                do_update
             else
                 do_install
             fi
