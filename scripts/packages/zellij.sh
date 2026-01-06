@@ -55,6 +55,26 @@ do_install() {
     log_success "zellij installed"
 }
 
+do_update() {
+    log_info "Updating zellij via Homebrew..."
+
+    if is_dry_run; then
+        echo "[DRY-RUN] Would run: brew upgrade zellij"
+        return 0
+    fi
+
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew upgrade zellij || {
+        log_info "zellij is already up-to-date"
+    }
+
+    log_success "zellij updated"
+}
+
 verify() {
     if ! is_installed; then
         health_fail "${PACKAGE_NAME}" "not installed"
@@ -91,9 +111,18 @@ main() {
     [[ "${PACKAGE_ZELLIJ_ENABLED:-true}" != "true" ]] && { log_info "zellij disabled"; return 0; }
 
     case "${action}" in
-        install|update)
-            if is_installed && [[ "${action}" == "install" ]]; then
+        install)
+            if is_installed; then
                 log_success "zellij already installed: v$(get_installed_version)"
+            else
+                do_install
+            fi
+            create_shell_config
+            verify
+            ;;
+        update)
+            if is_installed; then
+                do_update
             else
                 do_install
             fi

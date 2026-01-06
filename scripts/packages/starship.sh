@@ -55,6 +55,26 @@ do_install() {
     log_success "starship installed"
 }
 
+do_update() {
+    log_info "Updating starship via Homebrew..."
+
+    if is_dry_run; then
+        echo "[DRY-RUN] Would run: brew upgrade starship"
+        return 0
+    fi
+
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew upgrade starship || {
+        log_info "starship is already up-to-date"
+    }
+
+    log_success "starship updated"
+}
+
 verify() {
     if ! is_installed; then
         health_fail "${PACKAGE_NAME}" "not installed"
@@ -94,9 +114,18 @@ main() {
     [[ "${PACKAGE_STARSHIP_ENABLED:-true}" != "true" ]] && { log_info "starship disabled"; return 0; }
 
     case "${action}" in
-        install|update)
-            if is_installed && [[ "${action}" == "install" ]]; then
+        install)
+            if is_installed; then
                 log_success "starship already installed: v$(get_installed_version)"
+            else
+                do_install
+            fi
+            create_shell_config
+            verify
+            ;;
+        update)
+            if is_installed; then
+                do_update
             else
                 do_install
             fi

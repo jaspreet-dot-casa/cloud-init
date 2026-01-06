@@ -55,6 +55,26 @@ do_install() {
     log_success "mise installed"
 }
 
+do_update() {
+    log_info "Updating mise via Homebrew..."
+
+    if is_dry_run; then
+        echo "[DRY-RUN] Would run: brew upgrade mise"
+        return 0
+    fi
+
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew upgrade mise || {
+        log_info "mise is already up-to-date"
+    }
+
+    log_success "mise updated"
+}
+
 verify() {
     if ! is_installed; then
         health_fail "${PACKAGE_NAME}" "not installed"
@@ -95,9 +115,18 @@ main() {
     [[ "${PACKAGE_MISE_ENABLED:-true}" != "true" ]] && { log_info "mise disabled"; return 0; }
 
     case "${action}" in
-        install|update)
-            if is_installed && [[ "${action}" == "install" ]]; then
+        install)
+            if is_installed; then
                 log_success "mise already installed: v$(get_installed_version)"
+            else
+                do_install
+            fi
+            create_shell_config
+            verify
+            ;;
+        update)
+            if is_installed; then
+                do_update
             else
                 do_install
             fi

@@ -55,6 +55,26 @@ do_install() {
     log_success "fzf installed"
 }
 
+do_update() {
+    log_info "Updating fzf via Homebrew..."
+
+    if is_dry_run; then
+        echo "[DRY-RUN] Would run: brew upgrade fzf"
+        return 0
+    fi
+
+    if ! command_exists brew; then
+        log_error "Homebrew not installed. Please install homebrew first."
+        return 1
+    fi
+
+    brew upgrade fzf || {
+        log_info "fzf is already up-to-date"
+    }
+
+    log_success "fzf updated"
+}
+
 verify() {
     if ! is_installed; then
         health_fail "${PACKAGE_NAME}" "not installed"
@@ -131,9 +151,18 @@ main() {
     [[ "${PACKAGE_FZF_ENABLED:-true}" != "true" ]] && { log_info "fzf disabled"; return 0; }
 
     case "${action}" in
-        install|update)
-            if is_installed && [[ "${action}" == "install" ]]; then
+        install)
+            if is_installed; then
                 log_success "fzf already installed: v$(get_installed_version)"
+            else
+                do_install
+            fi
+            create_shell_config
+            verify
+            ;;
+        update)
+            if is_installed; then
+                do_update
             else
                 do_install
             fi
