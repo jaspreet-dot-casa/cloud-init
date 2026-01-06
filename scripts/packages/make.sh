@@ -55,6 +55,10 @@ do_install() {
     log_success "make installed"
 }
 
+is_managed_by_brew() {
+    command_exists brew && brew list make &>/dev/null
+}
+
 do_update() {
     log_info "Updating make via Homebrew..."
 
@@ -68,11 +72,35 @@ do_update() {
         return 1
     fi
 
-    brew upgrade make || {
-        log_info "make is already up-to-date"
-    }
+    # Check if make is managed by Homebrew
+    if ! is_managed_by_brew; then
+        log_warn "make is not managed by Homebrew (may be system make from build-essential)"
+        log_info "Installing make via Homebrew to manage updates..."
+        brew install make
+        log_success "make installed via Homebrew"
+        return 0
+    fi
 
-    log_success "make updated"
+    # Attempt upgrade and handle different outcomes
+    local upgrade_output
+    local upgrade_exit_code
+    upgrade_output=$(brew upgrade make 2>&1) && upgrade_exit_code=0 || upgrade_exit_code=$?
+
+    if [[ ${upgrade_exit_code} -eq 0 ]]; then
+        if [[ -z "${upgrade_output}" ]] || echo "${upgrade_output}" | grep -q "already up-to-date\|already installed"; then
+            log_info "make is already up-to-date"
+        else
+            log_success "make updated"
+        fi
+    else
+        # Check if the error is just "already up-to-date" (brew returns non-zero for this)
+        if echo "${upgrade_output}" | grep -qi "already up-to-date\|already installed\|No changes"; then
+            log_info "make is already up-to-date"
+        else
+            log_error "Failed to upgrade make: ${upgrade_output}"
+            return 1
+        fi
+    fi
 }
 
 verify() {
