@@ -29,7 +29,7 @@ source "${SCRIPT_DIR}/../lib/health.sh"
 PACKAGE_NAME="apt"
 
 # Default packages if not specified in config.env
-DEFAULT_APT_PACKAGES="curl wget git zsh tree jq htop unzip build-essential procps file make"
+DEFAULT_APT_PACKAGES="curl wget git zsh tree jq htop unzip build-essential procps file"
 
 #==============================================================================
 # Functions
