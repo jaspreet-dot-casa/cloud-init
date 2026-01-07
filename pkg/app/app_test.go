@@ -40,14 +40,14 @@ func TestNew(t *testing.T) {
 }
 
 func TestModel_WithTabs(t *testing.T) {
-	tab1 := newMockTab(TabCreate, "Create", "1", "Create content")
-	tab2 := newMockTab(TabISO, "ISO", "2", "ISO content")
+	tab1 := newMockTab(TabVMs, "VMs", "1", "VMs content")
+	tab2 := newMockTab(TabCreate, "Create", "2", "Create content")
 
 	m := New("/test").WithTabs(tab1, tab2)
 
 	assert.Len(t, m.tabs, 2)
-	assert.Equal(t, "Create", m.tabs[0].Name())
-	assert.Equal(t, "ISO", m.tabs[1].Name())
+	assert.Equal(t, "VMs", m.tabs[0].Name())
+	assert.Equal(t, "Create", m.tabs[1].Name())
 }
 
 func TestModel_Init(t *testing.T) {
@@ -85,8 +85,8 @@ func TestModel_Update_QuitKey(t *testing.T) {
 }
 
 func TestModel_Update_TabSwitching(t *testing.T) {
-	tab1 := newMockTab(TabCreate, "Create", "1", "Create content")
-	tab2 := newMockTab(TabISO, "ISO", "2", "ISO content")
+	tab1 := newMockTab(TabVMs, "VMs", "1", "VMs content")
+	tab2 := newMockTab(TabCreate, "Create", "2", "Create content")
 	tab3 := newMockTab(TabDoctor, "Doctor", "3", "Doctor content")
 
 	m := New("/test").WithTabs(tab1, tab2, tab3)
@@ -112,8 +112,8 @@ func TestModel_Update_TabSwitching(t *testing.T) {
 }
 
 func TestModel_Update_TabKey(t *testing.T) {
-	tab1 := newMockTab(TabCreate, "Create", "1", "content")
-	tab2 := newMockTab(TabISO, "ISO", "2", "content")
+	tab1 := newMockTab(TabVMs, "VMs", "1", "content")
+	tab2 := newMockTab(TabCreate, "Create", "2", "content")
 
 	m := New("/test").WithTabs(tab1, tab2)
 	assert.Equal(t, 0, m.activeTab)
@@ -147,8 +147,8 @@ func TestModel_View_Quitting(t *testing.T) {
 }
 
 func TestModel_ActiveTab(t *testing.T) {
-	tab1 := newMockTab(TabCreate, "Create", "1", "content")
-	tab2 := newMockTab(TabISO, "ISO", "2", "content")
+	tab1 := newMockTab(TabVMs, "VMs", "1", "content")
+	tab2 := newMockTab(TabCreate, "Create", "2", "content")
 
 	m := New("/test").WithTabs(tab1, tab2)
 

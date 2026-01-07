@@ -176,7 +176,6 @@ func TestModel_View_TargetPhase(t *testing.T) {
 	assert.Contains(t, view, "Select Deployment Target")
 	assert.Contains(t, view, "Terragrunt")
 	assert.Contains(t, view, "Multipass")
-	assert.Contains(t, view, "Bootable USB")
 	assert.Contains(t, view, "Generate Config")
 }
 
@@ -198,11 +197,8 @@ func TestTargets(t *testing.T) {
 	assert.Equal(t, deploy.TargetMultipass, phases.Targets[1].Target)
 	assert.Equal(t, "Multipass", phases.Targets[1].Name)
 
-	assert.Equal(t, deploy.TargetUSB, phases.Targets[2].Target)
-	assert.Equal(t, "Bootable USB", phases.Targets[2].Name)
-
-	assert.Equal(t, deploy.TargetConfigOnly, phases.Targets[3].Target)
-	assert.Equal(t, "Generate Config", phases.Targets[3].Name)
+	assert.Equal(t, deploy.TargetConfigOnly, phases.Targets[2].Target)
+	assert.Equal(t, "Generate Config", phases.Targets[2].Name)
 }
 
 func TestWizardState_NextPhase(t *testing.T) {

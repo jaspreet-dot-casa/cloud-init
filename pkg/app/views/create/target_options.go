@@ -18,8 +18,6 @@ func (m *Model) initTargetOptionsPhase() {
 		m.initMultipassPhase()
 	case deploy.TargetTerragrunt:
 		m.initTerragruntPhase()
-	case deploy.TargetUSB:
-		m.initUSBPhase()
 	case deploy.TargetConfigOnly:
 		m.initGeneratePhase()
 	default:
@@ -34,8 +32,6 @@ func (m *Model) handleTargetOptionsPhase(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 		return m.handleMultipassPhase(msg)
 	case deploy.TargetTerragrunt:
 		return m.handleTerragruntPhase(msg)
-	case deploy.TargetUSB:
-		return m.handleUSBPhase(msg)
 	case deploy.TargetConfigOnly:
 		return m.handleGeneratePhase(msg)
 	default:
@@ -50,8 +46,6 @@ func (m *Model) viewTargetOptionsPhase() string {
 		return m.viewMultipassPhase()
 	case deploy.TargetTerragrunt:
 		return m.viewTerragruntPhase()
-	case deploy.TargetUSB:
-		return m.viewUSBPhase()
 	case deploy.TargetConfigOnly:
 		return m.viewGeneratePhase()
 	}

@@ -12,10 +12,9 @@ import (
 type DeploymentTarget string
 
 const (
-	TargetMultipass  DeploymentTarget = "multipass"
-	TargetUSB        DeploymentTarget = "usb"
-	TargetTerragrunt DeploymentTarget = "terragrunt"
-	TargetConfigOnly DeploymentTarget = "config"
+	TargetMultipass   DeploymentTarget = "multipass"
+	TargetTerragrunt  DeploymentTarget = "terragrunt"
+	TargetConfigOnly  DeploymentTarget = "config"
 )
 
 // String returns the string representation of the target.
@@ -28,8 +27,6 @@ func (t DeploymentTarget) DisplayName() string {
 	switch t {
 	case TargetMultipass:
 		return "Multipass VM"
-	case TargetUSB:
-		return "Bootable USB"
 	case TargetTerragrunt:
 		return "Terragrunt/libvirt"
 	case TargetConfigOnly:
@@ -44,10 +41,8 @@ func (t DeploymentTarget) Description() string {
 	switch t {
 	case TargetMultipass:
 		return "Create a local VM using Multipass for testing"
-	case TargetUSB:
-		return "Generate bootable ISO and optionally write to USB"
 	case TargetTerragrunt:
-		return "Generate Terragrunt/OpenTofu config for libvirt VM"
+		return "Generate Terragrunt config for libvirt VM (run manually)"
 	case TargetConfigOnly:
 		return "Generate config files only (no deployment)"
 	default:
@@ -60,7 +55,7 @@ func AllTargets() []DeploymentTarget {
 	return []DeploymentTarget{
 		TargetTerragrunt,
 		TargetMultipass,
-		TargetUSB,
+		TargetConfigOnly,
 	}
 }
 
@@ -73,9 +68,6 @@ type DeployOptions struct {
 
 	// Multipass-specific options
 	Multipass MultipassOptions
-
-	// USB-specific options
-	USB USBOptions
 
 	// Terragrunt-specific options
 	Terragrunt TerragruntOptions
@@ -103,46 +95,35 @@ func DefaultMultipassOptions() MultipassOptions {
 	}
 }
 
-// USBOptions contains USB/ISO-specific deployment options.
-type USBOptions struct {
-	SourceISO     string // Path to source Ubuntu ISO
-	OutputISO     string // Path for output ISO (optional)
-	DevicePath    string // USB device path (e.g., /dev/sdb)
-	UbuntuVersion string // e.g., "24.04"
-	StorageLayout string // "lvm", "direct", or "zfs"
-}
-
-// DefaultUSBOptions returns sensible defaults for USB.
-func DefaultUSBOptions() USBOptions {
-	return USBOptions{
-		UbuntuVersion: "24.04",
-		StorageLayout: "lvm",
-	}
-}
-
-// TerragruntOptions contains Terragrunt/OpenTofu generation options.
+// TerragruntOptions contains Terragrunt-specific deployment options.
 type TerragruntOptions struct {
-	VMName      string
-	CPUs        int
-	MemoryMB    int
-	DiskGB      int
-	Autostart   bool   // Start VM automatically on host boot
-	LibvirtURI  string // Libvirt connection URI (e.g., "qemu:///system")
-	StoragePool string // Libvirt storage pool name
-	NetworkName string // Libvirt network name
-	UbuntuImage string // Path to Ubuntu cloud image
+	WorkDir       string // Terragrunt working directory (relative to project root)
+	AutoApprove   bool   // Skip interactive approval
+	VMName        string
+	CPUs          int
+	MemoryMB      int
+	DiskGB        int
+	Autostart     bool   // Start VM automatically on host boot
+	LibvirtURI    string // Libvirt connection URI (e.g., "qemu:///system")
+	StoragePool   string // Libvirt storage pool name
+	NetworkName   string // Libvirt network name
+	UbuntuImage   string // Path to Ubuntu cloud image
+	KeepOnFailure bool   // Keep resources for debugging on failure
 }
 
 // DefaultTerragruntOptions returns sensible defaults for Terragrunt.
 func DefaultTerragruntOptions() TerragruntOptions {
 	return TerragruntOptions{
-		CPUs:        2,
-		MemoryMB:    2048,
-		DiskGB:      20,
-		LibvirtURI:  "qemu:///system",
-		StoragePool: "default",
-		NetworkName: "default",
-		UbuntuImage: "/var/lib/libvirt/images/noble-server-cloudimg-amd64.img",
+		WorkDir:       "terragrunt",
+		AutoApprove:   false,
+		CPUs:          2,
+		MemoryMB:      2048,
+		DiskGB:        20,
+		LibvirtURI:    "qemu:///system",
+		StoragePool:   "default",
+		NetworkName:   "default",
+		UbuntuImage:   "/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img",
+		KeepOnFailure: false,
 	}
 }
 

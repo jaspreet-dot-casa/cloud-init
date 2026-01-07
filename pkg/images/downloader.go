@@ -138,12 +138,12 @@ func (d *Downloader) DownloadCloudImage(ctx context.Context, version, arch strin
 	}
 
 	// Determine destination path
-	s, err := d.store.Load()
+	home, err := os.UserHomeDir()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load settings: %w", err)
+		return nil, fmt.Errorf("failed to get home directory: %w", err)
 	}
-
-	destPath := filepath.Join(s.ImagesDir, info.Filename)
+	imagesDir := filepath.Join(home, "Downloads")
+	destPath := filepath.Join(imagesDir, info.Filename)
 
 	// Download
 	err = d.Download(ctx, DownloadOptions{
@@ -165,7 +165,7 @@ func (d *Downloader) DownloadCloudImage(ctx context.Context, version, arch strin
 
 	// Update with URL
 	img.URL = info.URL
-	s, err = d.store.Load()
+	s, err := d.store.Load()
 	if err != nil {
 		return img, fmt.Errorf("failed to reload settings: %w", err)
 	}

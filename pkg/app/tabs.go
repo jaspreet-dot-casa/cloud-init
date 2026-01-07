@@ -8,8 +8,8 @@ import (
 type TabID int
 
 const (
-	TabCreate TabID = iota
-	TabISO
+	TabVMs TabID = iota
+	TabCreate
 	TabDoctor
 	TabConfig
 )

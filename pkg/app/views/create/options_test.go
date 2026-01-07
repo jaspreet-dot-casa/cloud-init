@@ -114,25 +114,3 @@ func TestGetMultipassImageValue(t *testing.T) {
 	assert.Equal(t, "24.04", GetMultipassImageValue(-1))
 	assert.Equal(t, "24.04", GetMultipassImageValue(99))
 }
-
-func TestStorageOptions(t *testing.T) {
-	assert.Len(t, StorageOptions, 3)
-	assert.Equal(t, "LVM (recommended)", StorageOptions[0].Label)
-	assert.Equal(t, "lvm", StorageOptions[0].Value)
-}
-
-func TestGetStorageLabels(t *testing.T) {
-	labels := GetStorageLabels()
-	assert.Len(t, labels, 3)
-	assert.Equal(t, "LVM (recommended)", labels[0])
-}
-
-func TestGetStorageValue(t *testing.T) {
-	assert.Equal(t, "lvm", GetStorageValue(0))
-	assert.Equal(t, "direct", GetStorageValue(1))
-	assert.Equal(t, "zfs", GetStorageValue(2))
-
-	// Invalid indices return LVM
-	assert.Equal(t, "lvm", GetStorageValue(-1))
-	assert.Equal(t, "lvm", GetStorageValue(99))
-}
