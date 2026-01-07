@@ -230,6 +230,23 @@ func (m *Model) viewNextSteps() string {
 		b.WriteString(cmdStyle.Render("terragrunt destroy"))
 		b.WriteString("\n\n")
 
+	case deploy.TargetUSB:
+		// USB/ISO: show how to write to USB
+		b.WriteString(labelStyle.Render("  Write ISO to USB (Linux):"))
+		b.WriteString("\n")
+		b.WriteString("  ")
+		b.WriteString(cmdStyle.Render("sudo dd if=<iso-path> of=/dev/sdX bs=4M status=progress && sync"))
+		b.WriteString("\n\n")
+
+		b.WriteString(labelStyle.Render("  Write ISO to USB (macOS):"))
+		b.WriteString("\n")
+		b.WriteString("  ")
+		b.WriteString(cmdStyle.Render("sudo dd if=<iso-path> of=/dev/rdiskN bs=4m && sync"))
+		b.WriteString("\n\n")
+
+		b.WriteString(dimStyle.Render("  Note: Replace /dev/sdX or /dev/rdiskN with your USB device"))
+		b.WriteString("\n\n")
+
 	default:
 		b.WriteString(dimStyle.Render("  See documentation for next steps."))
 		b.WriteString("\n\n")

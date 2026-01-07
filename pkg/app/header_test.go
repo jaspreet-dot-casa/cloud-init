@@ -28,8 +28,8 @@ func (t *mockTabForHeader) HasFocusedInput() bool             { return false }
 
 func TestRenderHeader(t *testing.T) {
 	tabs := []Tab{
-		newMockTabForHeader(TabVMs, "VMs", "1"),
-		newMockTabForHeader(TabCreate, "Create", "2"),
+		newMockTabForHeader(TabCreate, "Create", "1"),
+		newMockTabForHeader(TabISO, "ISO", "2"),
 	}
 
 	header := renderHeader(tabs, 0, 100)
@@ -38,8 +38,8 @@ func TestRenderHeader(t *testing.T) {
 	assert.Contains(t, header, "ucli")
 
 	// Should contain tab names
-	assert.Contains(t, header, "VMs")
 	assert.Contains(t, header, "Create")
+	assert.Contains(t, header, "ISO")
 
 	// Should contain quit hint (could be "[q]uit" or "quit")
 	assert.True(t, strings.Contains(header, "quit") || strings.Contains(header, "[q]uit"))
@@ -47,17 +47,17 @@ func TestRenderHeader(t *testing.T) {
 
 func TestRenderHeader_ActiveTab(t *testing.T) {
 	tabs := []Tab{
-		newMockTabForHeader(TabVMs, "VMs", "1"),
-		newMockTabForHeader(TabCreate, "Create", "2"),
+		newMockTabForHeader(TabCreate, "Create", "1"),
+		newMockTabForHeader(TabISO, "ISO", "2"),
 	}
 
 	// Active tab 0
 	header := renderHeader(tabs, 0, 100)
-	assert.Contains(t, header, "VMs")
+	assert.Contains(t, header, "Create")
 
 	// Active tab 1
 	header = renderHeader(tabs, 1, 100)
-	assert.Contains(t, header, "Create")
+	assert.Contains(t, header, "ISO")
 }
 
 func TestRenderHeader_NoTabs(t *testing.T) {

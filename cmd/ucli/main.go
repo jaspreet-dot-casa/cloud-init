@@ -12,6 +12,7 @@ import (
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/create"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/doctor"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/iso"
 	settingsview "github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/settings"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/globalconfig"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/settings"
@@ -84,6 +85,7 @@ func runTUI(_ *cobra.Command, _ []string) error {
 	// Create the application with tabs
 	model := app.New(projectDir).WithTabs(
 		create.New(projectDir, store),
+		iso.New(projectDir),
 		doctor.New(),
 		settingsview.New(),
 	)

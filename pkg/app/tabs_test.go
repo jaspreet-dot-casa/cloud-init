@@ -7,8 +7,8 @@ import (
 )
 
 func TestTabID(t *testing.T) {
-	assert.Equal(t, TabID(0), TabVMs)
-	assert.Equal(t, TabID(1), TabCreate)
+	assert.Equal(t, TabID(0), TabCreate)
+	assert.Equal(t, TabID(1), TabISO)
 	assert.Equal(t, TabID(2), TabDoctor)
 	assert.Equal(t, TabID(3), TabConfig)
 }

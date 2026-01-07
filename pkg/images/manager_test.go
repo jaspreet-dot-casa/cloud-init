@@ -221,6 +221,110 @@ func TestManager_GetImages_Empty(t *testing.T) {
 	assert.Empty(t, images)
 }
 
+func TestManager_AddExistingISO(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := settings.NewStoreWithDir(tmpDir)
+	manager := NewManager(store)
+
+	// Create a test ISO file
+	isoPath := filepath.Join(tmpDir, "test.iso")
+	err := os.WriteFile(isoPath, []byte("ISO content"), 0644)
+	require.NoError(t, err)
+
+	// Add the ISO
+	iso, err := manager.AddExistingISO(isoPath, "Ubuntu 24.04 Server", "24.04")
+	require.NoError(t, err)
+
+	assert.Contains(t, iso.ID, "iso-24.04")
+	assert.Equal(t, "Ubuntu 24.04 Server", iso.Name)
+	assert.Equal(t, "24.04", iso.Version)
+	assert.Contains(t, iso.Path, "test.iso")
+
+	// Verify it was saved
+	isos, err := manager.GetISOs()
+	require.NoError(t, err)
+	assert.Len(t, isos, 1)
+}
+
+func TestManager_AddExistingISO_FileNotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := settings.NewStoreWithDir(tmpDir)
+	manager := NewManager(store)
+
+	_, err := manager.AddExistingISO("/nonexistent/path.iso", "Test", "24.04")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "file not found")
+}
+
+func TestManager_RemoveISO(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := settings.NewStoreWithDir(tmpDir)
+	manager := NewManager(store)
+
+	// Create and add a test ISO
+	isoPath := filepath.Join(tmpDir, "test.iso")
+	err := os.WriteFile(isoPath, []byte("ISO"), 0644)
+	require.NoError(t, err)
+
+	iso, err := manager.AddExistingISO(isoPath, "Test ISO", "24.04")
+	require.NoError(t, err)
+
+	// Remove without deleting file
+	err = manager.RemoveISO(iso.ID, false)
+	require.NoError(t, err)
+
+	// Verify removed from registry
+	isos, err := manager.GetISOs()
+	require.NoError(t, err)
+	assert.Len(t, isos, 0)
+
+	// Verify file still exists
+	_, err = os.Stat(isoPath)
+	assert.NoError(t, err)
+}
+
+func TestManager_RemoveISO_WithDelete(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := settings.NewStoreWithDir(tmpDir)
+	manager := NewManager(store)
+
+	// Create and add a test ISO
+	isoPath := filepath.Join(tmpDir, "test.iso")
+	err := os.WriteFile(isoPath, []byte("ISO"), 0644)
+	require.NoError(t, err)
+
+	iso, err := manager.AddExistingISO(isoPath, "Test ISO", "24.04")
+	require.NoError(t, err)
+
+	// Remove with file deletion
+	err = manager.RemoveISO(iso.ID, true)
+	require.NoError(t, err)
+
+	// Verify file is deleted
+	_, err = os.Stat(isoPath)
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestManager_RemoveISO_NotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := settings.NewStoreWithDir(tmpDir)
+	manager := NewManager(store)
+
+	err := manager.RemoveISO("nonexistent-id", false)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "ISO not found")
+}
+
+func TestManager_GetISOs_Empty(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := settings.NewStoreWithDir(tmpDir)
+	manager := NewManager(store)
+
+	isos, err := manager.GetISOs()
+	require.NoError(t, err)
+	assert.Empty(t, isos)
+}
+
 func TestCalculateSHA256(t *testing.T) {
 	tmpDir := t.TempDir()
 

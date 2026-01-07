@@ -225,6 +225,13 @@ func (m *Model) getTargetOptionsInputName() string {
 		if m.wizard.FocusedField == 0 {
 			return "vm_name"
 		}
+	case deploy.TargetUSB:
+		switch m.wizard.FocusedField {
+		case 0:
+			return "source_iso"
+		case 1:
+			return "output_path"
+		}
 	case deploy.TargetConfigOnly:
 		if m.wizard.FocusedField == 0 {
 			return "output_dir"

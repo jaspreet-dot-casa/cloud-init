@@ -124,6 +124,7 @@ func TestTargetPhase_View(t *testing.T) {
 	assert.Contains(t, view, "Select Deployment Target")
 	assert.Contains(t, view, "Terragrunt/libvirt")
 	assert.Contains(t, view, "Multipass")
+	assert.Contains(t, view, "Bootable USB")
 	assert.Contains(t, view, "Generate Config")
 }
 
@@ -158,7 +159,8 @@ func TestTargetPhase_Save_AllTargets(t *testing.T) {
 	}{
 		{0, deploy.TargetTerragrunt},
 		{1, deploy.TargetMultipass},
-		{2, deploy.TargetConfigOnly},
+		{2, deploy.TargetUSB},
+		{3, deploy.TargetConfigOnly},
 	}
 
 	for _, tt := range tests {
@@ -179,11 +181,12 @@ func TestTargetPhase_ImplementsPhaseHandler(t *testing.T) {
 }
 
 func TestTargets_HasExpectedCount(t *testing.T) {
-	assert.Equal(t, 3, len(Targets))
+	assert.Equal(t, 4, len(Targets))
 }
 
 func TestTargets_HasCorrectIcons(t *testing.T) {
 	assert.NotEmpty(t, Targets[0].Icon) // Terragrunt
 	assert.NotEmpty(t, Targets[1].Icon) // Multipass
-	assert.NotEmpty(t, Targets[2].Icon) // Config only
+	assert.NotEmpty(t, Targets[2].Icon) // USB
+	assert.NotEmpty(t, Targets[3].Icon) // Config only
 }
