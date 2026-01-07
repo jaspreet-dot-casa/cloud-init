@@ -1,28 +1,6 @@
 # =============================================================================
-# Terraform Variables
+# Module Variables
 # =============================================================================
-
-# =============================================================================
-# Libvirt Connection
-# =============================================================================
-
-variable "libvirt_uri" {
-  description = "Libvirt connection URI"
-  type        = string
-  default     = "qemu:///system"
-}
-
-variable "storage_pool" {
-  description = "Libvirt storage pool name"
-  type        = string
-  default     = "default"
-}
-
-variable "network_name" {
-  description = "Libvirt network name"
-  type        = string
-  default     = "default"
-}
 
 # =============================================================================
 # VM Configuration
@@ -31,7 +9,6 @@ variable "network_name" {
 variable "vm_name" {
   description = "Name of the virtual machine"
   type        = string
-  default     = "ubuntu-server"
 }
 
 variable "memory_mb" {
@@ -69,9 +46,8 @@ variable "running" {
 # =============================================================================
 
 variable "ubuntu_image_path" {
-  description = "Path to Ubuntu cloud image (qcow2)"
+  description = "Path or URL to Ubuntu cloud image (qcow2)"
   type        = string
-  default     = "/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img"
 }
 
 # =============================================================================
@@ -81,5 +57,20 @@ variable "ubuntu_image_path" {
 variable "cloud_init_file" {
   description = "Path to cloud-init user-data file"
   type        = string
-  default     = "../cloud-init/cloud-init.yaml"
+}
+
+# =============================================================================
+# Libvirt Configuration
+# =============================================================================
+
+variable "storage_pool" {
+  description = "Libvirt storage pool name"
+  type        = string
+  default     = "default"
+}
+
+variable "network_name" {
+  description = "Libvirt network name"
+  type        = string
+  default     = "default"
 }

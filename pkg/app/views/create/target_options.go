@@ -16,8 +16,8 @@ func (m *Model) initTargetOptionsPhase() {
 	switch m.wizard.Data.Target {
 	case deploy.TargetMultipass:
 		m.initMultipassPhase()
-	case deploy.TargetTerraform:
-		m.initTerraformPhase()
+	case deploy.TargetTerragrunt:
+		m.initTerragruntPhase()
 	case deploy.TargetUSB:
 		m.initUSBPhase()
 	case deploy.TargetConfigOnly:
@@ -32,8 +32,8 @@ func (m *Model) handleTargetOptionsPhase(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 	switch m.wizard.Data.Target {
 	case deploy.TargetMultipass:
 		return m.handleMultipassPhase(msg)
-	case deploy.TargetTerraform:
-		return m.handleTerraformPhase(msg)
+	case deploy.TargetTerragrunt:
+		return m.handleTerragruntPhase(msg)
 	case deploy.TargetUSB:
 		return m.handleUSBPhase(msg)
 	case deploy.TargetConfigOnly:
@@ -48,8 +48,8 @@ func (m *Model) viewTargetOptionsPhase() string {
 	switch m.wizard.Data.Target {
 	case deploy.TargetMultipass:
 		return m.viewMultipassPhase()
-	case deploy.TargetTerraform:
-		return m.viewTerraformPhase()
+	case deploy.TargetTerragrunt:
+		return m.viewTerragruntPhase()
 	case deploy.TargetUSB:
 		return m.viewUSBPhase()
 	case deploy.TargetConfigOnly:

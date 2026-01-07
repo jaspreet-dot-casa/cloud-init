@@ -158,9 +158,9 @@ func (m *Model) viewReviewPhase() string {
 
 	b.WriteString(confirmCursor)
 	if confirmFocused {
-		b.WriteString(focusedInputStyle.Render("[Confirm and Deploy]"))
+		b.WriteString(focusedInputStyle.Render("[Generate Config]"))
 	} else {
-		b.WriteString(labelStyle.Render("[Confirm and Deploy]"))
+		b.WriteString(labelStyle.Render("[Generate Config]"))
 	}
 	b.WriteString("\n")
 
@@ -178,8 +178,8 @@ func (m *Model) viewReviewPhase() string {
 // getTargetName returns a human-readable name for the selected target
 func (m *Model) getTargetName() string {
 	switch m.wizard.Data.Target {
-	case deploy.TargetTerraform:
-		return "Terraform/libvirt"
+	case deploy.TargetTerragrunt:
+		return "Terragrunt/libvirt"
 	case deploy.TargetMultipass:
 		return "Multipass"
 	case deploy.TargetUSB:
@@ -214,8 +214,8 @@ func (m *Model) viewTargetSpecificReview() string {
 		b.WriteString(valueStyle.Render(fmt.Sprintf("%d GB", opts.DiskGB)))
 		b.WriteString("\n\n")
 
-	case deploy.TargetTerraform:
-		opts := m.wizard.Data.TerraformOpts
+	case deploy.TargetTerragrunt:
+		opts := m.wizard.Data.TerragruntOpts
 		b.WriteString(labelStyle.Render("VM Name: "))
 		b.WriteString(valueStyle.Render(opts.VMName))
 		b.WriteString("\n")

@@ -47,7 +47,7 @@ type Model struct {
 // New creates a new Create VM model
 func New(projectDir string, store *settings.Store) *Model {
 	m := &Model{
-		BaseTab:       app.NewBaseTab(app.TabCreate, "Create", "2"),
+		BaseTab:       app.NewBaseTab(app.TabCreate, "Create", "1"),
 		projectDir:    projectDir,
 		store:         store,
 		wizard:        wizard.NewState(),
@@ -221,7 +221,7 @@ func (m *Model) getTargetOptionsInputName() string {
 		if m.wizard.FocusedField == 0 {
 			return "vm_name"
 		}
-	case deploy.TargetTerraform:
+	case deploy.TargetTerragrunt:
 		if m.wizard.FocusedField == 0 {
 			return "vm_name"
 		}

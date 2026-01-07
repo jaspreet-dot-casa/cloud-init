@@ -1,18 +1,7 @@
 # =============================================================================
-# Terraform Configuration for libvirt/KVM
+# OpenTofu/Terraform Module: libvirt VM
 #
-# Provisions Ubuntu VMs with cloud-init configuration.
-# Works with KVM/QEMU via libvirt.
-#
-# Usage:
-#   terraform init
-#   terraform plan
-#   terraform apply
-#
-# Requirements:
-#   - libvirt/KVM installed
-#   - Terraform libvirt provider
-#   - Ubuntu cloud image downloaded
+# Provisions Ubuntu VMs with cloud-init configuration via libvirt/KVM.
 # =============================================================================
 
 terraform {
@@ -27,14 +16,6 @@ terraform {
 }
 
 # =============================================================================
-# Provider Configuration
-# =============================================================================
-
-provider "libvirt" {
-  uri = var.libvirt_uri
-}
-
-# =============================================================================
 # Base Volume (Ubuntu Cloud Image)
 # =============================================================================
 
@@ -45,6 +26,11 @@ resource "libvirt_volume" "ubuntu_base" {
     content = {
       url = var.ubuntu_image_path
     }
+  }
+
+  # Prevent deletion - shared base image may be used by other VMs
+  lifecycle {
+    prevent_destroy = true
   }
 }
 

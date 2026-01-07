@@ -35,9 +35,9 @@ type TargetItem struct {
 // Targets is the list of available deployment targets.
 var Targets = []TargetItem{
 	{
-		Target:      deploy.TargetTerraform,
-		Name:        "Terraform/libvirt",
-		Description: "Create VM using Terraform with libvirt provider",
+		Target:      deploy.TargetTerragrunt,
+		Name:        "Terragrunt/libvirt",
+		Description: "Generate Terragrunt config for libvirt VM (run manually)",
 		Icon:        "🖥️ ",
 	},
 	{
@@ -62,7 +62,7 @@ var Targets = []TargetItem{
 
 // Init initializes the target phase state.
 func (p *TargetPhase) Init(ctx *wizard.PhaseContext) {
-	// Target selection starts at 0 (Terraform)
+	// Target selection starts at 0 (Terragrunt)
 	ctx.Wizard.TargetSelected = 0
 }
 

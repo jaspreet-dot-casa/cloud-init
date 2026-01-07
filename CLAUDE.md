@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a declarative Ubuntu server configuration system using **cloud-init** for automated setup.
 
-**Primary Use Case:** Create VMs in Ubuntu via **Terraform + libvirt** (first-class citizen).
+**Primary Use Case:** Generate **Terragrunt/OpenTofu** configs for libvirt VMs (config generation only - user runs terragrunt manually).
 **Secondary:** Multipass VMs for local testing, bootable ISOs for bare-metal installs.
 
 The project automates installation of development tools (git, docker, lazygit, neovim), modern CLI utilities (ripgrep, fd, bat, fzf, zoxide), shell configuration (zsh + Oh-My-Zsh + Starship), and Tailscale VPN with SSH support.
@@ -54,22 +54,26 @@ cloud-init/
 │   │   ├── deployer.go    # Deployer interface and options
 │   │   ├── progress.go    # Progress events and stages
 │   │   ├── multipass/     # Multipass VM deployer
-│   │   ├── terraform/     # Terraform/libvirt deployer (primary)
+│   │   ├── terragrunt/    # Terragrunt config generator (primary)
 │   │   └── usb/           # USB/ISO deployer
-│   ├── tfstate/           # Terraform state and VM lifecycle management
-│   │   ├── state.go       # Manager for reading terraform state
-│   │   └── virsh.go       # VirshClient for fast VM operations
 │   ├── generator/         # Cloud-init YAML generation
 │   ├── iso/               # Bootable ISO generation
 │   ├── packages/          # Package discovery from scripts/packages/
 │   ├── project/           # Project root detection
 │   └── tui/               # Interactive TUI forms (charmbracelet/huh)
 │
-├── terraform/             # Terraform libvirt configuration
-│   ├── main.tf            # VM provisioning with libvirt provider
-│   ├── variables.tf       # Input variables (vm_name, cpus, memory, etc.)
-│   ├── outputs.tf         # VM outputs (ip, console command)
-│   └── README.md          # Terraform setup guide
+├── terragrunt/            # Terragrunt module structure
+│   └── modules/
+│       └── libvirt-vm/    # Reusable VM module
+│           ├── main.tf    # VM provisioning with libvirt provider
+│           ├── variables.tf # Input variables
+│           └── outputs.tf # VM outputs
+│
+├── tf/                    # Generated VM configs (gitignored)
+│   ├── terragrunt.hcl     # Root config (auto-generated)
+│   └── <vm-name>/         # Per-VM configs
+│       ├── terragrunt.hcl # VM-specific config
+│       └── cloud-init.yaml # Generated cloud-init
 │
 ├── config/                # Configuration files
 │   └── tailscale.conf     # Tailscale configuration
@@ -96,12 +100,12 @@ cloud-init/
 - **Package discovery**: `pkg/packages/` scans `scripts/packages/*.sh` parsing PACKAGE_NAME and comments
 - **TUI forms**: Uses `charmbracelet/huh` for interactive forms, `lipgloss` for styling
 - **Multi-step wizard flow**:
-  1. Target Selection (Terraform/Multipass/USB/SSH) - for `create` command
+  1. Target Selection (Terragrunt/Multipass/USB/Config) - for `create` command
   2. Target-specific options (VM specs, ISO source, etc.)
   3. SSH Key Source (GitHub/Local/Manual)
   4. Git Configuration (auto-fill from GitHub profile)
   5. Host Details, Package Selection, Optional Services
-  6. Review and Confirm → Deploy (or generate cloud-init.yaml for `build`)
+  6. Review and Confirm → Generate Config
 - **GitHub integration**: Fetches SSH keys from `github.com/<user>.keys`, profile from GitHub API
 - **Direct generation**: All config values embedded directly in cloud-init.yaml (no intermediate files)
 - **Package disables**: Disabled packages exported as `PACKAGE_*_ENABLED=false` in bootstrap.sh
@@ -109,22 +113,15 @@ cloud-init/
 
 ### Deployment Abstraction
 - **Deployer interface**: `pkg/deploy/deployer.go` defines `Deployer` interface with Validate/Deploy/Cleanup
-- **Target types**: `TargetTerraform` (primary), `TargetMultipass`, `TargetUSB`, `TargetSSH`
-- **Progress stages**: Validating → CloudInit → Preparing → Planning → Confirming → Applying → Verifying → Complete
-- **Terraform deployer** (`pkg/deploy/terraform/`):
-  - Generates `terraform.tfvars` from options
-  - Runs `terraform init/plan/apply`
-  - Requires user confirmation before apply (unless AutoApprove)
-  - Parses terraform outputs for VM IP
-- **Options structs**: `TerraformOptions`, `MultipassOptions`, `USBOptions` with sensible defaults
-
-### Terraform State Management (`pkg/tfstate/`)
-- **Manager**: Reads terraform state and outputs to get VM information
-- **VirshClient**: Direct virsh commands for fast start/stop operations (no terraform needed)
-- **VMInfo struct**: Name, Status, IP, CPUs, MemoryMB, DiskGB, Autostart
-- **VMStatus types**: `StatusRunning`, `StatusStopped`, `StatusPaused`, `StatusShutoff`, `StatusCrashed`, `StatusUnknown`
-- **Lifecycle ops**: StartVM, StopVM, ForceStopVM, DeleteVM (via terraform destroy)
-- **State checks**: IsInitialized(), HasState() to verify terraform setup
+- **Target types**: `TargetTerragrunt` (primary), `TargetMultipass`, `TargetUSB`, `TargetConfigOnly`
+- **Progress stages**: Validating → CloudInit → Preparing → Complete
+- **Terragrunt generator** (`pkg/deploy/terragrunt/`):
+  - Generates `terragrunt.hcl` with VM configuration
+  - Generates `cloud-init.yaml` for VM initialization
+  - Creates directory structure under `tf/<vm-name>/`
+  - User runs `terragrunt init && terragrunt apply` manually
+- **Options structs**: `TerragruntOptions`, `MultipassOptions`, `USBOptions` with sensible defaults
+- **VM name validation**: Enforces lowercase alphanumeric with hyphens, prevents path traversal
 
 ### Shell Scripts
 - **Per-package scripts**: Each tool has `scripts/packages/<tool>.sh` with install/update/verify actions

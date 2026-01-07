@@ -1,5 +1,5 @@
 # =============================================================================
-# Terraform Outputs
+# Module Outputs
 # =============================================================================
 
 output "vm_name" {
@@ -12,8 +12,6 @@ output "vm_id" {
   value       = libvirt_domain.vm.id
 }
 
-# Note: For libvirt provider 0.9+, the IP may take a moment to be assigned
-# The wait_for_ip block in main.tf ensures the IP is available before terraform completes
 output "vm_ip" {
   description = "IP address of the VM (from DHCP lease)"
   value       = try(libvirt_domain.vm.devices[0].interfaces[0].addresses[0], "pending")
@@ -29,9 +27,9 @@ output "console_command" {
   value       = "virsh console ${var.vm_name}"
 }
 
-output "vnc_port" {
-  description = "VNC port for graphical console"
-  value       = "Run: virsh vncdisplay ${var.vm_name}"
+output "vnc_display" {
+  description = "VNC display command"
+  value       = "virsh vncdisplay ${var.vm_name}"
 }
 
 output "vm_running" {

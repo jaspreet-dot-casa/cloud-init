@@ -122,7 +122,7 @@ func TestTargetPhase_View(t *testing.T) {
 
 	// Check that the view contains expected elements
 	assert.Contains(t, view, "Select Deployment Target")
-	assert.Contains(t, view, "Terraform/libvirt")
+	assert.Contains(t, view, "Terragrunt/libvirt")
 	assert.Contains(t, view, "Multipass")
 	assert.Contains(t, view, "Bootable USB")
 	assert.Contains(t, view, "Generate Config")
@@ -145,11 +145,11 @@ func TestTargetPhase_Save(t *testing.T) {
 	p := NewTargetPhase()
 	ctx := newTestContext()
 	p.Init(ctx)
-	ctx.Wizard.TargetSelected = 0 // Terraform
+	ctx.Wizard.TargetSelected = 0 // Terragrunt
 
 	p.Save(ctx)
 
-	assert.Equal(t, deploy.TargetTerraform, ctx.Wizard.Data.Target)
+	assert.Equal(t, deploy.TargetTerragrunt, ctx.Wizard.Data.Target)
 }
 
 func TestTargetPhase_Save_AllTargets(t *testing.T) {
@@ -157,7 +157,7 @@ func TestTargetPhase_Save_AllTargets(t *testing.T) {
 		index    int
 		expected deploy.DeploymentTarget
 	}{
-		{0, deploy.TargetTerraform},
+		{0, deploy.TargetTerragrunt},
 		{1, deploy.TargetMultipass},
 		{2, deploy.TargetUSB},
 		{3, deploy.TargetConfigOnly},
@@ -185,7 +185,7 @@ func TestTargets_HasExpectedCount(t *testing.T) {
 }
 
 func TestTargets_HasCorrectIcons(t *testing.T) {
-	assert.NotEmpty(t, Targets[0].Icon) // Terraform
+	assert.NotEmpty(t, Targets[0].Icon) // Terragrunt
 	assert.NotEmpty(t, Targets[1].Icon) // Multipass
 	assert.NotEmpty(t, Targets[2].Icon) // USB
 	assert.NotEmpty(t, Targets[3].Icon) // Config only

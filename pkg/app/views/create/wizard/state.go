@@ -14,7 +14,7 @@ type WizardData struct {
 
 	// Target-specific options
 	MultipassOpts  deploy.MultipassOptions
-	TerraformOpts  deploy.TerraformOptions
+	TerragruntOpts deploy.TerragruntOptions
 	USBOpts        USBOptions
 	GenerateOpts   GenerateOptions
 
