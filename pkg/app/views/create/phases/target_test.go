@@ -185,7 +185,7 @@ func TestTargets_HasExpectedCount(t *testing.T) {
 }
 
 func TestTargets_HasCorrectIcons(t *testing.T) {
-	assert.NotEmpty(t, Targets[0].Icon) // Terraform
+	assert.NotEmpty(t, Targets[0].Icon) // Terragrunt
 	assert.NotEmpty(t, Targets[1].Icon) // Multipass
 	assert.NotEmpty(t, Targets[2].Icon) // USB
 	assert.NotEmpty(t, Targets[3].Icon) // Config only

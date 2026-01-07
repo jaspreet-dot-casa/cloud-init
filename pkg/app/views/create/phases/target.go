@@ -62,7 +62,7 @@ var Targets = []TargetItem{
 
 // Init initializes the target phase state.
 func (p *TargetPhase) Init(ctx *wizard.PhaseContext) {
-	// Target selection starts at 0 (Terraform)
+	// Target selection starts at 0 (Terragrunt)
 	ctx.Wizard.TargetSelected = 0
 }
 

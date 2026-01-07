@@ -20,12 +20,17 @@ terraform {
 # =============================================================================
 
 resource "libvirt_volume" "ubuntu_base" {
-  name = "${var.vm_name}-base.qcow2"
+  name = "ubuntu-base.qcow2"
   pool = var.storage_pool
   create = {
     content = {
       url = var.ubuntu_image_path
     }
+  }
+
+  # Prevent deletion - shared base image may be used by other VMs
+  lifecycle {
+    prevent_destroy = true
   }
 }
 

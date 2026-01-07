@@ -249,7 +249,7 @@ func TestGenerator_EnsureRootConfig(t *testing.T) {
 	tfDir := filepath.Join(tmpDir, "tf")
 
 	t.Run("creates directory and root config", func(t *testing.T) {
-		err := g.ensureRootConfig(tmpDir, tfDir)
+		err := g.ensureRootConfig(tfDir)
 		assert.NoError(t, err)
 
 		// Check directory was created
@@ -271,7 +271,7 @@ func TestGenerator_EnsureRootConfig(t *testing.T) {
 		err := os.WriteFile(rootHCL, []byte(customContent), 0644)
 		require.NoError(t, err)
 
-		err = g.ensureRootConfig(tmpDir, tfDir)
+		err = g.ensureRootConfig(tfDir)
 		assert.NoError(t, err)
 
 		// Check content was not overwritten

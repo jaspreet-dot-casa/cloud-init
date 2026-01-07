@@ -38,7 +38,7 @@ const (
 func (m *Model) initTerragruntPhase() {
 	// VM Name input
 	vmName := textinput.New()
-	vmName.Placeholder = "cloud-init-" + time.Now().Format("0102-1504")
+	vmName.Placeholder = "vm-" + time.Now().Format("0102-1504")
 	vmName.SetValue(vmName.Placeholder)
 	vmName.CharLimit = 64
 	vmName.Focus()

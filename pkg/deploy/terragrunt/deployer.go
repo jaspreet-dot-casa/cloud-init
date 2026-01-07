@@ -149,7 +149,7 @@ func (g *Generator) Deploy(ctx context.Context, opts *deploy.DeployOptions, prog
 
 	// Ensure tf/ directory and root terragrunt.hcl exist
 	tfDir := filepath.Join(opts.ProjectRoot, "tf")
-	if err := g.ensureRootConfig(opts.ProjectRoot, tfDir); err != nil {
+	if err := g.ensureRootConfig(tfDir); err != nil {
 		return g.fail(result, err, start), err
 	}
 
@@ -177,7 +177,8 @@ func (g *Generator) Deploy(ctx context.Context, opts *deploy.DeployOptions, prog
 			}
 			// Directory exists but is empty/has no config - we can use it
 		} else {
-			return g.fail(result, fmt.Errorf("failed to create directory %s: %w", machineDir, err), start), err
+			wrappedErr := fmt.Errorf("failed to create directory %s: %w", machineDir, err)
+			return g.fail(result, wrappedErr, start), wrappedErr
 		}
 	} else {
 		// We successfully created the directory
@@ -230,7 +231,7 @@ func (g *Generator) Deploy(ctx context.Context, opts *deploy.DeployOptions, prog
 }
 
 // ensureRootConfig ensures the tf/ directory exists with a root terragrunt.hcl.
-func (g *Generator) ensureRootConfig(projectRoot, tfDir string) error {
+func (g *Generator) ensureRootConfig(tfDir string) error {
 	// Create tf/ directory if needed
 	if err := os.MkdirAll(tfDir, 0755); err != nil {
 		return fmt.Errorf("failed to create tf directory: %w", err)
