@@ -90,11 +90,12 @@ type Model struct {
 	itemCursors map[Section]int // Cursor per section
 
 	// Dialog state
-	showDialog   bool
-	dialogType   string // "new_config", "new_preset", "edit_setting"
-	dialogInputs []textinput.Model
-	dialogCursor int
-	editingField string
+	showDialog    bool
+	dialogType    string // "new_preset", "edit_preset", "edit_setting"
+	dialogInputs  []textinput.Model
+	dialogCursor  int
+	editingField  string
+	editingPreset string // ID of preset being edited
 }
 
 // New creates a new config manager model.
@@ -193,6 +194,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 		return m.handleEnter()
 	case "n":
 		return m.handleNew()
+	case "e":
+		return m.handleEdit()
 	case "x", "delete", "backspace":
 		return m.handleDelete()
 	case "r":
@@ -333,6 +336,34 @@ func (m *Model) handleNew() (app.Tab, tea.Cmd) {
 	return m, nil
 }
 
+// handleEdit handles the 'e' key to edit existing items.
+func (m *Model) handleEdit() (app.Tab, tea.Cmd) {
+	if m.settings == nil {
+		return m, nil
+	}
+
+	cursor := m.itemCursors[m.section]
+
+	switch m.section {
+	case SectionPackagePresets:
+		allPresets := m.getAllPresets()
+		if cursor < len(allPresets) {
+			preset := allPresets[cursor]
+			// Prevent editing built-in presets
+			if preset.IsBuiltIn {
+				m.message = "Cannot edit built-in preset"
+				return m, nil
+			}
+			return m.openEditPresetDialog(&preset)
+		}
+
+	case SectionAppSettings:
+		return m.editAppSetting(cursor)
+	}
+
+	return m, nil
+}
+
 // handleDelete handles deletion of the current item.
 func (m *Model) handleDelete() (app.Tab, tea.Cmd) {
 	if m.settings == nil {
@@ -395,6 +426,7 @@ func (m *Model) openNewPresetDialog() (app.Tab, tea.Cmd) {
 	m.showDialog = true
 	m.dialogType = "new_preset"
 	m.dialogCursor = 0
+	m.editingPreset = ""
 
 	nameInput := textinput.New()
 	nameInput.Placeholder = "Preset name"
@@ -405,6 +437,30 @@ func (m *Model) openNewPresetDialog() (app.Tab, tea.Cmd) {
 
 	packagesInput := textinput.New()
 	packagesInput.Placeholder = "Packages (comma-separated)"
+
+	m.dialogInputs = []textinput.Model{nameInput, descInput, packagesInput}
+	return m, nil
+}
+
+// openEditPresetDialog opens the dialog to edit an existing preset.
+func (m *Model) openEditPresetDialog(preset *settings.PackagePreset) (app.Tab, tea.Cmd) {
+	m.showDialog = true
+	m.dialogType = "edit_preset"
+	m.dialogCursor = 0
+	m.editingPreset = preset.ID
+
+	nameInput := textinput.New()
+	nameInput.Placeholder = "Preset name"
+	nameInput.SetValue(preset.Name)
+	nameInput.Focus()
+
+	descInput := textinput.New()
+	descInput.Placeholder = "Description (optional)"
+	descInput.SetValue(preset.Description)
+
+	packagesInput := textinput.New()
+	packagesInput.Placeholder = "Packages (comma-separated)"
+	packagesInput.SetValue(strings.Join(preset.Packages, ", "))
 
 	m.dialogInputs = []textinput.Model{nameInput, descInput, packagesInput}
 	return m, nil
@@ -480,6 +536,45 @@ func (m *Model) confirmDialog() (app.Tab, tea.Cmd) {
 		} else {
 			m.message = fmt.Sprintf("Created preset '%s'", name)
 		}
+
+	case "edit_preset":
+		name := utils.SanitizeConfigName(m.dialogInputs[0].Value())
+
+		// Validate preset name
+		if err := utils.ValidateConfigName(name); err != nil {
+			m.message = err.Error()
+			return m, nil
+		}
+
+		desc := m.dialogInputs[1].Value()
+		packagesStr := m.dialogInputs[2].Value()
+
+		var packages []string
+		if packagesStr != "" {
+			for _, p := range strings.Split(packagesStr, ",") {
+				p = strings.TrimSpace(p)
+				if p != "" {
+					packages = append(packages, p)
+				}
+			}
+		}
+
+		// Find and update the preset
+		for i, p := range m.settings.PackagePresets {
+			if p.ID == m.editingPreset {
+				m.settings.PackagePresets[i].Name = name
+				m.settings.PackagePresets[i].Description = desc
+				m.settings.PackagePresets[i].Packages = packages
+				break
+			}
+		}
+
+		if err := m.store.Save(m.settings); err != nil {
+			m.err = err
+		} else {
+			m.message = fmt.Sprintf("Updated preset '%s'", name)
+		}
+		m.editingPreset = ""
 
 	case "edit_setting":
 		value := m.dialogInputs[0].Value()
@@ -754,6 +849,8 @@ func (m *Model) renderDialog() string {
 	switch m.dialogType {
 	case "new_preset":
 		title = "New Package Preset"
+	case "edit_preset":
+		title = "Edit Package Preset"
 	case "edit_setting":
 		title = "Edit Setting"
 	}
@@ -812,6 +909,7 @@ func (m *Model) KeyBindings() []string {
 		"[h/l] section",
 		"[Enter] select",
 		"[n] new",
+		"[e] edit",
 		"[x] delete",
 		"[r] refresh",
 	}
