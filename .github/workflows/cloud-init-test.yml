@@ -76,15 +76,15 @@ jobs:
 
       - name: Terraform fmt
         run: terraform fmt -check
-        working-directory: terraform
+        working-directory: terragrunt
 
       - name: Terraform init
         run: terraform init -backend=false
-        working-directory: terraform
+        working-directory: terragrunt
 
       - name: Terraform validate
         run: terraform validate
-        working-directory: terraform
+        working-directory: terragrunt
 
   cloud-init-template:
     name: Validate Cloud-Init Template
