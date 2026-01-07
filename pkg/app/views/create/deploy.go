@@ -18,6 +18,7 @@ import (
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy/terraform"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy/usb"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/generator"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/packages"
 )
 
 // Ensure app.Tab is used
@@ -86,6 +87,7 @@ func (m *Model) createDeployer() deploy.Deployer {
 			projectDir:   m.projectDir,
 			outputDir:    m.wizard.Data.GenerateOpts.OutputDir,
 			generateYAML: m.wizard.Data.GenerateOpts.GenerateCloudInit,
+			registry:     m.wizard.Registry,
 		}
 	default:
 		// Fallback to config-only deployer for unknown targets
@@ -372,9 +374,10 @@ func (m *Model) viewDeployPhase() string {
 
 // configOnlyDeployer is a simple deployer for config-only generation
 type configOnlyDeployer struct {
-	projectDir     string
-	outputDir      string
-	generateYAML   bool
+	projectDir   string
+	outputDir    string
+	generateYAML bool
+	registry     *packages.Registry
 }
 
 func (d *configOnlyDeployer) Name() string {
@@ -386,6 +389,9 @@ func (d *configOnlyDeployer) Target() deploy.DeploymentTarget {
 }
 
 func (d *configOnlyDeployer) Validate(opts *deploy.DeployOptions) error {
+	if d.registry == nil {
+		return fmt.Errorf("package registry not available - cannot generate summary")
+	}
 	return nil
 }
 
@@ -394,6 +400,11 @@ func (d *configOnlyDeployer) Deploy(ctx context.Context, opts *deploy.DeployOpti
 	outputDir := d.outputDir
 	if outputDir == "" {
 		outputDir = "."
+	}
+
+	// Ensure output directory exists
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create output directory: %w", err)
 	}
 
 	// Helper to safely call progress callback
@@ -413,38 +424,41 @@ func (d *configOnlyDeployer) Deploy(ctx context.Context, opts *deploy.DeployOpti
 	reportProgress(deploy.ProgressEvent{
 		Stage:   deploy.StageConfig,
 		Message: "Writing config.env...",
-		Percent: 30,
+		Percent: 25,
 	})
 
 	configEnvPath := filepath.Join(outputDir, "config.env")
 	if err := d.writeConfigEnv(configEnvPath, cfg); err != nil {
-		return &deploy.DeployResult{
-			Success: false,
-			Error:   fmt.Errorf("failed to write config.env: %w", err),
-		}, err
+		return nil, fmt.Errorf("failed to write config.env: %w", err)
+	}
+
+	// Generate summary.md
+	reportProgress(deploy.ProgressEvent{
+		Stage:   deploy.StageConfig,
+		Message: "Writing summary.md...",
+		Percent: 40,
+	})
+
+	summaryPath := filepath.Join(outputDir, "summary.md")
+	if err := generator.GenerateSummary(cfg, d.registry, summaryPath); err != nil {
+		return nil, fmt.Errorf("failed to write summary.md: %w", err)
 	}
 
 	// Generate secrets.env
 	reportProgress(deploy.ProgressEvent{
 		Stage:   deploy.StageConfig,
 		Message: "Writing cloud-init/secrets.env...",
-		Percent: 50,
+		Percent: 55,
 	})
 
 	secretsDir := filepath.Join(outputDir, "cloud-init")
 	if err := os.MkdirAll(secretsDir, 0755); err != nil {
-		return &deploy.DeployResult{
-			Success: false,
-			Error:   fmt.Errorf("failed to create cloud-init directory: %w", err),
-		}, err
+		return nil, fmt.Errorf("failed to create cloud-init directory: %w", err)
 	}
 
 	secretsEnvPath := filepath.Join(secretsDir, "secrets.env")
 	if err := d.writeSecretsEnv(secretsEnvPath, cfg); err != nil {
-		return &deploy.DeployResult{
-			Success: false,
-			Error:   fmt.Errorf("failed to write secrets.env: %w", err),
-		}, err
+		return nil, fmt.Errorf("failed to write secrets.env: %w", err)
 	}
 
 	// Generate cloud-init.yaml if requested
@@ -452,16 +466,13 @@ func (d *configOnlyDeployer) Deploy(ctx context.Context, opts *deploy.DeployOpti
 		reportProgress(deploy.ProgressEvent{
 			Stage:   deploy.StageConfig,
 			Message: "Writing cloud-init/cloud-init.yaml...",
-			Percent: 80,
+			Percent: 75,
 		})
 
 		outputPath := filepath.Join(secretsDir, "cloud-init.yaml")
 
 		if err := generator.Generate(cfg, outputPath); err != nil {
-			return &deploy.DeployResult{
-				Success: false,
-				Error:   fmt.Errorf("failed to generate cloud-init.yaml: %w", err),
-			}, err
+			return nil, fmt.Errorf("failed to generate cloud-init.yaml: %w", err)
 		}
 	}
 
@@ -474,6 +485,7 @@ func (d *configOnlyDeployer) Deploy(ctx context.Context, opts *deploy.DeployOpti
 	outputs := map[string]string{
 		"config.env":  configEnvPath,
 		"secrets.env": secretsEnvPath,
+		"summary.md":  summaryPath,
 	}
 	if d.generateYAML {
 		outputs["cloud-init.yaml"] = filepath.Join(secretsDir, "cloud-init.yaml")

@@ -1,4 +1,4 @@
-.PHONY: help update update-dry verify-cloud test-syntax lint shellcheck test-multipass test-multipass-keep test-multipass-clean pre-commit build-cli run-cli test-cli install-cli clean-cli
+.PHONY: help update update-dry verify-cloud test-syntax lint shellcheck test-multipass test-multipass-keep test-multipass-clean pre-commit build-cli run-cli test-cli install-cli clean-cli generate-templ
 
 # Get the directory where this Makefile resides
 ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -12,6 +12,7 @@ help:
 	echo "  make test-cli          - Run Go tests"
 	echo "  make install-cli       - Install ucli to GOPATH/bin"
 	echo "  make clean-cli         - Clean build artifacts"
+	echo "  make generate-templ    - Generate Go code from templ files"
 	echo ""
 	echo "Cloud-Init Installation:"
 	echo "  make update            - Update all packages idempotently"
@@ -133,8 +134,14 @@ test-multipass-clean:
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS := -ldflags "-X main.version=$(VERSION)"
 
+# Generate templ files
+generate-templ:
+	@echo "Generating templ files..."
+	go tool templ generate
+	@echo "✓ Generated templ files"
+
 # Build the ucli binary
-build-cli:
+build-cli: generate-templ
 	@echo "Building ucli (version: $(VERSION))..."
 	go build $(LDFLAGS) -o bin/ucli ./cmd/ucli
 	@echo "✓ Built: bin/ucli"
