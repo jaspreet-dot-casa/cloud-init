@@ -15,8 +15,8 @@ func TestNewSettings(t *testing.T) {
 
 	assert.Equal(t, Version, settings.Version)
 	assert.Empty(t, settings.CloudImages)
-	assert.Empty(t, settings.ISOs)
-	assert.True(t, settings.Preferences.AutoVerify)
+	assert.Empty(t, settings.VMConfigs)
+	assert.Empty(t, settings.PackagePresets)
 }
 
 func TestSettings_AddCloudImage(t *testing.T) {
@@ -90,32 +90,56 @@ func TestSettings_FindCloudImage_NotFound(t *testing.T) {
 	assert.Nil(t, found)
 }
 
-func TestSettings_AddISO(t *testing.T) {
+func TestSettings_VMConfig(t *testing.T) {
 	settings := NewSettings()
 
-	iso := ISO{
-		ID:      "ubuntu-24.04-server",
-		Name:    "Ubuntu 24.04 Server",
-		Version: "24.04",
-		Path:    "/path/to/ubuntu.iso",
-		AddedAt: time.Now(),
+	cfg := VMConfig{
+		ID:          "cfg1",
+		Name:        "Test Config",
+		Description: "A test configuration",
+		Target:      "terraform",
+		CreatedAt:   time.Now(),
+		Data: WizardDataSnapshot{
+			Username: "testuser",
+			Hostname: "testhost",
+			Packages: []string{"git", "vim"},
+		},
 	}
 
-	settings.AddISO(iso)
+	settings.AddVMConfig(cfg)
+	assert.Len(t, settings.VMConfigs, 1)
+	assert.Equal(t, "cfg1", settings.VMConfigs[0].ID)
 
-	assert.Len(t, settings.ISOs, 1)
-	assert.Equal(t, iso.ID, settings.ISOs[0].ID)
+	found := settings.FindVMConfig("cfg1")
+	require.NotNil(t, found)
+	assert.Equal(t, "Test Config", found.Name)
+
+	removed := settings.RemoveVMConfig("cfg1")
+	assert.True(t, removed)
+	assert.Len(t, settings.VMConfigs, 0)
 }
 
-func TestSettings_RemoveISO(t *testing.T) {
+func TestSettings_PackagePreset(t *testing.T) {
 	settings := NewSettings()
-	settings.AddISO(ISO{ID: "iso1", Name: "ISO 1"})
-	settings.AddISO(ISO{ID: "iso2", Name: "ISO 2"})
 
-	removed := settings.RemoveISO("iso1")
+	preset := PackagePreset{
+		ID:          "preset1",
+		Name:        "Dev Tools",
+		Description: "Development tools",
+		Packages:    []string{"git", "neovim", "ripgrep"},
+		CreatedAt:   time.Now(),
+	}
 
+	settings.AddPackagePreset(preset)
+	assert.Len(t, settings.PackagePresets, 1)
+
+	found := settings.FindPackagePreset("preset1")
+	require.NotNil(t, found)
+	assert.Equal(t, "Dev Tools", found.Name)
+
+	removed := settings.RemovePackagePreset("preset1")
 	assert.True(t, removed)
-	assert.Len(t, settings.ISOs, 1)
+	assert.Len(t, settings.PackagePresets, 0)
 }
 
 func TestStore_SaveAndLoad(t *testing.T) {
@@ -125,12 +149,13 @@ func TestStore_SaveAndLoad(t *testing.T) {
 
 	// Create settings
 	settings := NewSettings()
-	settings.ImagesDir = "/custom/path"
 	settings.AddCloudImage(CloudImage{
 		ID:   "test-image",
 		Name: "Test Image",
 		Path: "/path/to/image",
 	})
+	settings.AppSettings.TerraformDir = "/custom/terraform"
+	settings.AppSettings.DefaultTarget = "terraform"
 
 	// Save
 	err := store.Save(settings)
@@ -144,7 +169,7 @@ func TestStore_SaveAndLoad(t *testing.T) {
 	loaded, err := store.Load()
 	require.NoError(t, err)
 
-	assert.Equal(t, settings.ImagesDir, loaded.ImagesDir)
+	assert.Equal(t, settings.AppSettings.TerraformDir, loaded.AppSettings.TerraformDir)
 	assert.Len(t, loaded.CloudImages, 1)
 	assert.Equal(t, "test-image", loaded.CloudImages[0].ID)
 }
@@ -159,7 +184,7 @@ func TestStore_Load_DefaultSettings(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, Version, settings.Version)
-	assert.NotEmpty(t, settings.ImagesDir) // Should have default
+	assert.Empty(t, settings.CloudImages)
 }
 
 func TestStore_EnsureDir(t *testing.T) {
@@ -219,4 +244,13 @@ func TestStore_LoadDownloadState_Empty(t *testing.T) {
 
 	assert.NotNil(t, state)
 	assert.Empty(t, state.ActiveDownloads)
+}
+
+func TestDefaultPackagePresets(t *testing.T) {
+	presets := DefaultPackagePresets()
+
+	assert.Len(t, presets, 3)
+	assert.Equal(t, "minimal", presets[0].ID)
+	assert.Equal(t, "dev-tools", presets[1].ID)
+	assert.Equal(t, "full-stack", presets[2].ID)
 }

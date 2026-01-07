@@ -1,19 +1,18 @@
-// Package settings provides the settings/config view for the TUI application.
+// Package settings provides the config manager view for the TUI application.
 package settings
 
 import (
 	"fmt"
-	"log"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app"
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/images"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/settings"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/utils"
 )
 
 // Message types for async operations.
@@ -26,109 +25,103 @@ type (
 		err error
 	}
 
-	downloadStartedMsg struct {
-		id string
-	}
-
-	downloadProgressMsg struct {
-		id         string
-		downloaded int64
-		total      int64
-	}
-
-	downloadCompleteMsg struct {
-		id      string
-		success bool
-		err     error
-	}
-
-	// downloadTickMsg is sent periodically to poll download progress
-	downloadTickMsg struct{}
+	settingsSavedMsg struct{}
 )
 
 // Section represents a section of the config view.
 type Section int
 
 const (
-	SectionCloudImages Section = iota
-	SectionISOs
-	SectionDownloads
+	SectionSavedConfigs Section = iota
+	SectionPackagePresets
+	SectionAppSettings
+	sectionCount
 )
 
-// Model is the settings/config view model.
+// Styles
+var (
+	titleStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("205"))
+
+	sectionStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("39"))
+
+	activeSectionStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("205"))
+
+	itemStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("252"))
+
+	selectedItemStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("205")).
+				Bold(true)
+
+	dimStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("241"))
+
+	successStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("42"))
+
+	errorStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("196"))
+
+	labelStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("39"))
+
+	valueStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("252"))
+)
+
+// Model is the config manager view model.
 type Model struct {
 	app.BaseTab
 
-	store      *settings.Store
-	manager    *images.Manager
-	downloader *images.Downloader
-	settings   *settings.Settings
+	store    *settings.Store
+	settings *settings.Settings
 
 	spinner     spinner.Model
 	loading     bool
 	err         error
 	message     string
 	section     Section
-	cursor      int
 	itemCursors map[Section]int // Cursor per section
 
-	// Download dialog
-	showDownloadDialog bool
-	downloadVersion    string
-	downloadArch       string
-	dialogCursor       int
-
-	// Download progress tracking
-	hasActiveDownloads   bool
-	pendingRegistrations map[string]downloadInfo // id -> download info for registration
+	// Dialog state
+	showDialog    bool
+	dialogType    string // "new_preset", "edit_preset", "edit_setting"
+	dialogInputs  []textinput.Model
+	dialogCursor  int
+	editingField  string
+	editingPreset string // ID of preset being edited
 }
 
-// downloadInfo stores information needed to register a download after completion.
-type downloadInfo struct {
-	version  string
-	arch     string
-	destPath string
-}
-
-// New creates a new settings model.
+// New creates a new config manager model.
 func New() *Model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
-	var storeErr error
-	var message string
-
 	store, err := settings.NewStore()
+	var message string
 	if err != nil {
-		storeErr = err
-		log.Printf("Failed to create settings store: %v. Using temporary fallback at /tmp/ucli", err)
-
-		// Use a fallback store with temp directory if config dir fails
-		store = settings.NewStoreWithDir("/tmp/ucli")
-		if store == nil {
-			log.Printf("Failed to create fallback store")
-			storeErr = fmt.Errorf("failed to create settings store: %w", err)
-		} else {
-			message = fmt.Sprintf("⚠ Using temporary storage at /tmp/ucli (settings may be lost on reboot). Original error: %v", err)
-		}
+		message = fmt.Sprintf("Warning: Could not create settings store: %v", err)
 	}
 
 	return &Model{
-		BaseTab:              app.NewBaseTab(app.TabConfig, "Config", "4"),
-		store:                store,
-		manager:              images.NewManager(store),
-		downloader:           images.NewDownloader(store),
-		spinner:              s,
-		loading:              true,
-		err:                  storeErr,
-		message:              message,
-		itemCursors:          make(map[Section]int),
-		pendingRegistrations: make(map[string]downloadInfo),
+		BaseTab:     app.NewBaseTab(app.TabConfig, "Config", "4"),
+		store:       store,
+		spinner:     s,
+		loading:     true,
+		message:     message,
+		section:     SectionSavedConfigs,
+		itemCursors: make(map[Section]int),
 	}
 }
 
-// Init initializes the settings view.
+// Init initializes the model.
 func (m *Model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
@@ -136,143 +129,112 @@ func (m *Model) Init() tea.Cmd {
 	)
 }
 
+// loadSettings loads settings from disk.
+func (m *Model) loadSettings() tea.Msg {
+	if m.store == nil {
+		return settingsErrorMsg{err: fmt.Errorf("settings store not initialized")}
+	}
+
+	s, err := m.store.Load()
+	if err != nil {
+		return settingsErrorMsg{err: err}
+	}
+
+	return settingsLoadedMsg{settings: s}
+}
+
 // Update handles messages.
 func (m *Model) Update(msg tea.Msg) (app.Tab, tea.Cmd) {
-	var cmds []tea.Cmd
+	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if m.showDownloadDialog {
+		if m.showDialog {
 			return m.handleDialogKey(msg)
 		}
 		return m.handleKeyMsg(msg)
 
 	case spinner.TickMsg:
-		var cmd tea.Cmd
-		m.spinner, cmd = m.spinner.Update(msg)
-		cmds = append(cmds, cmd)
+		if m.loading {
+			m.spinner, cmd = m.spinner.Update(msg)
+			return m, cmd
+		}
 
 	case settingsLoadedMsg:
 		m.loading = false
 		m.settings = msg.settings
 		m.err = nil
+		return m, nil
 
 	case settingsErrorMsg:
 		m.loading = false
 		m.err = msg.err
+		return m, nil
 
-	case downloadStartedMsg:
-		m.message = fmt.Sprintf("Download started: %s", msg.id)
-		m.showDownloadDialog = false
-		m.hasActiveDownloads = true
-		// Start polling for progress
-		cmds = append(cmds, m.tickDownloadProgress())
-
-	case downloadTickMsg:
-		// Check if downloads are still active
-		active, err := m.downloader.GetActiveDownloads()
-		if err != nil {
-			log.Printf("Failed to get active downloads: %v", err)
-		}
-		if len(active) > 0 {
-			m.hasActiveDownloads = true
-			// Continue polling
-			cmds = append(cmds, m.tickDownloadProgress())
-		} else {
-			m.hasActiveDownloads = false
-			// Check for completed downloads that need registration
-			state, err := m.store.LoadDownloadState()
-			if err != nil {
-				log.Printf("Failed to load download state: %v", err)
-			}
-			if state != nil {
-				registeredAny := false
-				for _, dl := range state.ActiveDownloads {
-					if dl.Status == settings.StatusComplete {
-						// Check if we have pending registration for this download
-						if info, ok := m.pendingRegistrations[dl.ID]; ok {
-							// Register the downloaded image
-							if _, err := m.manager.AddExistingImage(info.destPath, info.version, info.arch); err != nil {
-								m.message = fmt.Sprintf("Failed to register image: %v", err)
-							} else {
-								m.message = fmt.Sprintf("Download complete: Ubuntu %s %s", info.version, info.arch)
-							}
-							delete(m.pendingRegistrations, dl.ID)
-							registeredAny = true
-						}
-					}
-				}
-				if registeredAny {
-					cmds = append(cmds, m.loadSettings)
-				}
-			}
-		}
-
-	case downloadProgressMsg:
-		// Progress updates handled by polling
-
-	case downloadCompleteMsg:
-		// Check if other downloads are still active
-		active, _ := m.downloader.GetActiveDownloads()
-		if msg.success {
-			m.message = fmt.Sprintf("Download complete: %s", msg.id)
-			m.hasActiveDownloads = len(active) > 0
-			cmds = append(cmds, m.loadSettings)
-		} else {
-			m.message = fmt.Sprintf("Download failed: %v", msg.err)
-			m.hasActiveDownloads = len(active) > 0
-			delete(m.pendingRegistrations, msg.id)
-		}
+	case settingsSavedMsg:
+		m.message = "Settings saved"
+		return m, nil
 	}
 
-	return m, tea.Batch(cmds...)
+	return m, nil
 }
 
-// handleKeyMsg handles keyboard input.
+// handleKeyMsg handles key input for normal navigation.
 func (m *Model) handleKeyMsg(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 	switch msg.String() {
 	case "up", "k":
 		m.moveCursor(-1)
 	case "down", "j":
 		m.moveCursor(1)
-	case "]", "l":
-		m.nextSection()
-	case "[", "h":
+	case "left", "h", "[":
 		m.prevSection()
-	case "d":
-		return m.openDownloadDialog()
-	case "x":
-		return m.removeSelected()
+	case "right", "l", "]":
+		m.nextSection()
+	case "enter":
+		return m.handleEnter()
+	case "n":
+		return m.handleNew()
+	case "e":
+		return m.handleEdit()
+	case "x", "delete", "backspace":
+		return m.handleDelete()
 	case "r":
 		m.loading = true
-		m.message = ""
-		return m, tea.Batch(m.spinner.Tick, m.loadSettings)
+		return m, m.loadSettings
 	}
 	return m, nil
 }
 
-// handleDialogKey handles dialog keyboard input.
+// handleDialogKey handles key input when a dialog is open.
 func (m *Model) handleDialogKey(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
-	registry := images.NewRegistry()
-	releases := registry.GetLTSReleases()
-	maxCursor := len(releases) - 1
-	if maxCursor < 0 {
-		maxCursor = 0
-	}
-
 	switch msg.String() {
-	case "up", "k":
-		if m.dialogCursor > 0 {
-			m.dialogCursor--
-		}
-	case "down", "j":
-		if m.dialogCursor < maxCursor {
+	case "esc":
+		m.showDialog = false
+		m.dialogInputs = nil
+		return m, nil
+	case "tab", "down":
+		if m.dialogCursor < len(m.dialogInputs)-1 {
+			m.dialogInputs[m.dialogCursor].Blur()
 			m.dialogCursor++
+			m.dialogInputs[m.dialogCursor].Focus()
 		}
+		return m, nil
+	case "shift+tab", "up":
+		if m.dialogCursor > 0 {
+			m.dialogInputs[m.dialogCursor].Blur()
+			m.dialogCursor--
+			m.dialogInputs[m.dialogCursor].Focus()
+		}
+		return m, nil
 	case "enter":
-		return m.confirmDownload()
-	case "esc", "q":
-		m.showDownloadDialog = false
+		return m.confirmDialog()
+	default:
+		// Forward to text input
+		if m.dialogCursor < len(m.dialogInputs) {
+			var cmd tea.Cmd
+			m.dialogInputs[m.dialogCursor], cmd = m.dialogInputs[m.dialogCursor].Update(msg)
+			return m, cmd
+		}
 	}
 	return m, nil
 }
@@ -284,7 +246,8 @@ func (m *Model) moveCursor(delta int) {
 		return
 	}
 
-	newPos := m.itemCursors[m.section] + delta
+	cursor := m.itemCursors[m.section]
+	newPos := cursor + delta
 	if newPos < 0 {
 		newPos = 0
 	}
@@ -294,101 +257,34 @@ func (m *Model) moveCursor(delta int) {
 	m.itemCursors[m.section] = newPos
 }
 
+// nextSection moves to the next section.
+func (m *Model) nextSection() {
+	m.section = (m.section + 1) % sectionCount
+}
+
+// prevSection moves to the previous section.
+func (m *Model) prevSection() {
+	m.section = (m.section - 1 + sectionCount) % sectionCount
+}
+
 // getItemCount returns the number of items in the current section.
 func (m *Model) getItemCount() int {
 	if m.settings == nil {
 		return 0
 	}
-
 	switch m.section {
-	case SectionCloudImages:
-		return len(m.settings.CloudImages) + 1 // +1 for "Add" option
-	case SectionISOs:
-		return len(m.settings.ISOs) + 1 // +1 for "Add" option
-	case SectionDownloads:
-		state, _ := m.store.LoadDownloadState()
-		if state == nil {
-			return 0
-		}
-		return len(state.ActiveDownloads)
+	case SectionSavedConfigs:
+		return len(m.settings.VMConfigs) + 1 // +1 for "Create new..."
+	case SectionPackagePresets:
+		return len(m.getAllPresets()) + 1 // +1 for "Create new..."
+	case SectionAppSettings:
+		return 3 // TerraformDir, DefaultTarget, AutoApprove
 	}
 	return 0
 }
 
-// nextSection moves to the next section.
-func (m *Model) nextSection() {
-	m.section = (m.section + 1) % 3
-}
-
-// prevSection moves to the previous section.
-func (m *Model) prevSection() {
-	if m.section == 0 {
-		m.section = 2
-	} else {
-		m.section--
-	}
-}
-
-// openDownloadDialog opens the download dialog.
-func (m *Model) openDownloadDialog() (app.Tab, tea.Cmd) {
-	m.showDownloadDialog = true
-	m.downloadVersion = "24.04"
-	m.downloadArch = images.GetDefaultArch()
-	m.dialogCursor = 0
-	return m, nil
-}
-
-// confirmDownload starts the download.
-func (m *Model) confirmDownload() (app.Tab, tea.Cmd) {
-	m.showDownloadDialog = false
-
-	registry := images.NewRegistry()
-	releases := registry.GetLTSReleases()
-	if m.dialogCursor >= len(releases) {
-		return m, nil
-	}
-
-	rel := releases[m.dialogCursor]
-	arch := images.GetDefaultArch()
-
-	// Get image info to get URL and destination path
-	info := registry.GetCloudImageInfo(rel.Version, arch)
-	if info == nil {
-		m.message = fmt.Sprintf("Unknown image: %s %s", rel.Version, arch)
-		return m, nil
-	}
-
-	// Load settings to get images directory
-	s, err := m.store.Load()
-	if err != nil {
-		m.message = fmt.Sprintf("Failed to load settings: %v", err)
-		return m, nil
-	}
-
-	destPath := filepath.Join(s.ImagesDir, info.Filename)
-	downloadID := images.GenerateImageID(rel.Version, arch)
-
-	// Store registration info for when download completes
-	m.pendingRegistrations[downloadID] = downloadInfo{
-		version:  rel.Version,
-		arch:     arch,
-		destPath: destPath,
-	}
-
-	// Start background download
-	if err := m.downloader.StartBackgroundDownload(downloadID, info.URL, destPath); err != nil {
-		delete(m.pendingRegistrations, downloadID)
-		m.message = fmt.Sprintf("Failed to start download: %v", err)
-		return m, nil
-	}
-
-	return m, func() tea.Msg {
-		return downloadStartedMsg{id: downloadID}
-	}
-}
-
-// removeSelected removes the selected item.
-func (m *Model) removeSelected() (app.Tab, tea.Cmd) {
+// handleEnter handles the Enter key for the current selection.
+func (m *Model) handleEnter() (app.Tab, tea.Cmd) {
 	if m.settings == nil {
 		return m, nil
 	}
@@ -396,24 +292,121 @@ func (m *Model) removeSelected() (app.Tab, tea.Cmd) {
 	cursor := m.itemCursors[m.section]
 
 	switch m.section {
-	case SectionCloudImages:
-		if cursor < len(m.settings.CloudImages) {
-			img := m.settings.CloudImages[cursor]
-			if err := m.manager.RemoveImage(img.ID, false); err != nil {
-				m.message = fmt.Sprintf("Failed to remove: %v", err)
+	case SectionSavedConfigs:
+		if cursor == len(m.settings.VMConfigs) {
+			// "Create new..." selected
+			return m.openNewConfigDialog()
+		}
+		// Load config - will be implemented in wizard integration
+		m.message = "Loading config... (wizard integration pending)"
+
+	case SectionPackagePresets:
+		allPresets := m.getAllPresets()
+		if cursor == len(allPresets) {
+			// "Create new..." selected
+			return m.openNewPresetDialog()
+		}
+		// View preset details
+		preset := allPresets[cursor]
+		if len(preset.Packages) > 0 {
+			pkgList := strings.Join(preset.Packages, ", ")
+			if len(pkgList) > 60 {
+				pkgList = pkgList[:57] + "..."
+			}
+			m.message = fmt.Sprintf("Preset '%s': %s", preset.Name, pkgList)
+		} else {
+			m.message = fmt.Sprintf("Preset '%s': (no packages)", preset.Name)
+		}
+
+	case SectionAppSettings:
+		return m.editAppSetting(cursor)
+	}
+
+	return m, nil
+}
+
+// handleNew handles the 'n' key to create new items.
+func (m *Model) handleNew() (app.Tab, tea.Cmd) {
+	switch m.section {
+	case SectionSavedConfigs:
+		return m.openNewConfigDialog()
+	case SectionPackagePresets:
+		return m.openNewPresetDialog()
+	}
+	return m, nil
+}
+
+// handleEdit handles the 'e' key to edit existing items.
+func (m *Model) handleEdit() (app.Tab, tea.Cmd) {
+	if m.settings == nil {
+		return m, nil
+	}
+
+	cursor := m.itemCursors[m.section]
+
+	switch m.section {
+	case SectionPackagePresets:
+		allPresets := m.getAllPresets()
+		if cursor < len(allPresets) {
+			preset := allPresets[cursor]
+			// Prevent editing built-in presets
+			if preset.IsBuiltIn {
+				m.message = "Cannot edit built-in preset"
+				return m, nil
+			}
+			return m.openEditPresetDialog(&preset)
+		}
+
+	case SectionAppSettings:
+		return m.editAppSetting(cursor)
+	}
+
+	return m, nil
+}
+
+// handleDelete handles deletion of the current item.
+func (m *Model) handleDelete() (app.Tab, tea.Cmd) {
+	if m.settings == nil {
+		return m, nil
+	}
+
+	cursor := m.itemCursors[m.section]
+
+	switch m.section {
+	case SectionSavedConfigs:
+		if cursor < len(m.settings.VMConfigs) {
+			cfg := m.settings.VMConfigs[cursor]
+			m.settings.RemoveVMConfig(cfg.ID)
+			if err := m.store.Save(m.settings); err != nil {
+				m.err = err
 			} else {
-				m.message = fmt.Sprintf("Removed: %s", img.Name)
-				return m, m.loadSettings
+				m.message = fmt.Sprintf("Deleted config '%s'", cfg.Name)
+			}
+			// Adjust cursor if needed
+			if m.itemCursors[m.section] >= len(m.settings.VMConfigs) && m.itemCursors[m.section] > 0 {
+				m.itemCursors[m.section]--
 			}
 		}
-	case SectionISOs:
-		if cursor < len(m.settings.ISOs) {
-			iso := m.settings.ISOs[cursor]
-			if err := m.manager.RemoveISO(iso.ID, false); err != nil {
-				m.message = fmt.Sprintf("Failed to remove: %v", err)
+
+	case SectionPackagePresets:
+		allPresets := m.getAllPresets()
+		if cursor < len(allPresets) {
+			preset := allPresets[cursor]
+			// Prevent deleting built-in presets
+			if preset.IsBuiltIn {
+				m.message = "Cannot delete built-in preset"
+				return m, nil
+			}
+			m.settings.RemovePackagePreset(preset.ID)
+			if err := m.store.Save(m.settings); err != nil {
+				m.err = err
 			} else {
-				m.message = fmt.Sprintf("Removed: %s", iso.Name)
-				return m, m.loadSettings
+				m.message = fmt.Sprintf("Deleted preset '%s'", preset.Name)
+			}
+			// Adjust cursor
+			newCount := len(m.getAllPresets())
+			if m.itemCursors[m.section] >= newCount && m.itemCursors[m.section] > 0 {
+				m.itemCursors[m.section]--
 			}
 		}
 	}
@@ -421,277 +414,472 @@ func (m *Model) removeSelected() (app.Tab, tea.Cmd) {
 	return m, nil
 }
 
-// loadSettings loads settings from disk.
-func (m *Model) loadSettings() tea.Msg {
-	s, err := m.store.Load()
-	if err != nil {
-		return settingsErrorMsg{err: err}
+// openNewConfigDialog shows a message directing users to the Create tab.
+// Configs should be created via the wizard, not manually, to ensure they have valid data.
+func (m *Model) openNewConfigDialog() (app.Tab, tea.Cmd) {
+	m.message = "Use the Create tab to build a new VM configuration, then save it from the Review screen"
+	return m, nil
+}
+
+// openNewPresetDialog opens the dialog to create a new preset.
+func (m *Model) openNewPresetDialog() (app.Tab, tea.Cmd) {
+	m.showDialog = true
+	m.dialogType = "new_preset"
+	m.dialogCursor = 0
+	m.editingPreset = ""
+
+	nameInput := textinput.New()
+	nameInput.Placeholder = "Preset name"
+	nameInput.Focus()
+
+	descInput := textinput.New()
+	descInput.Placeholder = "Description (optional)"
+
+	packagesInput := textinput.New()
+	packagesInput.Placeholder = "Packages (comma-separated)"
+
+	m.dialogInputs = []textinput.Model{nameInput, descInput, packagesInput}
+	return m, nil
+}
+
+// openEditPresetDialog opens the dialog to edit an existing preset.
+func (m *Model) openEditPresetDialog(preset *settings.PackagePreset) (app.Tab, tea.Cmd) {
+	m.showDialog = true
+	m.dialogType = "edit_preset"
+	m.dialogCursor = 0
+	m.editingPreset = preset.ID
+
+	nameInput := textinput.New()
+	nameInput.Placeholder = "Preset name"
+	nameInput.SetValue(preset.Name)
+	nameInput.Focus()
+
+	descInput := textinput.New()
+	descInput.Placeholder = "Description (optional)"
+	descInput.SetValue(preset.Description)
+
+	packagesInput := textinput.New()
+	packagesInput.Placeholder = "Packages (comma-separated)"
+	packagesInput.SetValue(strings.Join(preset.Packages, ", "))
+
+	m.dialogInputs = []textinput.Model{nameInput, descInput, packagesInput}
+	return m, nil
+}
+
+// editAppSetting opens a dialog to edit an app setting.
+func (m *Model) editAppSetting(index int) (app.Tab, tea.Cmd) {
+	m.showDialog = true
+	m.dialogType = "edit_setting"
+	m.dialogCursor = 0
+
+	input := textinput.New()
+	input.Focus()
+
+	switch index {
+	case 0: // TerraformDir
+		m.editingField = "terraform_dir"
+		input.Placeholder = "Terraform directory"
+		input.SetValue(m.settings.AppSettings.TerraformDir)
+	case 1: // DefaultTarget
+		m.editingField = "default_target"
+		input.Placeholder = "Default target (terraform/multipass)"
+		input.SetValue(m.settings.AppSettings.DefaultTarget)
+	case 2: // AutoApprove
+		m.editingField = "auto_approve"
+		if m.settings.AppSettings.AutoApprove {
+			input.SetValue("true")
+		} else {
+			input.SetValue("false")
+		}
+		input.Placeholder = "Auto approve (true/false)"
 	}
-	return settingsLoadedMsg{settings: s}
+
+	m.dialogInputs = []textinput.Model{input}
+	return m, nil
 }
 
-// tickDownloadProgress creates a command that sends a tick message after a delay.
-func (m *Model) tickDownloadProgress() tea.Cmd {
-	return tea.Tick(500*time.Millisecond, func(t time.Time) tea.Msg {
-		return downloadTickMsg{}
-	})
+// confirmDialog saves the dialog input.
+func (m *Model) confirmDialog() (app.Tab, tea.Cmd) {
+	switch m.dialogType {
+	case "new_preset":
+		name := utils.SanitizeConfigName(m.dialogInputs[0].Value())
+
+		// Validate preset name
+		if err := utils.ValidateConfigName(name); err != nil {
+			m.message = err.Error()
+			return m, nil
+		}
+
+		desc := m.dialogInputs[1].Value()
+		packagesStr := m.dialogInputs[2].Value()
+
+		var packages []string
+		if packagesStr != "" {
+			for _, p := range strings.Split(packagesStr, ",") {
+				p = strings.TrimSpace(p)
+				if p != "" {
+					packages = append(packages, p)
+				}
+			}
+		}
+
+		preset := settings.PackagePreset{
+			ID:          fmt.Sprintf("preset-%d", time.Now().UnixNano()),
+			Name:        name,
+			Description: desc,
+			Packages:    packages,
+			CreatedAt:   time.Now(),
+		}
+		m.settings.AddPackagePreset(preset)
+		if err := m.store.Save(m.settings); err != nil {
+			m.err = err
+		} else {
+			m.message = fmt.Sprintf("Created preset '%s'", name)
+		}
+
+	case "edit_preset":
+		name := utils.SanitizeConfigName(m.dialogInputs[0].Value())
+
+		// Validate preset name
+		if err := utils.ValidateConfigName(name); err != nil {
+			m.message = err.Error()
+			return m, nil
+		}
+
+		desc := m.dialogInputs[1].Value()
+		packagesStr := m.dialogInputs[2].Value()
+
+		var packages []string
+		if packagesStr != "" {
+			for _, p := range strings.Split(packagesStr, ",") {
+				p = strings.TrimSpace(p)
+				if p != "" {
+					packages = append(packages, p)
+				}
+			}
+		}
+
+		// Find and update the preset
+		for i, p := range m.settings.PackagePresets {
+			if p.ID == m.editingPreset {
+				m.settings.PackagePresets[i].Name = name
+				m.settings.PackagePresets[i].Description = desc
+				m.settings.PackagePresets[i].Packages = packages
+				break
+			}
+		}
+
+		if err := m.store.Save(m.settings); err != nil {
+			m.err = err
+		} else {
+			m.message = fmt.Sprintf("Updated preset '%s'", name)
+		}
+		m.editingPreset = ""
+
+	case "edit_setting":
+		value := m.dialogInputs[0].Value()
+		switch m.editingField {
+		case "terraform_dir":
+			m.settings.AppSettings.TerraformDir = value
+		case "default_target":
+			// Validate target
+			if value != "" && !settings.IsValidTarget(value) {
+				m.message = "Invalid target. Use 'terraform', 'multipass', or 'config'"
+				return m, nil
+			}
+			m.settings.AppSettings.DefaultTarget = value
+		case "auto_approve":
+			m.settings.AppSettings.AutoApprove = value == "true" || value == "yes" || value == "1"
+		}
+		if err := m.store.Save(m.settings); err != nil {
+			m.err = err
+		} else {
+			m.message = "Setting updated"
+		}
+	}
+
+	m.showDialog = false
+	m.dialogInputs = nil
+	return m, nil
 }
 
-// View renders the settings view.
+// View renders the view.
 func (m *Model) View() string {
 	if m.Width() == 0 {
 		return "Loading..."
 	}
 
-	var content string
+	var b strings.Builder
 
-	// Header
-	header := m.renderHeader()
+	// Title
+	b.WriteString(titleStyle.Render("Configuration"))
+	b.WriteString("\n")
+	b.WriteString(strings.Repeat("─", min(40, m.Width()-4)))
+	b.WriteString("\n\n")
 
-	// Main content
+	// Content
 	if m.loading && m.settings == nil {
-		content = fmt.Sprintf("\n  %s Loading settings...\n", m.spinner.View())
+		b.WriteString(fmt.Sprintf("  %s Loading settings...\n", m.spinner.View()))
 	} else if m.err != nil {
-		content = fmt.Sprintf("\n  Error: %v\n\n  Press 'r' to retry.\n", m.err)
+		b.WriteString(errorStyle.Render(fmt.Sprintf("  Error: %v\n\n", m.err)))
+		b.WriteString(dimStyle.Render("  Press 'r' to retry.\n"))
 	} else {
-		content = m.renderContent()
+		b.WriteString(m.renderSections())
 	}
 
-	// Status message
-	statusBar := m.renderStatusBar()
+	// Message
+	if m.message != "" {
+		b.WriteString("\n")
+		b.WriteString(dimStyle.Render(fmt.Sprintf("  %s", m.message)))
+		b.WriteString("\n")
+	}
 
 	// Dialog overlay
-	if m.showDownloadDialog {
-		return m.renderWithDialog(header, content, statusBar)
+	if m.showDialog {
+		b.WriteString("\n")
+		b.WriteString(m.renderDialog())
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left, header, content, statusBar)
+	return b.String()
 }
 
-// renderHeader renders the view header.
-func (m *Model) renderHeader() string {
-	title := "Configuration"
-	if m.loading {
-		title += fmt.Sprintf(" %s", m.spinner.View())
-	}
+// renderSections renders all sections.
+func (m *Model) renderSections() string {
+	var b strings.Builder
 
-	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("229"))
+	// Section 1: Saved Configs
+	b.WriteString(m.renderSectionHeader("Saved Configs", SectionSavedConfigs))
+	b.WriteString(m.renderSavedConfigs())
+	b.WriteString("\n")
 
-	return headerStyle.Render(title)
+	// Section 2: Package Presets
+	b.WriteString(m.renderSectionHeader("Package Presets", SectionPackagePresets))
+	b.WriteString(m.renderPackagePresets())
+	b.WriteString("\n")
+
+	// Section 3: App Settings
+	b.WriteString(m.renderSectionHeader("App Settings", SectionAppSettings))
+	b.WriteString(m.renderAppSettings())
+
+	return b.String()
 }
 
-// renderContent renders the main content.
-func (m *Model) renderContent() string {
-	var sections []string
-
-	// Cloud Images section
-	sections = append(sections, m.renderSection("Cloud Images", SectionCloudImages, m.renderCloudImages))
-
-	// ISOs section
-	sections = append(sections, m.renderSection("ISOs", SectionISOs, m.renderISOs))
-
-	// Downloads section
-	sections = append(sections, m.renderSection("Active Downloads", SectionDownloads, m.renderDownloads))
-
-	return lipgloss.JoinVertical(lipgloss.Left, sections...)
-}
-
-// renderSection renders a section with header.
-func (m *Model) renderSection(title string, section Section, renderItems func() string) string {
-	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("39"))
-	activeStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214"))
-	borderStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-
-	header := sectionStyle.Render(title)
+// renderSectionHeader renders a section header.
+func (m *Model) renderSectionHeader(title string, section Section) string {
+	style := sectionStyle
+	prefix := "  "
 	if m.section == section {
-		header = activeStyle.Render("▸ " + title)
+		style = activeSectionStyle
+		prefix = "▸ "
 	}
-
-	border := borderStyle.Render("  " + strings.Repeat("─", m.Width()-4))
-
-	items := renderItems()
-
-	return fmt.Sprintf("\n%s\n%s\n%s", header, border, items)
+	return prefix + style.Render(title) + "\n  " + strings.Repeat("─", min(30, m.Width()-6)) + "\n"
 }
 
-// renderCloudImages renders the cloud images list.
-func (m *Model) renderCloudImages() string {
-	if m.settings == nil || len(m.settings.CloudImages) == 0 {
-		return m.renderAddOption(SectionCloudImages)
+// renderSavedConfigs renders the saved configs section.
+func (m *Model) renderSavedConfigs() string {
+	var b strings.Builder
+
+	if m.settings == nil {
+		return ""
 	}
 
-	var lines []string
-	cursor := m.itemCursors[SectionCloudImages]
+	cursor := m.itemCursors[SectionSavedConfigs]
+	isActive := m.section == SectionSavedConfigs
 
-	for i, img := range m.settings.CloudImages {
-		line := m.renderImageLine(i, cursor, img.Name, filepath.Base(img.Path), img.Verified)
-		lines = append(lines, line)
-	}
-
-	// Add option
-	lines = append(lines, m.renderAddLine(len(m.settings.CloudImages), cursor, "Download cloud image..."))
-
-	return lipgloss.JoinVertical(lipgloss.Left, lines...)
-}
-
-// renderISOs renders the ISOs list.
-func (m *Model) renderISOs() string {
-	if m.settings == nil || len(m.settings.ISOs) == 0 {
-		return m.renderAddOption(SectionISOs)
-	}
-
-	var lines []string
-	cursor := m.itemCursors[SectionISOs]
-
-	for i, iso := range m.settings.ISOs {
-		line := m.renderImageLine(i, cursor, iso.Name, filepath.Base(iso.Path), true)
-		lines = append(lines, line)
-	}
-
-	// Add option
-	lines = append(lines, m.renderAddLine(len(m.settings.ISOs), cursor, "Add ISO..."))
-
-	return lipgloss.JoinVertical(lipgloss.Left, lines...)
-}
-
-// renderDownloads renders active downloads.
-func (m *Model) renderDownloads() string {
-	state, _ := m.store.LoadDownloadState()
-	if state == nil || len(state.ActiveDownloads) == 0 {
-		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-		return dimStyle.Render("  No active downloads")
-	}
-
-	var lines []string
-	for _, dl := range state.ActiveDownloads {
-		progress := float64(dl.Downloaded) / float64(dl.TotalBytes) * 100
-		if dl.TotalBytes == 0 {
-			progress = 0
+	for i, cfg := range m.settings.VMConfigs {
+		prefix := "    "
+		style := itemStyle
+		if isActive && i == cursor {
+			prefix = "  ▸ "
+			style = selectedItemStyle
 		}
 
-		statusIcon := "⏳"
-		if dl.Status == settings.StatusComplete {
-			statusIcon = "✓"
-		} else if dl.Status == settings.StatusError {
-			statusIcon = "✗"
+		// Format last used
+		lastUsed := "Never used"
+		if !cfg.LastUsedAt.IsZero() {
+			lastUsed = "Last used: " + utils.FormatTimeAgo(cfg.LastUsedAt)
 		}
 
-		line := fmt.Sprintf("  %s %-30s %5.1f%%", statusIcon, filepath.Base(dl.DestPath), progress)
-		lines = append(lines, line)
+		b.WriteString(prefix)
+		b.WriteString(style.Render(cfg.Name))
+		if cfg.Target != "" {
+			b.WriteString(dimStyle.Render(fmt.Sprintf(" (%s)", cfg.Target)))
+		}
+		b.WriteString("\n")
+		b.WriteString("      ")
+		b.WriteString(dimStyle.Render(lastUsed))
+		b.WriteString("\n")
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+	// "Create new..." option
+	prefix := "    "
+	style := dimStyle
+	if isActive && cursor == len(m.settings.VMConfigs) {
+		prefix = "  ▸ "
+		style = selectedItemStyle
+	}
+	b.WriteString(prefix)
+	b.WriteString(style.Render("+ Create new..."))
+	b.WriteString("\n")
+
+	return b.String()
 }
 
-// renderAddOption renders a simple add option for empty sections.
-func (m *Model) renderAddOption(section Section) string {
-	cursor := m.itemCursors[section]
-	return m.renderAddLine(0, cursor, "Add...")
+// getAllPresets returns built-in presets merged with user presets.
+func (m *Model) getAllPresets() []settings.PackagePreset {
+	builtIn := settings.DefaultPackagePresets()
+	if m.settings == nil {
+		return builtIn
+	}
+
+	// Build a set of built-in IDs to avoid duplicates
+	builtInIDs := make(map[string]bool)
+	for _, p := range builtIn {
+		builtInIDs[p.ID] = true
+	}
+
+	// Append user presets (skip any that duplicate built-in IDs)
+	result := builtIn
+	for _, p := range m.settings.PackagePresets {
+		if !builtInIDs[p.ID] {
+			result = append(result, p)
+		}
+	}
+	return result
 }
 
-// renderImageLine renders a single image line.
-func (m *Model) renderImageLine(idx, cursor int, name, filename string, verified bool) string {
-	selectedStyle := lipgloss.NewStyle().Background(lipgloss.Color("237"))
-	okStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
-	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+// renderPackagePresets renders the package presets section.
+func (m *Model) renderPackagePresets() string {
+	var b strings.Builder
 
-	cursorStr := "  "
-	if idx == cursor && m.section != SectionDownloads {
-		cursorStr = "▸ "
+	allPresets := m.getAllPresets()
+	cursor := m.itemCursors[SectionPackagePresets]
+	isActive := m.section == SectionPackagePresets
+
+	for i, preset := range allPresets {
+		prefix := "    "
+		style := itemStyle
+		if isActive && i == cursor {
+			prefix = "  ▸ "
+			style = selectedItemStyle
+		}
+
+		b.WriteString(prefix)
+		b.WriteString(style.Render(preset.Name))
+		b.WriteString(dimStyle.Render(fmt.Sprintf(" (%d packages)", len(preset.Packages))))
+
+		// Show [built-in] indicator
+		if preset.IsBuiltIn {
+			b.WriteString(dimStyle.Render(" [built-in]"))
+		}
+		b.WriteString("\n")
+
+		if preset.Description != "" {
+			b.WriteString("      ")
+			b.WriteString(dimStyle.Render(preset.Description))
+			b.WriteString("\n")
+		}
 	}
 
-	icon := okStyle.Render("✓")
-	if !verified {
-		icon = dimStyle.Render("?")
+	// "Create new..." option
+	prefix := "    "
+	style := dimStyle
+	if isActive && cursor == len(allPresets) {
+		prefix = "  ▸ "
+		style = selectedItemStyle
 	}
+	b.WriteString(prefix)
+	b.WriteString(style.Render("+ Create new..."))
+	b.WriteString("\n")
 
-	line := fmt.Sprintf("  %s%s %-25s %s", cursorStr, icon, name, dimStyle.Render(filename))
-
-	if idx == cursor {
-		line = selectedStyle.Render(line)
-	}
-
-	return line
+	return b.String()
 }
 
-// renderAddLine renders an "Add" line.
-func (m *Model) renderAddLine(idx, cursor int, text string) string {
-	selectedStyle := lipgloss.NewStyle().Background(lipgloss.Color("237"))
-	addStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("39"))
+// renderAppSettings renders the app settings section.
+func (m *Model) renderAppSettings() string {
+	var b strings.Builder
 
-	cursorStr := "  "
-	if idx == cursor {
-		cursorStr = "▸ "
+	if m.settings == nil {
+		return ""
 	}
 
-	line := fmt.Sprintf("  %s%s", cursorStr, addStyle.Render("+ "+text))
+	cursor := m.itemCursors[SectionAppSettings]
+	isActive := m.section == SectionAppSettings
 
-	if idx == cursor {
-		line = selectedStyle.Render(line)
+	settings := []struct {
+		label string
+		value string
+	}{
+		{"Terraform Dir", m.settings.AppSettings.TerraformDir},
+		{"Default Target", m.settings.AppSettings.DefaultTarget},
+		{"Auto Approve", fmt.Sprintf("%v", m.settings.AppSettings.AutoApprove)},
 	}
 
-	return line
-}
+	for i, s := range settings {
+		prefix := "    "
+		style := labelStyle
+		if isActive && i == cursor {
+			prefix = "  ▸ "
+			style = selectedItemStyle
+		}
 
-// renderStatusBar renders the status bar.
-func (m *Model) renderStatusBar() string {
-	if m.message != "" {
-		return lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")).
-			Render("\n  " + m.message)
+		value := s.value
+		if value == "" {
+			value = "(not set)"
+		}
+
+		b.WriteString(prefix)
+		b.WriteString(style.Render(s.label + ": "))
+		b.WriteString(valueStyle.Render(value))
+		b.WriteString("\n")
 	}
-	return ""
+
+	return b.String()
 }
 
-// renderWithDialog renders the view with download dialog overlay.
-func (m *Model) renderWithDialog(_, _, _ string) string {
-	dialog := m.renderDownloadDialog()
+// renderDialog renders the dialog overlay.
+func (m *Model) renderDialog() string {
+	var b strings.Builder
 
-	return lipgloss.Place(
-		m.Width(),
-		m.Height(),
-		lipgloss.Center,
-		lipgloss.Center,
-		dialog,
-		lipgloss.WithWhitespaceChars(" "),
-	)
-}
+	b.WriteString("  ┌")
+	b.WriteString(strings.Repeat("─", 40))
+	b.WriteString("┐\n")
 
-// renderDownloadDialog renders the download dialog.
-func (m *Model) renderDownloadDialog() string {
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("39")).
-		Padding(1, 2).
-		Width(50)
+	var title string
+	switch m.dialogType {
+	case "new_preset":
+		title = "New Package Preset"
+	case "edit_preset":
+		title = "Edit Package Preset"
+	case "edit_setting":
+		title = "Edit Setting"
+	}
 
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("229"))
-	selectedStyle := lipgloss.NewStyle().Background(lipgloss.Color("237"))
+	b.WriteString(fmt.Sprintf("  │ %-38s │\n", title))
+	b.WriteString("  ├")
+	b.WriteString(strings.Repeat("─", 40))
+	b.WriteString("┤\n")
 
-	title := titleStyle.Render("Download Cloud Image")
-
-	registry := images.NewRegistry()
-	releases := registry.GetLTSReleases()
-
-	var options []string
-	for i, rel := range releases {
-		line := fmt.Sprintf("  %s (%s)", rel.Name, rel.Codename)
+	for i, input := range m.dialogInputs {
+		prefix := "  "
 		if i == m.dialogCursor {
-			line = selectedStyle.Render("▸" + line[1:])
+			prefix = "▸ "
 		}
-		options = append(options, line)
+		b.WriteString(fmt.Sprintf("  │ %s%-36s │\n", prefix, input.View()))
 	}
 
-	optionsStr := lipgloss.JoinVertical(lipgloss.Left, options...)
+	b.WriteString("  ├")
+	b.WriteString(strings.Repeat("─", 40))
+	b.WriteString("┤\n")
+	b.WriteString("  │ [Enter] Save  [Esc] Cancel           │\n")
+	b.WriteString("  └")
+	b.WriteString(strings.Repeat("─", 40))
+	b.WriteString("┘\n")
 
-	hint := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("\n[Enter] download  [Esc] cancel")
-
-	content := title + "\n\n" + optionsStr + hint
-
-	return boxStyle.Render(content)
+	return b.String()
 }
 
-// Focus sets focus on this tab.
+// Focus is called when the tab becomes active.
 func (m *Model) Focus() tea.Cmd {
 	m.BaseTab.Focus()
 	return tea.Batch(
@@ -700,35 +888,42 @@ func (m *Model) Focus() tea.Cmd {
 	)
 }
 
-// Blur removes focus from this tab.
+// Blur is called when the tab becomes inactive.
 func (m *Model) Blur() {
 	m.BaseTab.Blur()
+	m.showDialog = false
+	m.dialogInputs = nil
 }
 
-// SetSize sets the tab dimensions.
-func (m *Model) SetSize(width, height int) {
-	m.BaseTab.SetSize(width, height)
-}
-
-// KeyBindings returns the key bindings for this tab.
+// KeyBindings returns the key bindings for the footer.
 func (m *Model) KeyBindings() []string {
-	if m.showDownloadDialog {
+	if m.showDialog {
 		return []string{
-			"[↑/↓] select",
-			"[Enter] download",
+			"[Enter] save",
 			"[Esc] cancel",
+			"[Tab] next field",
 		}
 	}
 	return []string{
 		"[↑/↓] navigate",
-		"[h/l/[/]] section",
-		"[d] download",
-		"[x] remove",
+		"[h/l] section",
+		"[Enter] select",
+		"[n] new",
+		"[e] edit",
+		"[x] delete",
 		"[r] refresh",
 	}
 }
 
-// HasFocusedInput returns true when dialog is open.
+// HasFocusedInput returns true if dialog is open.
 func (m *Model) HasFocusedInput() bool {
-	return m.showDownloadDialog
+	return m.showDialog
+}
+
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

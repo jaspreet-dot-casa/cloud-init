@@ -16,7 +16,6 @@ import (
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy/multipass"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy/terragrunt"
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy/usb"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/generator"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/packages"
 )
@@ -79,8 +78,6 @@ func (m *Model) createDeployer() deploy.Deployer {
 		return multipass.New()
 	case deploy.TargetTerragrunt:
 		return terragrunt.New(m.projectDir)
-	case deploy.TargetUSB:
-		return usb.New(m.projectDir)
 	case deploy.TargetConfigOnly:
 		// For config-only, we'll use a simple generator
 		return &configOnlyDeployer{
@@ -215,13 +212,6 @@ func (m *Model) buildDeployOptions() *deploy.DeployOptions {
 
 	case deploy.TargetTerragrunt:
 		opts.Terragrunt = data.TerragruntOpts
-
-	case deploy.TargetUSB:
-		opts.USB = deploy.USBOptions{
-			SourceISO:     data.USBOpts.SourceISO,
-			OutputISO:     data.USBOpts.OutputPath,
-			StorageLayout: data.USBOpts.StorageLayout,
-		}
 	}
 
 	return opts

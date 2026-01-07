@@ -3,9 +3,11 @@ module github.com/jaspreet-dot-casa/cloud-init
 go 1.25.5
 
 require (
+	github.com/a-h/templ v0.3.977
 	github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7
 	github.com/charmbracelet/bubbletea v1.3.6
 	github.com/charmbracelet/lipgloss v1.1.0
+	github.com/google/uuid v1.6.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
@@ -13,7 +15,6 @@ require (
 
 require (
 	github.com/a-h/parse v0.0.0-20250122154542-74294addb73e // indirect
-	github.com/a-h/templ v0.3.977 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect

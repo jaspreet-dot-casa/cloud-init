@@ -15,7 +15,6 @@ type WizardData struct {
 	// Target-specific options
 	MultipassOpts  deploy.MultipassOptions
 	TerragruntOpts deploy.TerragruntOptions
-	USBOpts        USBOptions
 	GenerateOpts   GenerateOptions
 
 	// SSH configuration
@@ -42,14 +41,6 @@ type WizardData struct {
 
 	// GitHub profile (fetched from API)
 	GitHubID int64
-}
-
-// USBOptions holds USB/ISO specific options
-type USBOptions struct {
-	SourceISO     string
-	OutputPath    string
-	StorageLayout string
-	Timezone      string
 }
 
 // GenerateOptions holds config-only generation options
