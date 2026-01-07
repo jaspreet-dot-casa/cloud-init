@@ -245,6 +245,11 @@ func TestEscapeMarkdownText(t *testing.T) {
 			expected: "path\\\\to\\\\file",
 		},
 		{
+			name:     "escapes backticks",
+			input:    "`code` here",
+			expected: "\\`code\\` here",
+		},
+		{
 			name:     "handles empty string",
 			input:    "",
 			expected: "",

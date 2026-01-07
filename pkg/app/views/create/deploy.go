@@ -94,6 +94,7 @@ func (m *Model) createDeployer() deploy.Deployer {
 		return &configOnlyDeployer{
 			projectDir: m.projectDir,
 			outputDir:  ".",
+			registry:   m.wizard.Registry,
 		}
 	}
 }

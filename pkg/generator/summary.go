@@ -30,6 +30,7 @@ func escapeMarkdownText(s string) string {
 	s = strings.ReplaceAll(s, "_", "\\_")
 	s = strings.ReplaceAll(s, "[", "\\[")
 	s = strings.ReplaceAll(s, "]", "\\]")
+	s = strings.ReplaceAll(s, "`", "\\`")
 	return s
 }
 
@@ -85,7 +86,9 @@ func GenerateSummary(cfg *config.FullConfig, registry *packages.Registry, output
 	}()
 
 	// Render template to file
-	if err := Summary(data).Render(context.Background(), f); err != nil {
+	// Note: Using = instead of := to avoid shadowing the named return err,
+	// which is needed for the deferred cleanup to work correctly.
+	if err = Summary(data).Render(context.Background(), f); err != nil {
 		return fmt.Errorf("failed to render summary: %w", err)
 	}
 
