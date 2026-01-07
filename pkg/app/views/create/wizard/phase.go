@@ -5,7 +5,7 @@ package wizard
 type Phase int
 
 const (
-	// PhaseTarget - Select deployment target (Terraform/Multipass/USB/Generate)
+	// PhaseTarget - Select deployment target (Terraform/Multipass/Generate)
 	PhaseTarget Phase = iota
 	// PhaseTargetOptions - Target-specific options (VM name, CPU, memory, etc.)
 	PhaseTargetOptions

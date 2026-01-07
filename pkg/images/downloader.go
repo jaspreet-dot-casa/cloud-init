@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/globalconfig"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/settings"
 )
 
@@ -137,12 +138,15 @@ func (d *Downloader) DownloadCloudImage(ctx context.Context, version, arch strin
 		return nil, fmt.Errorf("unknown image: %s %s", version, arch)
 	}
 
-	// Determine destination path
-	home, err := os.UserHomeDir()
+	// Determine destination path from global config
+	cfg, err := globalconfig.LoadOrCreate()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
+		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
-	imagesDir := filepath.Join(home, "Downloads")
+	imagesDir := cfg.ImagesDir
+	if imagesDir == "" {
+		imagesDir = globalconfig.DefaultImagesDir()
+	}
 	destPath := filepath.Join(imagesDir, info.Filename)
 
 	// Download
