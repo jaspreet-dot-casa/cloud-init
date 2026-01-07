@@ -268,7 +268,7 @@ func CheckCloudImage(exec CommandExecutor, imagePath string) Check {
 	}
 
 	if imagePath == "" {
-		imagePath = "/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img"
+		imagePath = "/var/lib/libvirt/images/noble-server-cloudimg-amd64.img"
 	}
 
 	if exec.FileExists(imagePath) {
