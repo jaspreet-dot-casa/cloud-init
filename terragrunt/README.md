@@ -4,7 +4,7 @@ This directory contains the Terragrunt/OpenTofu configuration for managing libvi
 
 ## Structure
 
-```
+```text
 terragrunt/
 ├── modules/
 │   └── libvirt-vm/          # Reusable VM module
