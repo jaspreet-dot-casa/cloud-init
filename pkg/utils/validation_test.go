@@ -141,12 +141,58 @@ func TestSanitizeConfigName(t *testing.T) {
 			input:    "my-config",
 			expected: "my-config",
 		},
+		{
+			name:     "remove path traversal dots",
+			input:    "../config",
+			expected: "config",
+		},
+		{
+			name:     "remove path traversal slashes",
+			input:    "path/to/config",
+			expected: "pathtoconfig",
+		},
+		{
+			name:     "remove path traversal backslashes",
+			input:    "path\\to\\config",
+			expected: "pathtoconfig",
+		},
+		{
+			name:     "remove leading hyphens",
+			input:    "--test",
+			expected: "test",
+		},
+		{
+			name:     "remove leading spaces after trim",
+			input:    "  -test",
+			expected: "test",
+		},
+		{
+			name:     "remove special characters",
+			input:    "my@config#name!",
+			expected: "myconfigname",
+		},
+		{
+			name:     "preserve valid characters",
+			input:    "my_config-123 test",
+			expected: "my_config-123 test",
+		},
+		{
+			name:     "handle all invalid input",
+			input:    "!!!@@@###",
+			expected: "",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := SanitizeConfigName(tt.input)
 			assert.Equal(t, tt.expected, result)
+
+			// Verify sanitized output passes validation (unless empty)
+			if result != "" {
+				err := ValidateConfigName(result)
+				assert.NoError(t, err, "Sanitized name should pass validation")
+			}
 		})
 	}
 }

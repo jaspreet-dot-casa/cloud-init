@@ -100,8 +100,8 @@ func (s *Store) DownloadsPath() string {
 
 // Load loads settings from disk.
 func (s *Store) Load() (*Settings, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	return s.loadInternal()
 }
@@ -176,15 +176,28 @@ func (s *Store) migrate(settings *Settings) error {
 // parseVersion extracts major and minor version numbers.
 // Returns (0, 0) for invalid versions.
 func parseVersion(v string) (major, minor int) {
+	// Normalize: trim spaces and remove optional "v" prefix
+	v = strings.TrimSpace(v)
 	if v == "" {
 		return 0, 0
 	}
+	v = strings.TrimPrefix(v, "v")
+	v = strings.TrimPrefix(v, "V")
+
 	parts := strings.Split(v, ".")
 	if len(parts) >= 1 {
-		major, _ = strconv.Atoi(parts[0])
+		var err error
+		major, err = strconv.Atoi(parts[0])
+		if err != nil {
+			return 0, 0
+		}
 	}
 	if len(parts) >= 2 {
-		minor, _ = strconv.Atoi(parts[1])
+		var err error
+		minor, err = strconv.Atoi(parts[1])
+		if err != nil {
+			return 0, 0
+		}
 	}
 	return major, minor
 }

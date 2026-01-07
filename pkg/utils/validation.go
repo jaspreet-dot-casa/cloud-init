@@ -46,11 +46,36 @@ func ValidateConfigName(name string) error {
 }
 
 // SanitizeConfigName cleans up a config name for safe use.
+// The output is guaranteed to pass ValidateConfigName (unless the input is empty/invalid).
 func SanitizeConfigName(name string) string {
 	name = strings.TrimSpace(name)
 
+	// Remove path traversal characters
+	name = strings.ReplaceAll(name, "..", "")
+	name = strings.ReplaceAll(name, "/", "")
+	name = strings.ReplaceAll(name, "\\", "")
+
 	// Replace multiple spaces with single space
 	name = multipleSpacesPattern.ReplaceAllString(name, " ")
+
+	// Remove leading non-alphanumeric characters
+	for len(name) > 0 {
+		r := rune(name[0])
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			break
+		}
+		name = name[1:]
+	}
+
+	// Filter out any remaining invalid characters
+	var result strings.Builder
+	for _, r := range name {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') || r == '-' || r == '_' || r == ' ' {
+			result.WriteRune(r)
+		}
+	}
+	name = result.String()
 
 	// Truncate if too long
 	if utf8.RuneCountInString(name) > MaxConfigNameLength {
