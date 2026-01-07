@@ -14,7 +14,6 @@ import (
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/doctor"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/iso"
 	settingsview "github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/settings"
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/vmlist"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/globalconfig"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/settings"
 )
@@ -44,9 +43,9 @@ with package selection for Ubuntu server installations.
 It supports:
   - Interactive package selection from available installers
   - Direct generation of cloud-init.yaml (no config files needed)
-  - Deployment to Multipass VMs, Terraform/libvirt, or bootable ISOs
+  - Generation of Terragrunt/OpenTofu configs for libvirt VMs
 
-Run without arguments to launch the full-screen TUI for VM management.`,
+Run without arguments to launch the full-screen TUI.`,
 		Version: version,
 		RunE:    runTUI,
 	}
@@ -85,7 +84,6 @@ func runTUI(_ *cobra.Command, _ []string) error {
 
 	// Create the application with tabs
 	model := app.New(projectDir).WithTabs(
-		vmlist.New(projectDir),
 		create.New(projectDir, store),
 		iso.New(projectDir),
 		doctor.New(),

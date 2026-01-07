@@ -7,18 +7,17 @@ import (
 )
 
 func TestTabID(t *testing.T) {
-	assert.Equal(t, TabID(0), TabVMs)
-	assert.Equal(t, TabID(1), TabCreate)
-	assert.Equal(t, TabID(2), TabISO)
-	assert.Equal(t, TabID(3), TabDoctor)
-	assert.Equal(t, TabID(4), TabConfig)
+	assert.Equal(t, TabID(0), TabCreate)
+	assert.Equal(t, TabID(1), TabISO)
+	assert.Equal(t, TabID(2), TabDoctor)
+	assert.Equal(t, TabID(3), TabConfig)
 }
 
 func TestNewBaseTab(t *testing.T) {
-	tab := NewBaseTab(TabVMs, "VMs", "1")
+	tab := NewBaseTab(TabCreate, "Create", "1")
 
-	assert.Equal(t, TabVMs, tab.ID())
-	assert.Equal(t, "VMs", tab.Name())
+	assert.Equal(t, TabCreate, tab.ID())
+	assert.Equal(t, "Create", tab.Name())
 	assert.Equal(t, "1", tab.ShortKey())
 	assert.Equal(t, 0, tab.Width())
 	assert.Equal(t, 0, tab.Height())
@@ -26,7 +25,7 @@ func TestNewBaseTab(t *testing.T) {
 }
 
 func TestBaseTab_SetSize(t *testing.T) {
-	tab := NewBaseTab(TabVMs, "VMs", "1")
+	tab := NewBaseTab(TabCreate, "Create", "1")
 
 	tab.SetSize(100, 50)
 
@@ -35,7 +34,7 @@ func TestBaseTab_SetSize(t *testing.T) {
 }
 
 func TestBaseTab_Focus(t *testing.T) {
-	tab := NewBaseTab(TabVMs, "VMs", "1")
+	tab := NewBaseTab(TabCreate, "Create", "1")
 	assert.False(t, tab.IsFocused())
 
 	cmd := tab.Focus()
@@ -45,7 +44,7 @@ func TestBaseTab_Focus(t *testing.T) {
 }
 
 func TestBaseTab_Blur(t *testing.T) {
-	tab := NewBaseTab(TabVMs, "VMs", "1")
+	tab := NewBaseTab(TabCreate, "Create", "1")
 	tab.Focus()
 	assert.True(t, tab.IsFocused())
 
@@ -55,7 +54,7 @@ func TestBaseTab_Blur(t *testing.T) {
 }
 
 func TestBaseTab_HasFocusedInput(t *testing.T) {
-	tab := NewBaseTab(TabVMs, "VMs", "1")
+	tab := NewBaseTab(TabCreate, "Create", "1")
 
 	// BaseTab should return false by default
 	assert.False(t, tab.HasFocusedInput())

@@ -197,15 +197,28 @@ func (m *Model) viewNextSteps() string {
 		b.WriteString(cmdStyle.Render("multipass list"))
 		b.WriteString("\n\n")
 
-	case deploy.TargetTerraform:
-		// Terraform: show useful commands
-		b.WriteString(labelStyle.Render("  View Terraform state:"))
+	case deploy.TargetTerragrunt:
+		// Terragrunt: show next steps for generated config
+		vmName := m.wizard.Data.TerragruntOpts.VMName
+		if vmName == "" {
+			vmName = "<vm-name>"
+		}
+		b.WriteString(labelStyle.Render("  Navigate to generated config:"))
 		b.WriteString("\n")
 		b.WriteString("  ")
-		b.WriteString(cmdStyle.Render("cd terraform && terraform show"))
+		b.WriteString(cmdStyle.Render(fmt.Sprintf("cd tf/%s", vmName)))
 		b.WriteString("\n\n")
 
-		b.WriteString(labelStyle.Render("  SSH into the VM (if SSH is configured):"))
+		b.WriteString(labelStyle.Render("  Initialize and apply with Terragrunt:"))
+		b.WriteString("\n")
+		b.WriteString("  ")
+		b.WriteString(cmdStyle.Render("terragrunt init"))
+		b.WriteString("\n")
+		b.WriteString("  ")
+		b.WriteString(cmdStyle.Render("terragrunt apply"))
+		b.WriteString("\n\n")
+
+		b.WriteString(labelStyle.Render("  SSH into the VM (after apply):"))
 		b.WriteString("\n")
 		b.WriteString("  ")
 		b.WriteString(cmdStyle.Render("ssh ubuntu@<vm-ip>"))
@@ -214,7 +227,7 @@ func (m *Model) viewNextSteps() string {
 		b.WriteString(labelStyle.Render("  Destroy resources:"))
 		b.WriteString("\n")
 		b.WriteString("  ")
-		b.WriteString(cmdStyle.Render("cd terraform && terraform destroy"))
+		b.WriteString(cmdStyle.Render("terragrunt destroy"))
 		b.WriteString("\n\n")
 
 	case deploy.TargetUSB:

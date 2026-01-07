@@ -16,7 +16,7 @@ func TestNew(t *testing.T) {
 
 	assert.Equal(t, app.TabCreate, m.ID())
 	assert.Equal(t, "Create", m.Name())
-	assert.Equal(t, "2", m.ShortKey())
+	assert.Equal(t, "1", m.ShortKey())
 	assert.Equal(t, "/test/project", m.ProjectDir())
 	assert.Equal(t, wizard.PhaseTarget, m.wizard.Phase)
 }
@@ -155,7 +155,7 @@ func TestModel_Update_Enter_AdvancesPhase(t *testing.T) {
 
 	// Should advance to target options phase
 	assert.Equal(t, wizard.PhaseTargetOptions, model.wizard.Phase)
-	assert.Equal(t, deploy.TargetTerraform, model.wizard.Data.Target)
+	assert.Equal(t, deploy.TargetTerragrunt, model.wizard.Data.Target)
 }
 
 func TestModel_View_ZeroWidth(t *testing.T) {
@@ -174,7 +174,7 @@ func TestModel_View_TargetPhase(t *testing.T) {
 	view := m.View()
 
 	assert.Contains(t, view, "Select Deployment Target")
-	assert.Contains(t, view, "Terraform")
+	assert.Contains(t, view, "Terragrunt")
 	assert.Contains(t, view, "Multipass")
 	assert.Contains(t, view, "Bootable USB")
 	assert.Contains(t, view, "Generate Config")
@@ -192,8 +192,8 @@ func TestModel_View_WithMessage(t *testing.T) {
 
 func TestTargets(t *testing.T) {
 	// Verify all targets are set up correctly
-	assert.Equal(t, deploy.TargetTerraform, phases.Targets[0].Target)
-	assert.Equal(t, "Terraform/libvirt", phases.Targets[0].Name)
+	assert.Equal(t, deploy.TargetTerragrunt, phases.Targets[0].Target)
+	assert.Equal(t, "Terragrunt/libvirt", phases.Targets[0].Name)
 
 	assert.Equal(t, deploy.TargetMultipass, phases.Targets[1].Target)
 	assert.Equal(t, "Multipass", phases.Targets[1].Name)

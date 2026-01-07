@@ -115,7 +115,7 @@ func New() *Model {
 	}
 
 	return &Model{
-		BaseTab:              app.NewBaseTab(app.TabConfig, "Config", "5"),
+		BaseTab:              app.NewBaseTab(app.TabConfig, "Config", "4"),
 		store:                store,
 		manager:              images.NewManager(store),
 		downloader:           images.NewDownloader(store),

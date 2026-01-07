@@ -14,7 +14,7 @@ func TestNew(t *testing.T) {
 
 	assert.Equal(t, app.TabISO, m.ID())
 	assert.Equal(t, "ISO", m.Name())
-	assert.Equal(t, "3", m.ShortKey())
+	assert.Equal(t, "2", m.ShortKey())
 	assert.Equal(t, "/test/project", m.projectDir)
 	assert.False(t, m.building)
 	assert.Equal(t, fieldSourceISO, m.focusedField)

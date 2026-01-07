@@ -16,15 +16,15 @@ import (
 // Ensure app.Tab is used
 var _ app.Tab = (*Model)(nil)
 
-// Terraform-specific field indices
+// Terragrunt-specific field indices
 const (
-	terraformFieldVMName = iota
-	terraformFieldCPU
-	terraformFieldMemory
-	terraformFieldDisk
-	terraformFieldImagePath
-	terraformFieldLibvirtURI
-	terraformFieldCount
+	terragruntFieldVMName = iota
+	terragruntFieldCPU
+	terragruntFieldMemory
+	terragruntFieldDisk
+	terragruntFieldImagePath
+	terragruntFieldLibvirtURI
+	terragruntFieldCount
 )
 
 // Default paths
@@ -34,8 +34,8 @@ const (
 	defaultNetwork     = "default"
 )
 
-// initTerraformPhase initializes the Terraform options phase
-func (m *Model) initTerraformPhase() {
+// initTerragruntPhase initializes the Terragrunt options phase
+func (m *Model) initTerragruntPhase() {
 	// VM Name input
 	vmName := textinput.New()
 	vmName.Placeholder = "cloud-init-" + time.Now().Format("0102-1504")
@@ -69,8 +69,8 @@ func (m *Model) initTerraformPhase() {
 	m.wizard.SelectIdxs["disk"] = 1   // 20 GB
 }
 
-// handleTerraformPhase handles input for the Terraform options phase
-func (m *Model) handleTerraformPhase(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
+// handleTerragruntPhase handles input for the Terragrunt options phase
+func (m *Model) handleTerragruntPhase(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 	switch {
 	case key.Matches(msg, key.NewBinding(key.WithKeys("up", "k"))):
 		m.blurCurrentInput()
@@ -82,23 +82,23 @@ func (m *Model) handleTerraformPhase(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 
 	case key.Matches(msg, key.NewBinding(key.WithKeys("down", "j", "tab"))):
 		m.blurCurrentInput()
-		if m.wizard.FocusedField < terraformFieldCount-1 {
+		if m.wizard.FocusedField < terragruntFieldCount-1 {
 			m.wizard.FocusedField++
 		}
 		m.focusCurrentInput()
 		return m, nil
 
 	case key.Matches(msg, key.NewBinding(key.WithKeys("left", "h"))):
-		m.cycleTerraformOption(-1)
+		m.cycleTerragruntOption(-1)
 		return m, nil
 
 	case key.Matches(msg, key.NewBinding(key.WithKeys("right", "l"))):
-		m.cycleTerraformOption(1)
+		m.cycleTerragruntOption(1)
 		return m, nil
 
 	case key.Matches(msg, key.NewBinding(key.WithKeys("enter"))):
 		// Validate and advance
-		m.saveTerraformOptions()
+		m.saveTerragruntOptions()
 		m.wizard.Advance()
 		m.initPhase(m.wizard.Phase)
 		return m, nil
@@ -106,30 +106,30 @@ func (m *Model) handleTerraformPhase(msg tea.KeyMsg) (app.Tab, tea.Cmd) {
 
 	// Forward to text input for text fields
 	switch m.wizard.FocusedField {
-	case terraformFieldVMName, terraformFieldImagePath, terraformFieldLibvirtURI:
+	case terragruntFieldVMName, terragruntFieldImagePath, terragruntFieldLibvirtURI:
 		return m.updateActiveTextInput(msg)
 	}
 
 	return m, nil
 }
 
-// cycleTerraformOption cycles through options for select fields
-func (m *Model) cycleTerraformOption(delta int) {
+// cycleTerragruntOption cycles through options for select fields
+func (m *Model) cycleTerragruntOption(delta int) {
 	switch m.wizard.FocusedField {
-	case terraformFieldCPU:
+	case terragruntFieldCPU:
 		m.wizard.CycleSelect("cpu", len(CPUOptions), delta)
-	case terraformFieldMemory:
+	case terragruntFieldMemory:
 		m.wizard.CycleSelect("memory", len(MemoryOptions), delta)
-	case terraformFieldDisk:
+	case terragruntFieldDisk:
 		m.wizard.CycleSelect("disk", len(DiskOptions), delta)
 	}
 }
 
-// saveTerraformOptions saves the Terraform options to wizard data
-func (m *Model) saveTerraformOptions() {
+// saveTerragruntOptions saves the Terragrunt options to wizard data
+func (m *Model) saveTerragruntOptions() {
 	vmName := m.wizard.GetTextInput("vm_name")
 	if vmName == "" {
-		vmName = "cloud-init-" + time.Now().Format("0102-1504")
+		vmName = "vm-" + time.Now().Format("0102-1504")
 	}
 
 	imagePath := m.wizard.GetTextInput("image_path")
@@ -147,7 +147,7 @@ func (m *Model) saveTerraformOptions() {
 		libvirtURI = defaultLibvirtURI
 	}
 
-	m.wizard.Data.TerraformOpts = deploy.TerraformOptions{
+	m.wizard.Data.TerragruntOpts = deploy.TerragruntOptions{
 		VMName:      vmName,
 		CPUs:        GetCPUValue(m.wizard.SelectIdxs["cpu"]),
 		MemoryMB:    GetMemoryValue(m.wizard.SelectIdxs["memory"]),
@@ -159,39 +159,39 @@ func (m *Model) saveTerraformOptions() {
 	}
 }
 
-// viewTerraformPhase renders the Terraform options phase
-func (m *Model) viewTerraformPhase() string {
+// viewTerragruntPhase renders the Terragrunt options phase
+func (m *Model) viewTerragruntPhase() string {
 	var b strings.Builder
 
-	b.WriteString(titleStyle.Render("Terraform/libvirt VM Options"))
+	b.WriteString(titleStyle.Render("Terragrunt/libvirt VM Options"))
 	b.WriteString("\n\n")
 
 	// Platform warning for non-Linux
 	if runtime.GOOS != "linux" {
-		b.WriteString(warningStyle.Render("⚠ Warning: "))
-		b.WriteString(dimStyle.Render("libvirt/KVM is not available on " + runtime.GOOS + "."))
+		b.WriteString(warningStyle.Render("Note: "))
+		b.WriteString(dimStyle.Render("libvirt/KVM is only available on Linux."))
 		b.WriteString("\n")
-		b.WriteString(dimStyle.Render("  You can still configure options for a remote Linux server."))
+		b.WriteString(dimStyle.Render("  Configure options here, then apply on a Linux machine."))
 		b.WriteString("\n\n")
 	}
 
 	// VM Name
-	b.WriteString(wizard.RenderTextField(m.wizard, "VM Name", "vm_name", terraformFieldVMName))
+	b.WriteString(wizard.RenderTextField(m.wizard, "VM Name", "vm_name", terragruntFieldVMName))
 
 	// CPU selection
-	b.WriteString(wizard.RenderSelectField(m.wizard, "CPUs", "cpu", terraformFieldCPU, GetCPULabels()))
+	b.WriteString(wizard.RenderSelectField(m.wizard, "CPUs", "cpu", terragruntFieldCPU, GetCPULabels()))
 
 	// Memory selection
-	b.WriteString(wizard.RenderSelectField(m.wizard, "Memory", "memory", terraformFieldMemory, GetMemoryLabels()))
+	b.WriteString(wizard.RenderSelectField(m.wizard, "Memory", "memory", terragruntFieldMemory, GetMemoryLabels()))
 
 	// Disk selection
-	b.WriteString(wizard.RenderSelectField(m.wizard, "Disk Size", "disk", terraformFieldDisk, GetDiskLabels()))
+	b.WriteString(wizard.RenderSelectField(m.wizard, "Disk Size", "disk", terragruntFieldDisk, GetDiskLabels()))
 
 	// Image path
-	b.WriteString(wizard.RenderTextField(m.wizard, "Ubuntu Image", "image_path", terraformFieldImagePath))
+	b.WriteString(wizard.RenderTextField(m.wizard, "Ubuntu Image", "image_path", terragruntFieldImagePath))
 
 	// Libvirt URI
-	b.WriteString(wizard.RenderTextField(m.wizard, "Libvirt URI", "libvirt_uri", terraformFieldLibvirtURI))
+	b.WriteString(wizard.RenderTextField(m.wizard, "Libvirt URI", "libvirt_uri", terragruntFieldLibvirtURI))
 
 	return b.String()
 }

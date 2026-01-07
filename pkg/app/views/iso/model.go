@@ -80,7 +80,7 @@ func New(projectDir string) *Model {
 	timezoneInput.Width = 30
 
 	return &Model{
-		BaseTab:       app.NewBaseTab(app.TabISO, "ISO", "3"),
+		BaseTab:       app.NewBaseTab(app.TabISO, "ISO", "2"),
 		projectDir:    projectDir,
 		sourceInput:   sourceInput,
 		outputInput:   outputInput,

@@ -15,7 +15,7 @@ import (
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/config"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy/multipass"
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy/terraform"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy/terragrunt"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/deploy/usb"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/generator"
 )
@@ -76,8 +76,8 @@ func (m *Model) createDeployer() deploy.Deployer {
 	switch m.wizard.Data.Target {
 	case deploy.TargetMultipass:
 		return multipass.New()
-	case deploy.TargetTerraform:
-		return terraform.New(m.projectDir)
+	case deploy.TargetTerragrunt:
+		return terragrunt.New(m.projectDir)
 	case deploy.TargetUSB:
 		return usb.New(m.projectDir)
 	case deploy.TargetConfigOnly:
@@ -210,8 +210,8 @@ func (m *Model) buildDeployOptions() *deploy.DeployOptions {
 	case deploy.TargetMultipass:
 		opts.Multipass = data.MultipassOpts
 
-	case deploy.TargetTerraform:
-		opts.Terraform = data.TerraformOpts
+	case deploy.TargetTerragrunt:
+		opts.Terragrunt = data.TerragruntOpts
 
 	case deploy.TargetUSB:
 		opts.USB = deploy.USBOptions{
