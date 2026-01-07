@@ -17,6 +17,9 @@ const (
 // validConfigNamePattern matches alphanumeric, hyphens, underscores, and spaces.
 var validConfigNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9\-_\s]*$`)
 
+// multipleSpacesPattern matches one or more consecutive whitespace characters.
+var multipleSpacesPattern = regexp.MustCompile(`\s+`)
+
 // ValidateConfigName validates a configuration name.
 // Returns an error if the name is invalid.
 func ValidateConfigName(name string) error {
@@ -24,10 +27,6 @@ func ValidateConfigName(name string) error {
 
 	if name == "" {
 		return fmt.Errorf("config name cannot be empty")
-	}
-
-	if utf8.RuneCountInString(name) < MinConfigNameLength {
-		return fmt.Errorf("config name must be at least %d character", MinConfigNameLength)
 	}
 
 	if utf8.RuneCountInString(name) > MaxConfigNameLength {
@@ -51,8 +50,7 @@ func SanitizeConfigName(name string) string {
 	name = strings.TrimSpace(name)
 
 	// Replace multiple spaces with single space
-	spaceRe := regexp.MustCompile(`\s+`)
-	name = spaceRe.ReplaceAllString(name, " ")
+	name = multipleSpacesPattern.ReplaceAllString(name, " ")
 
 	// Truncate if too long
 	if utf8.RuneCountInString(name) > MaxConfigNameLength {

@@ -350,7 +350,10 @@ func (s *Store) SaveDownloadState(state *DownloadState) error {
 
 	// Atomic rename
 	if err := os.Rename(tmpPath, path); err != nil {
-		os.Remove(tmpPath)
+		// Try harder to clean up temp file
+		if removeErr := os.Remove(tmpPath); removeErr != nil {
+			log.Printf("Warning: failed to clean up temp file %s: %v", tmpPath, removeErr)
+		}
 		return fmt.Errorf("failed to save downloads file: %w", err)
 	}
 
