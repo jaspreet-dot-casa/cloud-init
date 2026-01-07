@@ -380,6 +380,7 @@ func (m *Model) handleDelete() (app.Tab, tea.Cmd) {
 			if err := m.store.Save(m.settings); err != nil {
 				m.err = err
 			} else {
+				m.err = nil
 				m.message = fmt.Sprintf("Deleted config '%s'", cfg.Name)
 			}
 			// Adjust cursor if needed
@@ -401,6 +402,7 @@ func (m *Model) handleDelete() (app.Tab, tea.Cmd) {
 			if err := m.store.Save(m.settings); err != nil {
 				m.err = err
 			} else {
+				m.err = nil
 				m.message = fmt.Sprintf("Deleted preset '%s'", preset.Name)
 			}
 			// Adjust cursor
@@ -534,6 +536,7 @@ func (m *Model) confirmDialog() (app.Tab, tea.Cmd) {
 		if err := m.store.Save(m.settings); err != nil {
 			m.err = err
 		} else {
+			m.err = nil
 			m.message = fmt.Sprintf("Created preset '%s'", name)
 		}
 
@@ -572,6 +575,7 @@ func (m *Model) confirmDialog() (app.Tab, tea.Cmd) {
 		if err := m.store.Save(m.settings); err != nil {
 			m.err = err
 		} else {
+			m.err = nil
 			m.message = fmt.Sprintf("Updated preset '%s'", name)
 		}
 		m.editingPreset = ""
@@ -584,7 +588,7 @@ func (m *Model) confirmDialog() (app.Tab, tea.Cmd) {
 		case "default_target":
 			// Validate target
 			if value != "" && !settings.IsValidTarget(value) {
-				m.message = "Invalid target. Use 'terraform', 'multipass', or 'config'"
+				m.message = "Invalid target. Use 'terragrunt', 'multipass', or 'config'"
 				return m, nil
 			}
 			m.settings.AppSettings.DefaultTarget = value
@@ -594,6 +598,7 @@ func (m *Model) confirmDialog() (app.Tab, tea.Cmd) {
 		if err := m.store.Save(m.settings); err != nil {
 			m.err = err
 		} else {
+			m.err = nil
 			m.message = "Setting updated"
 		}
 	}

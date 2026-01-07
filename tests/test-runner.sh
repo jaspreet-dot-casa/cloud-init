@@ -212,9 +212,9 @@ test_terraform_files_exist() {
     log_info "Testing Terraform files exist..."
 
     local files=(
-        "terraform/main.tf"
-        "terraform/variables.tf"
-        "terraform/outputs.tf"
+        "terragrunt/modules/libvirt-vm/main.tf"
+        "terragrunt/modules/libvirt-vm/variables.tf"
+        "terragrunt/modules/libvirt-vm/outputs.tf"
     )
 
     for file in "${files[@]}"; do

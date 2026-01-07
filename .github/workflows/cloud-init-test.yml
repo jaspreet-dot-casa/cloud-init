@@ -3,17 +3,8 @@ name: Cloud-Init Tests
 on:
   push:
     branches: [main]
-    paths:
-      - 'scripts/**'
-      - 'cloud-init/**'
-      - 'tests/**'
-      - '.github/workflows/cloud-init-test.yml'
   pull_request:
     branches: [main]
-    paths:
-      - 'scripts/**'
-      - 'cloud-init/**'
-      - 'tests/**'
   workflow_dispatch:
 
 jobs:
@@ -85,15 +76,15 @@ jobs:
 
       - name: Terraform fmt
         run: terraform fmt -check
-        working-directory: terraform
+        working-directory: terragrunt
 
       - name: Terraform init
         run: terraform init -backend=false
-        working-directory: terraform
+        working-directory: terragrunt
 
       - name: Terraform validate
         run: terraform validate
-        working-directory: terraform
+        working-directory: terragrunt
 
   cloud-init-template:
     name: Validate Cloud-Init Template
