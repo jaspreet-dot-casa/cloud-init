@@ -3,17 +3,8 @@ name: Cloud-Init Tests
 on:
   push:
     branches: [main]
-    paths:
-      - 'scripts/**'
-      - 'cloud-init/**'
-      - 'tests/**'
-      - '.github/workflows/cloud-init-test.yml'
   pull_request:
     branches: [main]
-    paths:
-      - 'scripts/**'
-      - 'cloud-init/**'
-      - 'tests/**'
   workflow_dispatch:
 
 jobs:
