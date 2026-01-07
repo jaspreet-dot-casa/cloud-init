@@ -111,6 +111,8 @@ func (m *Model) viewGeneratePhase() string {
 	b.WriteString("\n")
 	b.WriteString(dimStyle.Render("  • config.env - Package enables, git settings"))
 	b.WriteString("\n")
+	b.WriteString(dimStyle.Render("  • summary.md - Configuration summary with checkboxes"))
+	b.WriteString("\n")
 	b.WriteString(dimStyle.Render("  • cloud-init/secrets.env - SSH keys, auth tokens"))
 	b.WriteString("\n")
 	if m.wizard.CheckStates["generate_cloudinit"] {

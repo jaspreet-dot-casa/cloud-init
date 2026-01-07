@@ -13,6 +13,16 @@ const (
 	CategorySystem Category = "System"
 )
 
+// Well-known package names - use these instead of magic strings
+const (
+	PackageDocker    = "docker"
+	PackageTailscale = "tailscale"
+)
+
+// CategoryOrder defines the canonical ordering for displaying categories.
+// This is the single source of truth - use this everywhere instead of duplicating.
+var CategoryOrder = []Category{CategoryCLI, CategoryShell, CategoryGit, CategoryDocker, CategorySystem}
+
 // Package represents a discoverable package from scripts/packages/.
 type Package struct {
 	// Name is the package identifier (e.g., "lazygit")
@@ -89,10 +99,8 @@ func (r *Registry) Names() []string {
 
 // Categories returns all categories that have packages.
 func (r *Registry) Categories() []Category {
-	// Return in a consistent order
-	order := []Category{CategoryCLI, CategoryShell, CategoryGit, CategoryDocker, CategorySystem}
-	result := make([]Category, 0)
-	for _, cat := range order {
+	result := make([]Category, 0, len(CategoryOrder))
+	for _, cat := range CategoryOrder {
 		if pkgs, ok := r.ByCategory[cat]; ok && len(pkgs) > 0 {
 			result = append(result, cat)
 		}
