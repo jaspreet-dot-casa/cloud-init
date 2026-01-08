@@ -14,6 +14,7 @@ import (
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/doctor"
 	settingsview "github.com/jaspreet-dot-casa/cloud-init/pkg/app/views/settings"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/globalconfig"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/images"
 	"github.com/jaspreet-dot-casa/cloud-init/pkg/settings"
 )
 
@@ -86,6 +87,7 @@ func runTUI(_ *cobra.Command, _ []string) error {
 		create.New(projectDir, store),
 		doctor.New(),
 		settingsview.New(),
+		images.New(),
 	)
 
 	// Run the TUI

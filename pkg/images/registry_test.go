@@ -36,8 +36,8 @@ func TestRegistry_GetLTSReleases(t *testing.T) {
 	reg := NewRegistry()
 	lts := reg.GetLTSReleases()
 
-	// All known releases in our test data are LTS
-	assert.Len(t, lts, 3)
+	// LTS releases: 24.04 and 22.04
+	assert.Len(t, lts, 2)
 	for _, rel := range lts {
 		assert.True(t, rel.LTS)
 	}
@@ -105,8 +105,8 @@ func TestRegistry_GetAllCloudImages(t *testing.T) {
 	reg := NewRegistry()
 	images := reg.GetAllCloudImages()
 
-	// 3 releases x 2 archs = 6 images
-	assert.Len(t, images, 6)
+	// 2 LTS releases (24.04, 22.04) x 2 archs = 4 images
+	assert.Len(t, images, 4)
 }
 
 func TestGenerateImageID(t *testing.T) {
