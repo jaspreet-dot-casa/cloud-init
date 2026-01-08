@@ -462,6 +462,8 @@ func TestBrowser_CurlDialog(t *testing.T) {
 }
 
 func TestBrowser_TextInputInCurlDialog(t *testing.T) {
+	tmpDir := t.TempDir()
+
 	b := New()
 	b.Init()
 
@@ -474,17 +476,22 @@ func TestBrowser_TextInputInCurlDialog(t *testing.T) {
 	}
 	b.selectedImage = img
 	b.pathInput = textinput.New()
-	b.pathInput.SetValue("/tmp/test.img")
+	initialPath := filepath.Join(tmpDir, "test.img")
+	b.pathInput.SetValue(initialPath)
 	b.pathInput.Focus()
+
+	// Generate initial command
+	b.curlCommand = generateCurlCommand(b.selectedImage, initialPath)
 
 	// Test Tab key regenerates command
 	initialCmd := b.curlCommand
-	b.pathInput.SetValue("/tmp/new-path.img")
+	newPath := filepath.Join(tmpDir, "new-path.img")
+	b.pathInput.SetValue(newPath)
 
 	msg := tea.KeyMsg{Type: tea.KeyTab}
 	tab, _ := b.handleCurlDialog(msg)
 
 	browser := tab.(*Browser)
 	assert.NotEqual(t, initialCmd, browser.curlCommand)
-	assert.Contains(t, browser.curlCommand, "/tmp/new-path.img")
+	assert.Contains(t, browser.curlCommand, newPath)
 }

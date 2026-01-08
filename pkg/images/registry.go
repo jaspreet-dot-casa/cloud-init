@@ -120,59 +120,6 @@ func addUbuntuImages(images map[string]ImageMetadata) {
 		LTS:         true,
 	})
 
-	// Ubuntu 23.10 (Mantic Minotaur) - Cloud Images
-	addImage(images, ImageMetadata{
-		ID:          "ubuntu-23.10-amd64-server",
-		Source:      SourceUbuntu,
-		Type:        TypeCloudInit,
-		Variant:     VariantServer,
-		OS:          "Ubuntu",
-		Version:     "23.10",
-		Codename:    "mantic",
-		Arch:        "amd64",
-		URL:         "https://cloud-images.ubuntu.com/mantic/current/mantic-server-cloudimg-amd64.img",
-		ChecksumURL: "https://cloud-images.ubuntu.com/mantic/current/SHA256SUMS",
-		Filename:    "mantic-server-cloudimg-amd64.img",
-		Description: "Ubuntu 23.10 Server Cloud Image (amd64)",
-		Size:        "~680MB",
-		LTS:         false,
-	})
-
-	addImage(images, ImageMetadata{
-		ID:          "ubuntu-23.10-arm64-server",
-		Source:      SourceUbuntu,
-		Type:        TypeCloudInit,
-		Variant:     VariantServer,
-		OS:          "Ubuntu",
-		Version:     "23.10",
-		Codename:    "mantic",
-		Arch:        "arm64",
-		URL:         "https://cloud-images.ubuntu.com/mantic/current/mantic-server-cloudimg-arm64.img",
-		ChecksumURL: "https://cloud-images.ubuntu.com/mantic/current/SHA256SUMS",
-		Filename:    "mantic-server-cloudimg-arm64.img",
-		Description: "Ubuntu 23.10 Server Cloud Image (arm64)",
-		Size:        "~640MB",
-		LTS:         false,
-	})
-
-	// Ubuntu 23.10 - Desktop ISO
-	addImage(images, ImageMetadata{
-		ID:          "ubuntu-23.10-amd64-desktop",
-		Source:      SourceUbuntu,
-		Type:        TypeDesktop,
-		Variant:     VariantDesktop,
-		OS:          "Ubuntu",
-		Version:     "23.10",
-		Codename:    "mantic",
-		Arch:        "amd64",
-		URL:         "https://releases.ubuntu.com/23.10/ubuntu-23.10-desktop-amd64.iso",
-		ChecksumURL: "https://releases.ubuntu.com/23.10/SHA256SUMS",
-		Filename:    "ubuntu-23.10-desktop-amd64.iso",
-		Description: "Ubuntu 23.10 Desktop (amd64)",
-		Size:        "~5.5GB",
-		LTS:         false,
-	})
-
 	// Ubuntu 22.04 LTS (Jammy Jellyfish) - for backward compatibility
 	addImage(images, ImageMetadata{
 		ID:          "ubuntu-22.04-amd64-server",
@@ -246,7 +193,9 @@ func addDebianImages(images map[string]ImageMetadata) {
 		LTS:         false,
 	})
 
-	// Debian 12 - Desktop ISO (netinst)
+	// Debian 12 - Desktop ISO (DVD)
+	// Note: Filename contains point release version and requires periodic updates
+	// when new point releases are published (e.g., 12.8.0 -> 12.9.0)
 	addImage(images, ImageMetadata{
 		ID:          "debian-12-amd64-desktop",
 		Source:      SourceDebian,

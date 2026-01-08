@@ -620,7 +620,7 @@ func generateCurlCommand(img *ImageMetadata, destPath string) string {
 	// Add checksum verification if available
 	if img.ChecksumURL != "" {
 		s.WriteString("\n\n# Verify checksum:\n")
-		s.WriteString(fmt.Sprintf("curl -sL \"%s\" | grep %s", img.ChecksumURL, img.Filename))
+		s.WriteString(fmt.Sprintf("curl -sL \"%s\" | grep -F '%s'", img.ChecksumURL, img.Filename))
 
 		// Use appropriate checksum tool
 		if strings.Contains(img.ChecksumURL, "SHA512") {

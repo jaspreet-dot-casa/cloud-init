@@ -39,13 +39,13 @@ func (m *Manager) DefaultPathForImage(img *ImageMetadata) string {
 	}
 
 	// Normalize OS name to lowercase
-	os := strings.ToLower(img.OS)
+	osName := strings.ToLower(img.OS)
 
 	// Normalize variant to lowercase
 	variant := strings.ToLower(string(img.Variant))
 
 	// Structure: {imagesDir}/{os}/{version}/{variant}/{filename}
-	return filepath.Join(baseDir, os, img.Version, variant, img.Filename)
+	return filepath.Join(baseDir, osName, img.Version, variant, img.Filename)
 }
 
 // CheckImageExists verifies if an image file exists.
