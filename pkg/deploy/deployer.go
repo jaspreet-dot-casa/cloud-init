@@ -122,7 +122,7 @@ func DefaultTerragruntOptions() TerragruntOptions {
 		LibvirtURI:    "qemu:///system",
 		StoragePool:   "default",
 		NetworkName:   "default",
-		UbuntuImage:   "/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img",
+		UbuntuImage:   "/var/lib/libvirt/images/noble-server-cloudimg-amd64.img",
 		KeepOnFailure: false,
 	}
 }
