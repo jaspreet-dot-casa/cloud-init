@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -45,6 +46,53 @@ type CloudImage struct {
 	Size     int64     `yaml:"size"`               // File size in bytes
 	AddedAt  time.Time `yaml:"added_at"`           // When added
 	Verified bool      `yaml:"verified,omitempty"` // Checksum verified
+
+	// New fields for curl-based image management
+	Source        string    `yaml:"source,omitempty"`          // "ubuntu" | "debian"
+	CloudInitType string    `yaml:"cloud_init_type,omitempty"` // "cloud-init" | "nocloud" | "desktop"
+	Variant       string    `yaml:"variant,omitempty"`         // "server", "desktop", "generic", etc.
+	Downloaded    bool      `yaml:"downloaded,omitempty"`      // Computed from file existence
+	LastChecked   time.Time `yaml:"last_checked,omitempty"`    // Last file existence check
+	CurlCommand   string    `yaml:"curl_command,omitempty"`    // Generated curl command
+}
+
+// FileExists checks if the image file exists at the configured path.
+func (img *CloudImage) FileExists() bool {
+	if img.Path == "" {
+		return false
+	}
+	info, err := os.Stat(img.Path)
+	return err == nil && !info.IsDir()
+}
+
+// UpdateStatus refreshes the downloaded status based on file existence.
+// Also populates missing fields with sensible defaults for backward compatibility.
+func (img *CloudImage) UpdateStatus() {
+	// Populate new fields with defaults if empty (backward compatibility)
+	if img.Source == "" {
+		// Infer from URL
+		if img.URL != "" {
+			if strings.Contains(img.URL, "debian") {
+				img.Source = "debian"
+			} else {
+				img.Source = "ubuntu"
+			}
+		} else {
+			img.Source = "ubuntu" // Default
+		}
+	}
+
+	if img.CloudInitType == "" {
+		img.CloudInitType = "cloud-init" // Safe default assumption
+	}
+
+	if img.Variant == "" {
+		img.Variant = "server" // Default variant
+	}
+
+	// Update download status
+	img.Downloaded = img.FileExists()
+	img.LastChecked = time.Now()
 }
 
 // ISO represents a registered ISO file.

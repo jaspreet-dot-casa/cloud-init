@@ -111,7 +111,7 @@ func New() *Model {
 	}
 
 	return &Model{
-		BaseTab:     app.NewBaseTab(app.TabConfig, "Config", "4"),
+		BaseTab:     app.NewBaseTab(app.TabConfig, "Config", "3"),
 		store:       store,
 		spinner:     s,
 		loading:     true,

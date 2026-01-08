@@ -12,6 +12,7 @@ const (
 	TabCreate
 	TabDoctor
 	TabConfig
+	TabImages
 )
 
 // Tab is the interface that all tabs must implement.

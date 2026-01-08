@@ -6,21 +6,21 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"time"
+	"strings"
 
-	"github.com/jaspreet-dot-casa/cloud-init/pkg/settings"
+	"github.com/jaspreet-dot-casa/cloud-init/pkg/globalconfig"
 )
 
-// Manager handles image operations.
+// Manager handles image config operations (NO downloads).
 type Manager struct {
-	store    *settings.Store
+	config   *globalconfig.Config
 	registry *Registry
 }
 
 // NewManager creates a new image manager.
-func NewManager(store *settings.Store) *Manager {
+func NewManager(cfg *globalconfig.Config) *Manager {
 	return &Manager{
-		store:    store,
+		config:   cfg,
 		registry: NewRegistry(),
 	}
 }
@@ -30,69 +30,44 @@ func (m *Manager) Registry() *Registry {
 	return m.registry
 }
 
-// AddExistingImage adds an existing image file to the registry.
-func (m *Manager) AddExistingImage(path string, version, arch string) (*settings.CloudImage, error) {
-	// Verify file exists
-	info, err := os.Stat(path)
-	if err != nil {
-		return nil, fmt.Errorf("file not found: %w", err)
+// DefaultPathForImage generates the default download path for an image.
+// Path structure: {imagesDir}/{os}/{version}/{variant}/{filename}
+func (m *Manager) DefaultPathForImage(img *ImageMetadata) string {
+	baseDir := m.config.ImagesDir
+	if baseDir == "" {
+		baseDir = globalconfig.DefaultImagesDir()
 	}
 
-	// Get absolute path
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get absolute path: %w", err)
-	}
+	// Normalize OS name to lowercase
+	os := strings.ToLower(img.OS)
 
-	// Generate ID
-	id := GenerateImageID(version, arch)
+	// Normalize variant to lowercase
+	variant := strings.ToLower(string(img.Variant))
 
-	// Get release info
-	rel := m.registry.FindRelease(version)
-	name := fmt.Sprintf("Ubuntu %s (%s)", version, arch)
-	if rel != nil {
-		name = fmt.Sprintf("%s (%s)", rel.Name, arch)
-	}
-
-	// Create cloud image entry
-	img := &settings.CloudImage{
-		ID:       id,
-		Name:     name,
-		Version:  version,
-		Arch:     arch,
-		Path:     absPath,
-		Size:     info.Size(),
-		AddedAt:  time.Now(),
-		Verified: false,
-	}
-
-	// Load current settings
-	s, err := m.store.Load()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load settings: %w", err)
-	}
-
-	// Add image
-	s.AddCloudImage(*img)
-
-	// Save settings
-	if err := m.store.Save(s); err != nil {
-		return nil, fmt.Errorf("failed to save settings: %w", err)
-	}
-
-	return img, nil
+	// Structure: {imagesDir}/{os}/{version}/{variant}/{filename}
+	return filepath.Join(baseDir, os, img.Version, variant, img.Filename)
 }
 
-// RemoveImage removes an image from the registry.
-func (m *Manager) RemoveImage(id string, deleteFile bool) error {
-	// Load current settings
-	s, err := m.store.Load()
-	if err != nil {
-		return fmt.Errorf("failed to load settings: %w", err)
+// CheckImageExists verifies if an image file exists.
+func (m *Manager) CheckImageExists(id string) (bool, error) {
+	img := m.config.FindCloudImage(id)
+	if img == nil {
+		return false, fmt.Errorf("image not found in config: %s", id)
 	}
+	return img.FileExists(), nil
+}
 
-	// Find image
-	img := s.FindCloudImage(id)
+// UpdateImageStatuses refreshes download status for all images in config.
+func (m *Manager) UpdateImageStatuses() error {
+	for i := range m.config.CloudImages {
+		m.config.CloudImages[i].UpdateStatus()
+	}
+	return m.config.Save()
+}
+
+// RemoveImage removes an image from config (optionally deletes file).
+func (m *Manager) RemoveImage(id string, deleteFile bool) error {
+	img := m.config.FindCloudImage(id)
 	if img == nil {
 		return fmt.Errorf("image not found: %s", id)
 	}
@@ -104,27 +79,17 @@ func (m *Manager) RemoveImage(id string, deleteFile bool) error {
 		}
 	}
 
-	// Remove from settings
-	s.RemoveCloudImage(id)
-
-	// Save settings
-	if err := m.store.Save(s); err != nil {
-		return fmt.Errorf("failed to save settings: %w", err)
+	// Remove from config
+	if !m.config.RemoveCloudImage(id) {
+		return fmt.Errorf("failed to remove from config")
 	}
 
-	return nil
+	return m.config.Save()
 }
 
 // VerifyImage verifies an image's checksum.
 func (m *Manager) VerifyImage(id string) (bool, error) {
-	// Load current settings
-	s, err := m.store.Load()
-	if err != nil {
-		return false, fmt.Errorf("failed to load settings: %w", err)
-	}
-
-	// Find image
-	img := s.FindCloudImage(id)
+	img := m.config.FindCloudImage(id)
 	if img == nil {
 		return false, fmt.Errorf("image not found: %s", id)
 	}
@@ -132,6 +97,11 @@ func (m *Manager) VerifyImage(id string) (bool, error) {
 	// If no SHA256 is set, we can't verify
 	if img.SHA256 == "" {
 		return false, fmt.Errorf("no checksum available for verification")
+	}
+
+	// Check file exists
+	if !img.FileExists() {
+		return false, fmt.Errorf("image file not found: %s", img.Path)
 	}
 
 	// Calculate file hash
@@ -144,22 +114,29 @@ func (m *Manager) VerifyImage(id string) (bool, error) {
 	verified := hash == img.SHA256
 	if verified != img.Verified {
 		img.Verified = verified
-		s.AddCloudImage(*img) // Update
-		if err := m.store.Save(s); err != nil {
-			return verified, fmt.Errorf("failed to save settings: %w", err)
+		m.config.AddCloudImage(*img) // Update in config
+		if err := m.config.Save(); err != nil {
+			return verified, fmt.Errorf("failed to save config: %w", err)
 		}
 	}
 
 	return verified, nil
 }
 
-// GetImages returns all registered images.
-func (m *Manager) GetImages() ([]settings.CloudImage, error) {
-	s, err := m.store.Load()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load settings: %w", err)
-	}
-	return s.CloudImages, nil
+// GetImages returns all registered images from config.
+func (m *Manager) GetImages() []globalconfig.CloudImage {
+	return m.config.CloudImages
+}
+
+// AddImage adds or updates an image in the config.
+func (m *Manager) AddImage(img globalconfig.CloudImage) error {
+	m.config.AddCloudImage(img)
+	return m.config.Save()
+}
+
+// FindImage finds an image by ID.
+func (m *Manager) FindImage(id string) *globalconfig.CloudImage {
+	return m.config.FindCloudImage(id)
 }
 
 // calculateSHA256 calculates the SHA256 hash of a file.

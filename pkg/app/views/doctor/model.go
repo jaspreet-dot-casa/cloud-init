@@ -76,7 +76,7 @@ func New() *Model {
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
 	return &Model{
-		BaseTab: app.NewBaseTab(app.TabDoctor, "Doctor", "3"),
+		BaseTab: app.NewBaseTab(app.TabDoctor, "Doctor", "2"),
 		checker: doctor.NewChecker(),
 		fixer:   doctor.NewFixer(),
 		spinner: s,
